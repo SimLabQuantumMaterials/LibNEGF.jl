@@ -2,5 +2,5 @@ using LibNEGF
 using Test
 
 @testset "LibNEGF.jl" begin
-    # Write your tests here.
+    @test LibNEGF.add(1,2)==3;
 end
