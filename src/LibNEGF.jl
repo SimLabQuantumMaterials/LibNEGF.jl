@@ -6,7 +6,6 @@ using SparseArrays, CSV, MAT
 export loadEnergies
 export loadMatrices
 
-include("adder.jl")
 include("matloader.jl")
 
 end
