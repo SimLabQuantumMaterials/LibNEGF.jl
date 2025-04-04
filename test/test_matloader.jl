@@ -57,10 +57,53 @@ import LinearAlgebra, Printf
         end
     end
 
-    # @testset "Matloader Consistent Matrices" begin
-    #     # TODO : check here that the built T makes sense if directly
-    #     #        loaded or built via S,H,\Sigma_{c}
-    # end
+    @testset "Matloader Consistent Matrices" begin
+        # check here that the built T makes sense if directly
+        # loaded or built via S,H,\Sigma_{c}
+
+        # load the energy points from an input file
+        energVals = LibNEGF.loadEnergies("3x3");
+        Epoints = Vector{Int}();
+        for (key,value) in energVals
+            push!(Epoints,key);
+        end
+
+        # list of the precisions to be tested
+        precs = [ComplexF16,ComplexF32,ComplexF64];
+        roundoffs = Dict{DataType,Float64}(ComplexF16=>1.0E-3,
+                                            ComplexF32=>1.0E-7,
+                                            ComplexF64=>1.0E-15);
+
+        # list of systems to loop over
+        # TODO : do we have to change this test to make use of a
+        #        different system?
+        systemNames = ["3x3"];
+
+        # list of k points
+        # TODO : do we want to have more than k=1 in this tests?
+        kpoints = [1];
+
+        for systemx in systemNames
+            for E in Epoints
+                for k in kpoints
+                    for precx in precs
+                        # list of matrices to load
+                        listMatsToLoad = ["H","S","Sc","T"];
+                        # load in the desired precision
+                        loadedMats,blockSizes = loadMatrices(systemx,E,k,
+                                                                listMatsToLoad,precx);
+                        H      = loadedMats[1];
+                        S      = loadedMats[2];
+                        Sc     = loadedMats[3];
+                        Tload  = loadedMats[4];
+                        Tbuilt = energVals[E]*S-H-Sc;
+                        relErr = LinearAlgebra.norm(Tload-Tbuilt,2)/LinearAlgebra.norm(Tload,2);
+                        @test relErr < roundoffs[precx];
+                    end
+                end
+            end
+        end
+    end
 end
 
 end
