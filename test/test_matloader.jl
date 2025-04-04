@@ -35,28 +35,22 @@ import LinearAlgebra, Printf
                 for k in kpoints
                     for precx in precs
                         # list of matrices to load
-                        listMatsToLoad = ["H","S","Sc"];
+                        listMatsToLoad = ["H","S","Sc","T"];
                         # first, load in F64
                         loadedMatsF64,blockSizes = loadMatrices(systemx,E,k,
                                                               listMatsToLoad,ComplexF64);
-                        HmatF64  = loadedMatsF64[1];
-                        SmatF64  = loadedMatsF64[2];
-                        ScmatF64 = loadedMatsF64[3];
                         # then, in actual desired precision
                         loadedMats,blockSizes = loadMatrices(systemx,E,k,
                                                               listMatsToLoad,precx);
-                        Hmat  = loadedMats[1];
-                        Smat  = loadedMats[2];
-                        Scmat = loadedMats[3];
-                        # now, check that the matrices loaded to the desired precision
-                        # match with the F64 ones up to the corresponding accuracy. we
-                        # use the Frobenius norm for this
-                        relErr = LinearAlgebra.norm(HmatF64-Hmat,2)/LinearAlgebra.norm(HmatF64,2);
-                        @test relErr < roundoffs[precx];
-                        relErr = LinearAlgebra.norm(SmatF64-Smat,2)/LinearAlgebra.norm(SmatF64,2);
-                        @test relErr < roundoffs[precx];
-                        relErr = LinearAlgebra.norm(ScmatF64-Scmat,2)/LinearAlgebra.norm(ScmatF64,2);
-                        @test relErr < roundoffs[precx];
+                        for ix in 1:size(listMatsToLoad)[1]
+                            # now, check that the matrices loaded to the desired precision
+                            # match with the F64 ones up to the corresponding accuracy. we
+                            # use the Frobenius norm for this
+                            MF64 = loadedMatsF64[ix];
+                            M    = loadedMats[ix];
+                            relErr = LinearAlgebra.norm(MF64-M,2)/LinearAlgebra.norm(MF64,2);
+                            @test relErr < roundoffs[precx];
+                        end
                     end
                 end
             end
