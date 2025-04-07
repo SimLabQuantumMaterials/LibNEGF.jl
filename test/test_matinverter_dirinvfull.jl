@@ -18,7 +18,7 @@ for systemx in systemNames
                 Sc = loadedMats[3]
                 # the convert(...) in the following line is to avoid casting
                 # to ComplexF64
-                T = convert(precx, energVals[E]) * S - H - Sc
+                T = buildTFromHS(H, S, Sc, energVals[E])
                 Tdense = Array(T)
                 TdenseInv = inv(Tdense)
                 relErr = LinearAlgebra.norm(Tdense * TdenseInv - LinearAlgebra.I, 2) / LinearAlgebra.norm(Tdense, 2)

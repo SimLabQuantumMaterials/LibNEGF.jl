@@ -27,7 +27,7 @@ function buildTFromHS(H, S, Sc, energVal)
 
     # the convert(...) in the following line is to avoid casting
     # to ComplexF64
-    T = convert(typeof(H[1,1]), energVal) * S - H - Sc
+    T = convert(typeof(H[1, 1]), energVal) * S - H - Sc
     return T
 end
 
