@@ -15,6 +15,22 @@ function loadMatrix(tag, systemName, E, k)
     return A
 end
 
+function buildTFromHS(H, S, Sc, energVal)
+    # # now, load T itself but from a file and pre-built
+    # listMatsToLoad = ["H", "S", "Sc"]
+    # # then, in actual desired precision
+    # loadedMats, blockSizes = loadMatrices(systemx, E, k,
+    #     listMatsToLoad, precx)
+    # H = loadedMats[1]
+    # S = loadedMats[2]
+    # Sc = loadedMats[3]
+
+    # the convert(...) in the following line is to avoid casting
+    # to ComplexF64
+    T = convert(typeof(H[1,1]), energVal) * S - H - Sc
+    return T
+end
+
 function loadEnergies(systemName)
     if systemName != "3x3"
         error("Supporting the 3x3 system only, for now.")
