@@ -96,7 +96,7 @@ import LinearAlgebra, Printf
                         S = loadedMats[2]
                         Sc = loadedMats[3]
                         Tload = loadedMats[4]
-                        Tbuilt = energVals[E] * S - H - Sc
+                        Tbuilt = convert(precx,energVals[E]) * S - H - Sc
                         relErr = LinearAlgebra.norm(Tload - Tbuilt, 2) / LinearAlgebra.norm(Tload, 2)
                         @test relErr < roundoffs[precx]
                     end
