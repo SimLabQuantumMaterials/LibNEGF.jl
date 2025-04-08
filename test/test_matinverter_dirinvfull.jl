@@ -3,7 +3,6 @@
 # subsequent ones
 
 include("common_to_test_matinverter.jl")
-using Printf
 
 for systemx in systemNames
     for E in Epoints
