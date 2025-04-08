@@ -15,7 +15,7 @@ import LinearAlgebra, Printf
                 for k in kpoints
                     for precx in precs
                         # list of matrices to load
-                        listMatsToLoad = ["H", "S", "Sc", "T", "Gr"]
+                        listMatsToLoad = ["H", "S", "Se", "T", "Gr"]
                         # first, load in F64
                         loadedMatsF64, blockSizes = loadMatrices(systemx, E, k,
                             listMatsToLoad, ComplexF64)
@@ -48,14 +48,14 @@ import LinearAlgebra, Printf
                 for k in kpoints
                     for precx in precs
                         # list of matrices to load
-                        listMatsToLoad = ["H", "S", "Sc"]
+                        listMatsToLoad = ["H", "S", "Se"]
                         # load in the desired precision
                         loadedMats, blockSizes = loadMatrices(systemx, E, k,
                             listMatsToLoad, precx)
                         H = loadedMats[1]
                         S = loadedMats[2]
-                        Sc = loadedMats[3]
-                        Tbuilt = buildTFromHS(H, S, Sc, energVals[E])
+                        Se = loadedMats[3]
+                        Tbuilt = buildTFromHS(H, S, Se, energVals[E])
                         # list of matrices to load
                         listMatsToLoad = ["T"]
                         # load in the desired precision

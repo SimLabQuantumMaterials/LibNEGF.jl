@@ -8,24 +8,24 @@ for systemx in systemNames
         for k in kpoints
             # pre-compute the condition number in double precision
             # list of matrices to load
-            listMatsToLoad = ["H", "S", "Sc"]
+            listMatsToLoad = ["H", "S", "Se"]
             loadedMats, blockSizes = loadMatrices(systemx, E, k,
                 listMatsToLoad, ComplexF64)
             H = loadedMats[1]
             S = loadedMats[2]
-            Sc = loadedMats[3]
-            T = buildTFromHS(H, S, Sc, energVals[E])
+            Se = loadedMats[3]
+            T = buildTFromHS(H, S, Se, energVals[E])
             condNum = LinearAlgebra.cond(Array(T))
 
             for precx in precs
                 # load matrices and build T
-                listMatsToLoad = ["H", "S", "Sc"]
+                listMatsToLoad = ["H", "S", "Se"]
                 loadedMats, blockSizes = loadMatrices(systemx, E, k,
                     listMatsToLoad, precx)
                 H = loadedMats[1]
                 S = loadedMats[2]
-                Sc = loadedMats[3]
-                T = buildTFromHS(H, S, Sc, energVals[E])
+                Se = loadedMats[3]
+                T = buildTFromHS(H, S, Se, energVals[E])
 
                 # load Gr
                 listMatsToLoad = ["Gr"]
