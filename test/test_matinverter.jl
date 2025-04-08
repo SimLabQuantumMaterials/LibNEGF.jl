@@ -4,10 +4,10 @@ using LibNEGF, Test
 import LinearAlgebra
 
 @testset "Matinverter" begin
-    # @testset "Matinverter Direct Inverse Full" begin
-    #     LinearAlgebra.BLAS.set_num_threads(4)
-    #     include("test_matinverter_dirinvfull.jl")
-    # end
+    @testset "Matinverter Direct Inverse Full" begin
+        LinearAlgebra.BLAS.set_num_threads(4)
+        include("test_matinverter_dirinvfull.jl")
+    end
     @testset "Matinverter Direct Inverse Trid" begin
         LinearAlgebra.BLAS.set_num_threads(4)
         include("test_matinverter_dirinvtrid.jl")

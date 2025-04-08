@@ -7,10 +7,21 @@ include("common_to_test_matinverter.jl")
 for systemx in systemNames
     for E in Epoints
         for k in kpoints
+
+            # pre-compute the condition number of T
+            # load matrices and build T
+            listMatsToLoad = ["H", "S", "Sc"]
+            loadedMats, blockSizes = loadMatrices(systemx, E, k,
+                listMatsToLoad, ComplexF64)
+            H = loadedMats[1]
+            S = loadedMats[2]
+            Se = loadedMats[3]
+            T = buildTFromHS(H, S, Se, energVals[E])
+            condNum = LinearAlgebra.cond(Array(T))
+
             for precx in precs
-                # list of matrices to load
-                listMatsToLoad = ["H", "S", "Se"]
-                # then, in actual desired precision
+                # load matrices and build T
+                listMatsToLoad = ["H", "S", "Sc"]
                 loadedMats, blockSizes = loadMatrices(systemx, E, k,
                     listMatsToLoad, precx)
                 H = loadedMats[1]
@@ -21,7 +32,7 @@ for systemx in systemNames
                 TdenseInv = inv(Tdense)
                 relErr = LinearAlgebra.norm(Tdense * TdenseInv - LinearAlgebra.I, 2) / sqrt(size(Tdense)[1])
                 # making a rough assumption on backward stability
-                @test relErr < roundoffs[precx] * LinearAlgebra.cond(Tdense)
+                @test relErr < roundoffs[precx] * condNum
             end
         end
     end

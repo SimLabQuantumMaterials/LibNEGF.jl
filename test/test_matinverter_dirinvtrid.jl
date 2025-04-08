@@ -8,7 +8,7 @@ for systemx in systemNames
         for k in kpoints
             # pre-compute the condition number in double precision
             # list of matrices to load
-            listMatsToLoad = ["H", "S", "Se"]
+            listMatsToLoad = ["H", "S", "Sc"]
             loadedMats, blockSizes = loadMatrices(systemx, E, k,
                 listMatsToLoad, ComplexF64)
             H = loadedMats[1]
@@ -19,7 +19,7 @@ for systemx in systemNames
 
             for precx in precs
                 # load matrices and build T
-                listMatsToLoad = ["H", "S", "Se"]
+                listMatsToLoad = ["H", "S", "Sc"]
                 loadedMats, blockSizes = loadMatrices(systemx, E, k,
                     listMatsToLoad, precx)
                 H = loadedMats[1]
