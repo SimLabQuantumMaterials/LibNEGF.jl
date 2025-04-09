@@ -32,7 +32,7 @@ end
 Construct ``T = ES - H - S_e``.
 """
 function buildTFromHS(H::SparseArrays.SparseMatrixCSC, S::SparseArrays.SparseMatrixCSC,
-             Se::SparseArrays.SparseMatrixCSC, energVal::Float64)
+    Se::SparseArrays.SparseMatrixCSC, energVal::Float64)
     # the convert(...) in the following line is to avoid casting
     # to ComplexF64
     T = convert(typeof(H[1, 1]), energVal) * S - H - Se

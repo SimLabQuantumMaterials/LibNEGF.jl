@@ -8,4 +8,4 @@ Pkg.develop(path="../")
 
 using Documenter, LibNEGF, SparseArrays
 
-makedocs(sitename="LibNEGF",remotes=nothing)
+makedocs(sitename="LibNEGF", remotes=nothing)
