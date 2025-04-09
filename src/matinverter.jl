@@ -1,4 +1,12 @@
-function btridOfInvViaDirInv(T, blockSizes)
+"""
+    btrid_of_inv_direct(T::SparseArrays.SparseMatrixCSC, blockSizes::Vector{Int})
+
+For an input matrix `T`, block tridiagonal, compute the block tridiagonal
+part of the inverse of `T`. This function first computes `inv(T)` and then
+extracts its block tridiagonal.
+"""
+function btrid_of_inv_direct(T::SparseArrays.SparseMatrixCSC,
+    blockSizes::Vector{Int})::SparseArrays.SparseMatrixCSC
     Tdense = Array(T)
     TdenseInv = inv(Tdense)
     TInvTrid = copy(T)

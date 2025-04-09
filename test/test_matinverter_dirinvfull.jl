@@ -11,23 +11,23 @@ for systemx in systemNames
             # pre-compute the condition number of T
             # load matrices and build T
             listMatsToLoad = ["H", "S", "Sc"]
-            loadedMats, blockSizes = loadMatrices(systemx, E, k,
+            loadedMats, blockSizes = load_matrices(systemx, E, k,
                 listMatsToLoad, ComplexF64)
             H = loadedMats[1]
             S = loadedMats[2]
             Se = loadedMats[3]
-            T = buildTFromHS(H, S, Se, energVals[E])
+            T = build_T_from_HS(H, S, Se, energVals[E])
             condNum = LinearAlgebra.cond(Array(T))
 
             for precx in precs
                 # load matrices and build T
                 listMatsToLoad = ["H", "S", "Sc"]
-                loadedMats, blockSizes = loadMatrices(systemx, E, k,
+                loadedMats, blockSizes = load_matrices(systemx, E, k,
                     listMatsToLoad, precx)
                 H = loadedMats[1]
                 S = loadedMats[2]
                 Se = loadedMats[3]
-                T = buildTFromHS(H, S, Se, energVals[E])
+                T = build_T_from_HS(H, S, Se, energVals[E])
                 Tdense = Array(T)
                 TdenseInv = inv(Tdense)
                 relErr = LinearAlgebra.norm(Tdense * TdenseInv - LinearAlgebra.I, 2) / sqrt(size(Tdense)[1])

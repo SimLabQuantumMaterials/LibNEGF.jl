@@ -1,7 +1,7 @@
 module TestLibNEGFMatloader
 
 using LibNEGF, Test
-import LinearAlgebra, Printf
+import LinearAlgebra
 
 @testset "Matloader" begin
     @testset "Matloader IO" begin
@@ -17,10 +17,10 @@ import LinearAlgebra, Printf
                         # list of matrices to load
                         listMatsToLoad = ["H", "S", "Sc", "T", "Gr"]
                         # first, load in F64
-                        loadedMatsF64, blockSizes = loadMatrices(systemx, E, k,
+                        loadedMatsF64, blockSizes = load_matrices(systemx, E, k,
                             listMatsToLoad, ComplexF64)
                         # then, in actual desired precision
-                        loadedMats, blockSizes = loadMatrices(systemx, E, k,
+                        loadedMats, blockSizes = load_matrices(systemx, E, k,
                             listMatsToLoad, precx)
                         for ix in 1:size(listMatsToLoad)[1]
                             # now, check that the matrices loaded to the desired precision
@@ -50,16 +50,16 @@ import LinearAlgebra, Printf
                         # list of matrices to load
                         listMatsToLoad = ["H", "S", "Sc"]
                         # load in the desired precision
-                        loadedMats, blockSizes = loadMatrices(systemx, E, k,
+                        loadedMats, blockSizes = load_matrices(systemx, E, k,
                             listMatsToLoad, precx)
                         H = loadedMats[1]
                         S = loadedMats[2]
                         Se = loadedMats[3]
-                        Tbuilt = buildTFromHS(H, S, Se, energVals[E])
+                        Tbuilt = build_T_from_HS(H, S, Se, energVals[E])
                         # list of matrices to load
                         listMatsToLoad = ["T"]
                         # load in the desired precision
-                        loadedMats, blockSizes = loadMatrices(systemx, E, k,
+                        loadedMats, blockSizes = load_matrices(systemx, E, k,
                             listMatsToLoad, precx)
                         Tload = loadedMats[1]
                         relErr = LinearAlgebra.norm(Tload - Tbuilt, 2) / LinearAlgebra.norm(Tload, 2)
