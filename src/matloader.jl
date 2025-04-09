@@ -1,4 +1,14 @@
-function loadMatrix(tag, systemName, E, k)
+"""
+    loadMatrix(tag::String, systemName::String, E::Integer, k::Integer)
+
+Load a matrix from the data in `../matrices/`.
+
+The matrices are assumed to be in `../matrices/``, in the sub-directory
+specified via the input variable `systemName`, and furthermore the input
+variables `tag`, `E` and `k` indicate which matrix to load from within `built_matrices/`.
+It returns a sparse matrix.
+"""
+function loadMatrix(tag::String, systemName::String, E::Integer, k::Integer)::SparseArrays.SparseMatrixCSC
     # directory where the matrices are
     matsDir = "../matrices/" * systemName * "/built_matrices/"
 
@@ -15,7 +25,14 @@ function loadMatrix(tag, systemName, E, k)
     return A
 end
 
-function buildTFromHS(H, S, Se, energVal)
+"""
+    buildTFromHS(H::SparseArrays.SparseMatrixCSC, S::SparseArrays.SparseMatrixCSC,
+        Se::SparseArrays.SparseMatrixCSC, energVal::Float64)
+
+Construct ``T = ES - H - S_e``.
+"""
+function buildTFromHS(H::SparseArrays.SparseMatrixCSC, S::SparseArrays.SparseMatrixCSC,
+             Se::SparseArrays.SparseMatrixCSC, energVal::Float64)
     # the convert(...) in the following line is to avoid casting
     # to ComplexF64
     T = convert(typeof(H[1, 1]), energVal) * S - H - Se
