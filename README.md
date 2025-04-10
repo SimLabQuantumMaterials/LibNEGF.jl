@@ -18,6 +18,14 @@ Finally, run:
 ./test.sh
 ```
 
+To gather and format the documentation into an HTML, go to `docs/` and run from there:
+
+```
+julia --color=yes --project make.jl
+```
+
+which then generates the file `docs/build/index.html`.
+
 ## Support
 `g.ramirez.hidalgo@fz-juelich.de`
 

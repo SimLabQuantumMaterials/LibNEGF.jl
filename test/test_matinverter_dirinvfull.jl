@@ -11,28 +11,30 @@ for systemx in systemNames
             # pre-compute the condition number of T
             # load matrices and build T
             listMatsToLoad = ["H", "S", "Sc"]
-            loadedMats, blockSizes = loadMatrices(systemx, E, k,
+            loadedMats, blockSizes = load_matrices(systemx, E, k,
                 listMatsToLoad, ComplexF64)
             H = loadedMats[1]
             S = loadedMats[2]
             Se = loadedMats[3]
-            T = buildTFromHS(H, S, Se, energVals[E])
+            T = build_T_from_HS(H, S, Se, energVals[E])
+            # LA.cond(..) makes use of LA.opnorm(..)
             condNum = LinearAlgebra.cond(Array(T))
 
             for precx in precs
                 # load matrices and build T
                 listMatsToLoad = ["H", "S", "Sc"]
-                loadedMats, blockSizes = loadMatrices(systemx, E, k,
+                loadedMats, blockSizes = load_matrices(systemx, E, k,
                     listMatsToLoad, precx)
                 H = loadedMats[1]
                 S = loadedMats[2]
                 Se = loadedMats[3]
-                T = buildTFromHS(H, S, Se, energVals[E])
+                T = build_T_from_HS(H, S, Se, energVals[E])
                 Tdense = Array(T)
                 TdenseInv = inv(Tdense)
-                relErr = LinearAlgebra.norm(Tdense * TdenseInv - LinearAlgebra.I, 2) / sqrt(size(Tdense)[1])
-                # making a rough assumption on backward stability
-                @test relErr < roundoffs[precx] * condNum
+                relErr = LinearAlgebra.opnorm(Tdense * TdenseInv - LinearAlgebra.I, 2) / 1.0
+                # making a rough assumption on backward stability. The additional
+                # 1.0E1 is because we see a loss in 1 digit in some cases
+                @test relErr < roundoffs[precx] * condNum * 1.0E1
             end
         end
     end

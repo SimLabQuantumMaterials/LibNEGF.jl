@@ -1,5 +1,5 @@
 # load the energy points from an input file
-energVals = LibNEGF.loadEnergies("3x3")
+energVals = LibNEGF.load_energies("3x3")
 Epoints = Vector{Int}()
 for (key, value) in energVals
     push!(Epoints, key)

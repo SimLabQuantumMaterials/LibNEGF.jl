@@ -9,40 +9,41 @@ for systemx in systemNames
             # pre-compute the condition number in double precision
             # list of matrices to load
             listMatsToLoad = ["H", "S", "Sc"]
-            loadedMats, blockSizes = loadMatrices(systemx, E, k,
+            loadedMats, blockSizes = load_matrices(systemx, E, k,
                 listMatsToLoad, ComplexF64)
             H = loadedMats[1]
             S = loadedMats[2]
             Se = loadedMats[3]
-            T = buildTFromHS(H, S, Se, energVals[E])
+            T = build_T_from_HS(H, S, Se, energVals[E])
+            # LA.cond(..) makes use of LA.opnorm(..)
             condNum = LinearAlgebra.cond(Array(T))
 
             for precx in precs
                 # load matrices and build T
                 listMatsToLoad = ["H", "S", "Sc"]
-                loadedMats, blockSizes = loadMatrices(systemx, E, k,
+                loadedMats, blockSizes = load_matrices(systemx, E, k,
                     listMatsToLoad, precx)
                 H = loadedMats[1]
                 S = loadedMats[2]
                 Se = loadedMats[3]
-                T = buildTFromHS(H, S, Se, energVals[E])
+                T = build_T_from_HS(H, S, Se, energVals[E])
 
                 # load Gr
                 listMatsToLoad = ["Gr"]
-                loadedMats, blockSizes = loadMatrices(systemx, E, k,
+                loadedMats, blockSizes = load_matrices(systemx, E, k,
                     listMatsToLoad, precx)
                 Gr = loadedMats[1]
 
                 # loading blockSizes only - this is redundant, but illustrates
                 # that this can be done without any matrix loading
-                listMatsToLoad = []
-                loadedMats, blockSizes = loadMatrices(systemx, E, k,
+                listMatsToLoad = Vector{String}()
+                loadedMats, blockSizes = load_matrices(systemx, E, k,
                     listMatsToLoad, precx)
 
                 # get the block tridiagonal of T^-1 via inv(T)
-                TInvTrid = btridOfInvViaDirInv(T, blockSizes)
+                TInvTrid = btrid_of_inv_direct(T, blockSizes)
 
-                relErr = LinearAlgebra.norm(TInvTrid - Gr, 2) / LinearAlgebra.norm(Gr, 2)
+                relErr = LinearAlgebra.opnorm(Array(TInvTrid - Gr), 2) / LinearAlgebra.opnorm(Array(Gr), 2)
                 # making a rough assumption on backward stability. The additional
                 # 1.0E1 is because we see a loss in 1 digit in some cases
                 @test relErr < roundoffs[precx] * condNum * 1.0E1
