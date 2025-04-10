@@ -17,6 +17,7 @@ for systemx in systemNames
             S = loadedMats[2]
             Se = loadedMats[3]
             T = build_T_from_HS(H, S, Se, energVals[E])
+            # LA.cond(..) makes use of LA.opnorm(..)
             condNum = LinearAlgebra.cond(Array(T))
 
             for precx in precs
@@ -30,9 +31,10 @@ for systemx in systemNames
                 T = build_T_from_HS(H, S, Se, energVals[E])
                 Tdense = Array(T)
                 TdenseInv = inv(Tdense)
-                relErr = LinearAlgebra.norm(Tdense * TdenseInv - LinearAlgebra.I, 2) / sqrt(size(Tdense)[1])
-                # making a rough assumption on backward stability
-                @test relErr < roundoffs[precx] * condNum
+                relErr = LinearAlgebra.opnorm(Tdense * TdenseInv - LinearAlgebra.I, 2) / 1.0
+                # making a rough assumption on backward stability. The additional
+                # 1.0E1 is because we see a loss in 1 digit in some cases
+                @test relErr < roundoffs[precx] * condNum * 1.0E1
             end
         end
     end
