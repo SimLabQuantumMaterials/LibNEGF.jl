@@ -6,10 +6,10 @@ using SparseArrays, CSV, MAT, LinearAlgebra
 # from matloader.jl
 export load_energies
 export load_matrices
-export build_T_from_HS
+export build_M_from_HS
 
 # from matinverter.jl
-export btrid_of_inv_direct
+export bndiag_of_inv_direct
 
 # from matutils.jl
 export convert_S2ALU_trid

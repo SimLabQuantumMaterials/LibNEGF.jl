@@ -1,15 +1,15 @@
 """
-    btrid_of_inv_direct(T::SparseArrays.SparseMatrixCSC, blockSizes::Vector{Int})
+    bndiag_of_inv_direct(M::SparseArrays.SparseMatrixCSC, blockSizes::Vector{Int})
 
-For an input matrix `T`, block tridiagonal, compute the block tridiagonal
-part of the inverse of `T`. This function first computes `inv(T)` and then
+For an input matrix `M`, block tridiagonal, compute the block tridiagonal
+part of the inverse of `M`. This function first computes `inv(M)` and then
 extracts its block tridiagonal.
 """
-function btrid_of_inv_direct(T::SparseArrays.SparseMatrixCSC,
+function bndiag_of_inv_direct(M::SparseArrays.SparseMatrixCSC,
     blockSizes::Vector{Int})::SparseArrays.SparseMatrixCSC
-    Tdense = Array(T)
-    TdenseInv = inv(Tdense)
-    TInvTrid = copy(T)
+    Mdense = Array(M)
+    MdenseInv = inv(Mdense)
+    MInvTrid = copy(M)
     # loop over the block sizes, conversely over the block rows
     for ix = 1:size(blockSizes)[1]
         # indices for the rows
@@ -20,18 +20,18 @@ function btrid_of_inv_direct(T::SparseArrays.SparseMatrixCSC,
             # left
             jbeg = sum(blockSizes[1:ix-2]) + 1
             jend = sum(blockSizes[1:ix-1])
-            TInvTrid[ibeg:iend, jbeg:jend] = TdenseInv[ibeg:iend, jbeg:jend]
+            MInvTrid[ibeg:iend, jbeg:jend] = MdenseInv[ibeg:iend, jbeg:jend]
         end
         # center
         jbeg = ibeg
         jend = iend
-        TInvTrid[ibeg:iend, jbeg:jend] = TdenseInv[ibeg:iend, jbeg:jend]
+        MInvTrid[ibeg:iend, jbeg:jend] = MdenseInv[ibeg:iend, jbeg:jend]
         if ix < size(blockSizes)[1]
             # right
             jbeg = sum(blockSizes[1:ix]) + 1
             jend = sum(blockSizes[1:ix+1])
-            TInvTrid[ibeg:iend, jbeg:jend] = TdenseInv[ibeg:iend, jbeg:jend]
+            MInvTrid[ibeg:iend, jbeg:jend] = MdenseInv[ibeg:iend, jbeg:jend]
         end
     end
-    return TInvTrid
+    return MInvTrid
 end

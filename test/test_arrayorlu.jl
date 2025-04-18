@@ -22,17 +22,17 @@ import LinearAlgebra
                         H = loadedMats[1]
                         S = loadedMats[2]
                         Se = loadedMats[3]
-                        T = build_T_from_HS(H, S, Se, energVals[E])
+                        M = build_M_from_HS(H, S, Se, energVals[E])
 
                         # convert to ArrayOrLU
-                        Aalu = convert_S2ALU_trid(T, blockSizes)
+                        Aalu = convert_S2ALU_trid(M, blockSizes)
                         # convert back to sparse
                         Asp = convert_ALU2S_trid(Aalu)
 
-                        relErr = LinearAlgebra.norm(T - Asp, 2) / LinearAlgebra.norm(T, 2)
+                        relErr = LinearAlgebra.norm(M - Asp, 2) / LinearAlgebra.norm(M, 2)
                         @test relErr < roundoffs[precx]
-                        @test nnz(Asp) == nnz(T)
-                        @test typeof(Asp) == typeof(T)
+                        @test nnz(Asp) == nnz(M)
+                        @test typeof(Asp) == typeof(M)
                     end
                 end
             end

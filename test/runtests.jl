@@ -7,8 +7,8 @@ if ARGS[1] == "apple"
     include("test_metal.jl")
 end
 
-# # the following two are still only available for CPUs
-# if ARGS[1]=="cpu"
-#     include("test_matinverter.jl")
-#     include("test_arrayorlu.jl")
-# end
+# the following two are still only available for CPUs
+if ARGS[1] == "cpu"
+    include("test_matinverter.jl")
+    include("test_arrayorlu.jl")
+end

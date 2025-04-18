@@ -13,7 +13,7 @@ Pkg.activate(".");
 # depending on the type of hardware, remove packages as
 # necessary (TODO : this needs to be generalized to be more
 # friendly)
-if ARGS[1]=="cpu"
+if ARGS[1] == "cpu"
     Pkg.rm("Metal")
 end
 
