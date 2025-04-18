@@ -24,6 +24,8 @@ HWs="cpu apple nvidia amd intel"
 
 if exists_in_list "$HWs" " " $1; then
     cp ../Manifest_$1.toml ../Manifest.toml
+    export OPENBLAS_NUM_THREADS=3
+    export JULIA_NUM_THREADS=2
     julia runbenchmrks.jl $1
 else
     echo "The hardware $1 is not in the list, not running the tests"

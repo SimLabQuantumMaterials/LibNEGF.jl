@@ -15,7 +15,7 @@ if ARGS[1] == "cpu"
 end
 Pkg.instantiate()
 
-using LibNEGF, LinearAlgebra, Printf, TimerOutputs
+using LibNEGF, LinearAlgebra, Printf, TimerOutputs, .Threads
 
 include("common_to_benchmrks.jl")
 
@@ -23,8 +23,8 @@ to = TimerOutput()
 
 Printf.@printf("\nBenchmarking, common info:\n")
 Printf.@printf("  -- hardware: %s\n", ARGS[1])
-Printf.@printf("  -- nr of BLAS threads: %d\n", nrBLASthreads)
-Printf.@printf("  -- nr of outer threads: %d\n", nrOuterThreads)
+Printf.@printf("  -- nr of BLAS threads: %d\n", LinearAlgebra.BLAS.get_num_threads())
+Printf.@printf("  -- nr of outer threads: %d\n", Threads.nthreads())
 Printf.@printf("  -- nr of energy points: %d\n\n", nrEvals)
 
 # the benchmark at hand is CPU only at the moment

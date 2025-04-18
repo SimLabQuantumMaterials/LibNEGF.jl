@@ -6,7 +6,7 @@ for (key, value) in energValsIn
 end
 
 # creating an artifial set of energy values, for benchmarking purposes
-nrEvals = 5
+nrEvals = 8
 eMin = EvalsIn[1]
 eMax = last(EvalsIn)
 Evals = Vector{Float64}(undef, nrEvals)
@@ -14,12 +14,6 @@ nrEvals > 1 ? deltaE = (eMax - eMin) / (nrEvals - 1) : deltaE = 0
 for ix = 1:nrEvals
     Evals[ix] = eMin + (ix - 1) * deltaE
 end
-
-nrTotalThreads = 6
-nrBLASthreads = 3
-nrOuterThreads = nrTotalThreads / nrBLASthreads
-
-LinearAlgebra.BLAS.set_num_threads(nrBLASthreads)
 
 # list of the precisions to be tested
 # ComplexF16 not fully functional in general
