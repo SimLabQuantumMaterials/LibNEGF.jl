@@ -1,3 +1,5 @@
 trash/
 deps/build.log
 matrices/
+Manifest.toml
+Project_modif.toml

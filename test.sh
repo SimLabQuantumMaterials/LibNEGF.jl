@@ -28,3 +28,8 @@ if exists_in_list "$HWs" " " $1; then
 else
     echo "The hardware $1 is not in the list, not running the tests"
 fi
+
+# restore Project.toml in case it was modified by this execution, save
+# the modified version to avoid being too intrusive
+cp Project.toml Project_modif.toml
+git restore Project.toml
