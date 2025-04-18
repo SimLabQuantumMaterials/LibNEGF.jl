@@ -40,10 +40,10 @@ for systemx in systemNames
                 loadedMats, blockSizes = load_matrices(systemx, E, k,
                     listMatsToLoad, precx)
 
-                # get the block tridiagonal of T^-1 via inv(T)
-                MInvTrid = bndiag_of_inv_direct(M, blockSizes)
+                # get the block n-diagonal of M^-1 via inv(M)
+                MInvNdiag = bndiag_of_inv_direct(M, blockSizes)
 
-                relErr = LinearAlgebra.opnorm(Array(MInvTrid - Gr), 2) / LinearAlgebra.opnorm(Array(Gr), 2)
+                relErr = LinearAlgebra.opnorm(Array(MInvNdiag - Gr), 2) / LinearAlgebra.opnorm(Array(Gr), 2)
                 # making a rough assumption on backward stability. The additional
                 # 1.0E1 is because we see a loss in 1 digit in some cases
                 @test relErr < roundoffs[precx] * condNum * 1.0E1

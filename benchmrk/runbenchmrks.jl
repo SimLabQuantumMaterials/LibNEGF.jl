@@ -8,10 +8,9 @@ if ARGS[1] ∉ supportedHWs
 end
 
 Pkg.activate("../");
-# depending on the type of hardware, remove packages as
-# necessary (TODO : this needs to be generalized to be more
-# friendly)
-if ARGS[1]=="cpu"
+# depending on the type of hardware, remove packages as necessary
+# (TODO : this removal needs to be generalized to be more friendly)
+if ARGS[1] == "cpu"
     Pkg.rm("Metal")
 end
 Pkg.instantiate()
@@ -28,9 +27,9 @@ Printf.@printf("  -- nr of BLAS threads: %d\n", nrBLASthreads)
 Printf.@printf("  -- nr of outer threads: %d\n", nrOuterThreads)
 Printf.@printf("  -- nr of energy points: %d\n\n", nrEvals)
 
-# cpu benchmarks
-if ARGS[1]=="cpu"
-    include("benchmrk_matinverter_dirinvtrid.jl")
+# the benchmark at hand is CPU only at the moment
+if ARGS[1] == "cpu"
+    include("benchmrk_matinverter_dirinvndiag.jl")
 end
 
 println(to)
