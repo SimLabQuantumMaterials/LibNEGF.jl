@@ -41,8 +41,7 @@ for systemx in systemNames
                     listMatsToLoad, precx)
 
                 # get the block n-diagonal of M^-1 via inv(M)
-                MInvNdiag = bndiag_of_inv_direct(M, blockSizes)
-
+                MInvNdiag = bndiag_of_inv_direct(M, blockSizes, Dict("in"=>3, "out"=>3))
                 relErr = LinearAlgebra.opnorm(Array(MInvNdiag - Gr), 2) / LinearAlgebra.opnorm(Array(Gr), 2)
                 # making a rough assumption on backward stability. The additional
                 # 1.0E1 is because we see a loss in 1 digit in some cases
