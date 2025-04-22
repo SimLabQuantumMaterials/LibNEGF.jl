@@ -19,20 +19,21 @@ for systemx in systemNames
 
             # create array of timers
             timers = []
-            for ix=1:Threads.nthreads()
+            for ix = 1:Threads.nthreads()
                 push!(timers, TimerOutput())
             end
-            timerTagGlobal = "bndiag_of_inv_direct_"*string(precx)
+            timerTagGlobal = "bndiag_of_inv_direct_" * string(precx)
             # do the inversions for all the energy points
             @timeit to timerTagGlobal Threads.@threads for E in Evals
                 M = build_M_from_HS(H, S, Se, E)
                 Printf.@printf(".")
                 # get the block n-diagonal of M^-1 via inv(M)
-                timerTagLocal = "bndiag_of_inv_direct_"*string(precx)*"_thread"*string(Threads.threadid())
-                @timeit timers[Threads.threadid()] timerTagLocal MInvNdiag = bndiag_of_inv_direct(M, blockSizes)
+                timerTagLocal = "bndiag_of_inv_direct_" * string(precx) * "_thread" * string(Threads.threadid())
+                tid = Threads.threadid()
+                @timeit timers[tid] timerTagLocal MInvNdiag = bndiag_of_inv_direct(M, blockSizes, Dict("in" => 3, "out" => 3))
             end
-            for ix=1:Threads.nthreads()
-                merge!(to, timers[ix], tree_point = [timerTagGlobal])
+            for ix = 1:Threads.nthreads()
+                merge!(to, timers[ix], tree_point=[timerTagGlobal])
             end
             Printf.@printf("\n")
         end

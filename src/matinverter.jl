@@ -99,7 +99,7 @@ resizing of arrays. This is the catch-all version.
   and the output, e.g. Dict("in" => 3, "out" => 3) for block tri-diagonal.
 """
 function bndiag_of_inv_direct(M_::Any, blockSizes_::Any, ndiag::Any)::T where {T}
-    if typeof(M_)!=SparseArrays.SparseMatrixCSC
+    if typeof(M_) != SparseArrays.SparseMatrixCSC
         # first, try to convert M_
         try
             M = convert(SparseArrays.SparseMatrixCSC, M_)
@@ -111,7 +111,7 @@ function bndiag_of_inv_direct(M_::Any, blockSizes_::Any, ndiag::Any)::T where {T
     else
         M = copy(M_)
     end
-    if typeof(blockSizes_)!=Vector{Int}
+    if typeof(blockSizes_) != Vector{Int}
         # then, try to convert blockSizes_
         try
             blockSizes = convert(Vector{Int}, blockSizes_)
@@ -123,7 +123,7 @@ function bndiag_of_inv_direct(M_::Any, blockSizes_::Any, ndiag::Any)::T where {T
     else
         blockSizes = blockSizes_
     end
-    if typeof(ndiag_)!=Dict{String,Int}
+    if typeof(ndiag_) != Dict{String,Int}
         # finally, try to convert ndiag_
         try
             ndiag = convert(Dict{String,Int}, ndiag_)
@@ -139,7 +139,7 @@ function bndiag_of_inv_direct(M_::Any, blockSizes_::Any, ndiag::Any)::T where {T
     # do the computation in-place, as M is already a copy
     bndiag_of_inv_direct!(M, blockSizes, ndiag)
 
-    if typeof(M)!=T
+    if typeof(M) != T
         # finally, try to convert M to the desired output type T
         try
             M2T = convert(T, M)
@@ -172,7 +172,7 @@ resizing of arrays. This is the in-place call for the catch-all version.
 function bndiag_of_inv_direct!(M_::Any, blockSizes_::Any, ndiag_::Any)
     # if the type of M_ is not sparse CSC, then this function call
     # makes no sense
-    if typeof(M_)!=SparseArrays.SparseMatrixCSC
+    if typeof(M_) != SparseArrays.SparseMatrixCSC
         println("It makes no sense to call this function as in-place with
         a type that is not SparseArrays.SparseMatrixCSC")
         exit()
@@ -180,7 +180,7 @@ function bndiag_of_inv_direct!(M_::Any, blockSizes_::Any, ndiag_::Any)
         # otherwise, just re-label to call later the in-place computation
         M = M_
     end
-    if typeof(blockSizes_)!=Vector{Int}
+    if typeof(blockSizes_) != Vector{Int}
         # then, try to convert blockSizes_
         try
             blockSizes = convert(Vector{Int}, blockSizes_)
@@ -192,7 +192,7 @@ function bndiag_of_inv_direct!(M_::Any, blockSizes_::Any, ndiag_::Any)
     else
         blockSizes = blockSizes_
     end
-    if typeof(ndiag_)!=Dict{String,Int}
+    if typeof(ndiag_) != Dict{String,Int}
         # finally, try to convert ndiag_
         try
             ndiag = convert(Dict{String,Int}, ndiag_)
