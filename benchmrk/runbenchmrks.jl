@@ -2,6 +2,7 @@ using Pkg
 
 supportedHWs = ["cpu", "apple"]
 # unsupportedHWs = ["nvidia", "amd", "intel"]
+
 if ARGS[1] ∉ supportedHWs
     println("The chosen hardware (", ARGS[1], ") is not yet supported")
     exit()
@@ -27,9 +28,7 @@ Printf.@printf("  -- nr of BLAS threads: %d\n", LinearAlgebra.BLAS.get_num_threa
 Printf.@printf("  -- nr of outer threads: %d\n", Threads.nthreads())
 Printf.@printf("  -- nr of energy points: %d\n\n", nrEvals)
 
-# the benchmark at hand is CPU only at the moment
-if ARGS[1] == "cpu"
-    include("benchmrk_matinverter_dirinvndiag.jl")
-end
+# benchmarks common to all of the supported hardwares
+include("benchmrk_matinverter_dirinvndiag.jl")
 
 println(to)
