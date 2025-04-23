@@ -1,7 +1,7 @@
 "A Julia package consisting of a rework of some parts of [libNEGF](https://github.com/libnegf/libnegf)."
 module LibNEGF
 
-using SparseArrays, CSV, MAT, LinearAlgebra, Metal
+using SparseArrays, CSV, MAT, LinearAlgebra
 
 # from matloader.jl
 export load_energies
