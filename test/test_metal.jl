@@ -12,10 +12,6 @@ import LinearAlgebra, Metal
 
         include("common_to_test_matloader.jl")
 
-        # at the moment, Metal does not support Float64,
-        # so replacing the precisions to test with
-        precs = [ComplexF32]
-
         for systemx in systemNames
             for E in Epoints
                 for k in kpoints

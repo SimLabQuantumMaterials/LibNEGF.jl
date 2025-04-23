@@ -23,14 +23,20 @@ function exists_in_list() {
 HWs="cpu apple nvidia amd intel"
 
 if exists_in_list "$HWs" " " $1; then
+    # get the manifest specific to the chosen HW
     cp Manifest_$1.toml Manifest.toml
-    export OPENBLAS_NUM_THREADS=3
+    export OPENBLAS_NUM_THREADS=6
+    # include the backend for that HW
+    sed -i -e "s/backend_HW.jl/backend_$1.jl/g" src/LibNEGF.jl
+    # launch the tests
     julia test.jl $1
 else
     echo "The hardware $1 is not in the list, not running the tests"
 fi
 
-# restore Project.toml in case it was modified by this execution, save
-# the modified version to avoid being too intrusive
+# restore Project.toml and src/LibNEGF.jl in case it was modified
+# by this execution, save the modified versions to avoid being too intrusive
 cp Project.toml Project_modif.toml
+cp src/LibNEGF.jl src/LibNEGF_modif.jl
 git restore Project.toml
+git restore src/LibNEGF.jl
