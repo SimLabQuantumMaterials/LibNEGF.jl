@@ -18,13 +18,13 @@ Finally, run:
 ./test.sh
 ```
 
-To gather and format the documentation into an HTML, go to `docs/` and run from there:
+where `HW` is one of `cpu`, `apple`, etc. To gather and format the documentation into an HTML, go to `docs/` and run from there:
 
 ```
-julia --color=yes --project make.jl
+./make.sh HW
 ```
 
-which then generates the file `docs/build/index.html`.
+where `HW` is again one of `cpu`, `apple`, etc. This then generates the file `docs/build/index.html`.
 
 ## Support
 `g.ramirez.hidalgo@fz-juelich.de`

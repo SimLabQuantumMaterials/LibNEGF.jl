@@ -1,12 +1,6 @@
 """
-	ArrayOrLU_ = Union{Array, LU, UndefInitializer}
+    ArrayOrLU
 
-Type for a matrix that can contain an `Array`, `LU factor` and/or `undef`.
-"""
-ArrayOrLU_ = Union{Array,LU,UndefInitializer}
-
-
-"""
 Struct containing an attribute with the block sizes, and another one with
 the matrix stored in `ArrayOrLU_` format. The latter consists of a block matrix
 where the blocks can contain a `Array`, `LU factor` and/or `undef`.
@@ -16,6 +10,9 @@ struct ArrayOrLU
     M::ArrayOrLU_
 end
 
+# TODO (?) : extend build_T_from_HS(...) to operate also with objects of type
+#            ArrayOrLU, and in particular make this usable already in combination
+#            with Metal.jl and create a corresponding test as well
 
 """
 	convert_S2ALU_trid(M::SparseArrays.SparseMatrixCSC, blockSizes::Vector{Int})

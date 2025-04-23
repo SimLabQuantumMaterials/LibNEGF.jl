@@ -12,6 +12,7 @@ export build_M_from_HS
 export bndiag_of_inv_direct
 
 # from matutils.jl
+export ArrayOrLU
 export convert_S2ALU_trid
 export convert_ALU2S_trid
 
