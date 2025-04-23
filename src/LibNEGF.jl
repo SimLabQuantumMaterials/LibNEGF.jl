@@ -1,7 +1,7 @@
 "A Julia package consisting of a rework of some parts of [libNEGF](https://github.com/libnegf/libnegf)."
 module LibNEGF
 
-using SparseArrays, CSV, MAT, LinearAlgebra
+using SparseArrays, CSV, MAT, LinearAlgebra, Metal
 
 # from matloader.jl
 export load_energies
@@ -15,8 +15,12 @@ export bndiag_of_inv_direct
 export convert_S2ALU_trid
 export convert_ALU2S_trid
 
+# include the backend for the desired harwdware, replace
+# HW by one of cpu, apple, nvidia, etc
+include("backend_HW.jl")
+
 include("matloader.jl")
-include("matinverter.jl")
+include("matinverterdirect.jl")
 include("arrayorlu.jl")
 
 end
