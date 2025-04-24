@@ -15,7 +15,8 @@ build_M_from_HS(H::SparseArrays.SparseMatrixCSC, S::SparseArrays.SparseMatrixCSC
 bndiag_of_inv_direct(M_::SparseArrays.SparseMatrixCSC,
     blockSizes::Vector{Int}, ndiag::Dict{String,Int})
 bndiag_of_inv_direct(M_::Any, blockSizes_::Any, ndiag::Any)
-ArrayOrLU
-convert_S2ALU_trid(M::SparseArrays.SparseMatrixCSC, blockSizes::Vector{Int})
-convert_ALU2S_trid(M::ArrayOrLU)
+BlockMatrix
+convert_S2BM_ndiag(M::SparseArrays.SparseMatrixCSC, blockSizes::Vector{Int},
+    ndiag::Dict{String,Int})
+convert_BM2S_ndiag(M::BlockMatrix)
 ```

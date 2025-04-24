@@ -1,19 +1,12 @@
 using Metal
 
 """
-	ArrayOrLU_ = Union{Array, LU, UndefInitializer}
-
-Type for a matrix that can contain an `Array`, `LU factor` and/or `undef`.
-"""
-ArrayOrLU_ = Union{Array,LU,UndefInitializer}
-
-"""
-	ArrayOrLUDev_ = Union{Array, LU, UndefInitializer}
+	ArrayOrLU_ = Matrix{Union{Metal.MtlArray, LU, Nothing}}
 
 Type for a matrix that can contain an `Array`, `LU factor` and/or `undef`,
 with blocks stored in the (GPU) device.
 """
-ArrayOrLUDev_ = Union{Metal.MtlArray,LU,UndefInitializer}
+ArrayOrLU_ = Matrix{Union{Metal.MtlArray,LU,Nothing}}
 
 # TODO : documentation
 function be_copy_to_hw(M::Array)::Metal.MtlArray

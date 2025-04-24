@@ -1,14 +1,14 @@
-module TestLibNEGFArrayorlu
+module TestLibNEGFBlockMatrix
 
 using LibNEGF, Test, SparseArrays
 import LinearAlgebra
 
-@testset "Arrayorlu" begin
-    @testset "Arrayorlu convert and back" begin
-        # for the data type ArrayOrLU, check that converting
+@testset "Blockmatrix" begin
+    @testset "Blockmatrix convert and back" begin
+        # for the data type BlockMatrix, check that converting
         # to it and back to the sparse format works well
 
-        include("common_to_test_matloader.jl")
+        include("common_to_test.jl")
 
         for systemx in systemNames
             for E in Epoints
@@ -24,10 +24,10 @@ import LinearAlgebra
                         Se = loadedMats[3]
                         M = build_M_from_HS(H, S, Se, energVals[E])
 
-                        # convert to ArrayOrLU
-                        Aalu = convert_S2ALU_trid(M, blockSizes)
+                        # convert to BlockMatrix
+                        Abm = convert_S2BM_ndiag(M, blockSizes, Dict("in" => 3, "out" => 3))
                         # convert back to sparse
-                        Asp = convert_ALU2S_trid(Aalu)
+                        Asp = convert_BM2S_ndiag(Abm)
 
                         relErr = LinearAlgebra.norm(M - Asp, 2) / LinearAlgebra.norm(M, 2)
                         @test relErr < roundoffs[precx]

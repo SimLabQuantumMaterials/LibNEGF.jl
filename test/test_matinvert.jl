@@ -6,14 +6,14 @@ import LinearAlgebra
 @testset "Matinverter" begin
     # @testset "Matinverter Direct Inverse Full" begin
     #     LinearAlgebra.BLAS.set_num_threads(nrBLASthreads)
-    #     include("test_matinverter_dirinvfull.jl")
+    #     include("test_matinvert_full.jl")
     # end
     @testset "Matinverter Direct Inverse Ndiag" begin
-        include("test_matinverter_dirinvndiag.jl")
+        include("test_matinvertndiag_direct.jl")
     end
-    @testset "Matinverter RGF Full" begin
-        # under construction. This is the traditional RGF
-    end
+    # @testset "Matinverter RGF Full" begin
+    #     include("test_matinvertndiag_rgf.jl")
+    # end
     @testset "Matinverter RGF Trid" begin
         # under construction. This is the traditional RGF
     end

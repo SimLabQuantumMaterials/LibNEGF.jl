@@ -1,7 +1,7 @@
 # computing the block n-diagonal of the inverse of T
 # by first computing inv(...)
 
-include("common_to_test_matinverter.jl")
+include("common_to_test.jl")
 
 for systemx in systemNames
     for E in Epoints

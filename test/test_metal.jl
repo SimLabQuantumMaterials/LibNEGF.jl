@@ -10,7 +10,7 @@ import LinearAlgebra, Metal
         # check that adding two matrices on CPU and GPU gives
         # the same result
 
-        include("common_to_test_matloader.jl")
+        include("common_to_test.jl")
 
         for systemx in systemNames
             for E in Epoints

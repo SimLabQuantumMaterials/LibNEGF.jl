@@ -7,10 +7,6 @@ if ARGS[1] == "apple"
     include("test_metal.jl")
 end
 
-# tests common to all of the supported hardwares
-include("test_matinverter.jl")
-
-# the following two are still only available for CPUs
-if ARGS[1] == "cpu"
-    include("test_arrayorlu.jl")
-end
+# # tests common to all of the supported hardwares
+include("test_blockmatrix.jl")
+include("test_matinvert.jl")

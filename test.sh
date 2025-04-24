@@ -30,6 +30,8 @@ if exists_in_list "$HWs" " " $1; then
     sed -i -e "s/backend_HW.jl/backend_$1.jl/g" src/LibNEGF.jl
     # launch the tests
     julia test.jl $1
+    # revert the change in src/LibNEGF.jl
+    sed -i -e "s/backend_$1.jl/backend_HW.jl/g" src/LibNEGF.jl
 else
     echo "The hardware $1 is not in the list, not running the tests"
 fi
@@ -37,6 +39,4 @@ fi
 # restore Project.toml and src/LibNEGF.jl in case it was modified
 # by this execution, save the modified versions to avoid being too intrusive
 cp Project.toml Project_modif.toml
-cp src/LibNEGF.jl src/LibNEGF_modif.jl
 git restore Project.toml
-git restore src/LibNEGF.jl

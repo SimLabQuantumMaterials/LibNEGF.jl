@@ -1,6 +1,6 @@
 """
-function bndiag_of_inv_direct!(M::SparseArrays.SparseMatrixCSC,
-    blockSizes::Vector{Int}, ndiag::Dict{String,Int})
+    bndiag_of_inv_direct!(M::SparseArrays.SparseMatrixCSC,
+        blockSizes::Vector{Int}, ndiag::Dict{String,Int})
 
 For an input matrix `M`, possibly but not necessarily block n-diagonal,
 where n is tri, penta, etc., compute the block n-diagonal part of the inverse
@@ -68,8 +68,8 @@ function bndiag_of_inv_direct!(M::SparseArrays.SparseMatrixCSC,
 end
 
 """
-function bndiag_of_inv_direct(M::SparseArrays.SparseMatrixCSC,
-    blockSizes::Vector{Int}, ndiag::Dict{String,Int})
+    bndiag_of_inv_direct(M::SparseArrays.SparseMatrixCSC,
+        blockSizes::Vector{Int}, ndiag::Dict{String,Int})
 
 For an input matrix `M`, possibly but not necessarily block n-diagonal,
 where n is tri, penta, etc., compute the block n-diagonal part of the inverse
@@ -93,7 +93,7 @@ function bndiag_of_inv_direct(M_::SparseArrays.SparseMatrixCSC,
 end
 
 """
-function bndiag_of_inv_direct(M_::Any, blockSizes_::Any, ndiag::Any)
+    bndiag_of_inv_direct(M_::Any, blockSizes_::Any, ndiag::Any)
 
 For an input matrix `M`, possibly but not necessarily block n-diagonal,
 where n is tri, penta, etc., compute the block n-diagonal part of the inverse
@@ -164,7 +164,7 @@ function bndiag_of_inv_direct(M_::Any, blockSizes_::Any, ndiag::Any)::T where {T
 end
 
 """
-function bndiag_of_inv_direct!(M_::Any, blockSizes_::Any, ndiag_::Any)
+    bndiag_of_inv_direct!(M_::Any, blockSizes_::Any, ndiag_::Any)
 
 For an input matrix `M`, possibly but not necessarily block n-diagonal,
 where n is tri, penta, etc., compute the block n-diagonal part of the inverse

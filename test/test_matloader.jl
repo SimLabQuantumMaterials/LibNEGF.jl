@@ -8,7 +8,7 @@ import LinearAlgebra
         # check that the read matrices are built properly with
         # the desired precision
 
-        include("common_to_test_matloader.jl")
+        include("common_to_test.jl")
 
         for systemx in systemNames
             for E in Epoints
@@ -41,7 +41,7 @@ import LinearAlgebra
         # check here that the built M makes sense if directly
         # loaded or built via S,H,\Sigma_{c}
 
-        include("common_to_test_matloader.jl")
+        include("common_to_test.jl")
 
         for systemx in systemNames
             for E in Epoints

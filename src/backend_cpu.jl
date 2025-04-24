@@ -1,9 +1,9 @@
 """
-	ArrayOrLU_ = Union{Array, LU, UndefInitializer}
+	ArrayOrLU_ = Matrix{Union{Array, LU, Nothing}}
 
 Type for a matrix that can contain an `Array`, `LU factor` and/or `undef`.
 """
-ArrayOrLU_ = Union{Array,LU,UndefInitializer}
+ArrayOrLU_ = Matrix{Union{Array,LU,Nothing}}
 
 # TODO : documentation
 function be_copy_to_hw(M::Array)::Array
