@@ -1,7 +1,7 @@
 module TestLibNEGFMatinverter
 
 using LibNEGF, Test
-import LinearAlgebra
+import LinearAlgebra, PROPACK
 
 @testset "Matinverter" begin
     # @testset "Matinverter Direct Inverse Full" begin

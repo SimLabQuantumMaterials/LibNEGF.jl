@@ -15,8 +15,9 @@ for systemx in systemNames
             S = loadedMats[2]
             Se = loadedMats[3]
             M = build_M_from_HS(H, S, Se, energVals[E])
-            # LA.cond(..) makes use of LA.opnorm(..)
-            condNum = LinearAlgebra.cond(Array(M))
+            Ux, sLg, Vx, bndx, nprodx, ntprodx = PROPACK.tsvd(M, k=1)
+            sSm, bndx, nprodx, ntprodx = PROPACK.tsvdvals_irl(M, k=1, kmax=50)
+            condNum = sLg[1]/sSm[1]
 
             for precx in precs
                 # load matrices and build M
