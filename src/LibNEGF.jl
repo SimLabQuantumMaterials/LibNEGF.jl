@@ -10,6 +10,7 @@ export build_M_from_HS
 
 # from matinvertndiag_*.jl
 export bndiag_of_inv_direct
+export bndiag_of_inv_rgf
 
 # from blockmatrix.jl
 export BlockMatrix
@@ -23,5 +24,6 @@ include("backend_HW.jl")
 include("matloader.jl")
 include("blockmatrix.jl")
 include("matinvertndiag_direct.jl")
+include("matinvertndiag_rgf.jl")
 
 end

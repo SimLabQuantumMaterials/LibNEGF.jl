@@ -16,8 +16,6 @@ n-diagonal, this avoids some resizing of arrays.
 """
 function bndiag_of_inv_direct!(M::SparseArrays.SparseMatrixCSC,
     blockSizes::Vector{Int}, ndiag::Dict{String,Int})
-    # TODO : this function needs to be tested for block n-diagonal
-    #        where n>3, perhaps use synthetic data for this
     # convert to dense and invert - ndiag["in"] is not relevant
     # for this function
     Mdense = Array(M)

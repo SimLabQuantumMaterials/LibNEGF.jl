@@ -12,10 +12,10 @@ struct BlockMatrix
     nrsType::DataType
 end
 
-# we work here under the assumption that the matrices of type BlockMatrix
-# live always in the wanted hardware (cpu, apple, etc)
+# IMPORTANT : we work here under the assumption that the matrices of type
+# BlockMatrix live always in the wanted hardware (cpu, apple, etc)
 
-# TODO(?) : create in-place versions of the following two functions
+# TODO(?) : create in-place versions of the following functions
 
 """
     convert_S2BM_ndiag(M::SparseArrays.SparseMatrixCSC, blockSizes::Vector{Int},
@@ -115,4 +115,34 @@ function convert_BM2S_ndiag(M::BlockMatrix)::SparseArrays.SparseMatrixCSC
     end
 
     return A
+end
+
+# TODO : documentation
+function copy_BM(M::BlockMatrix)::BlockMatrix
+    ndiag = M.ndiag
+    npl = size(M.blockSizes)[1]
+
+    A = BlockMatrix(M.blockSizes, ArrayOrLU_(undef, npl, npl), ndiag, typeof(M.M[1,1]))
+
+    # loop over the block sizes, conversely over the block rows
+    for ix = 1:size(M.blockSizes)[1]
+        # now, copy the blocks within the ix-th row
+        if ix > 1
+            # left
+            for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
+                A.M[ix,jx] = be_copy_in_hw(M.M[ix, jx])
+            end
+        end
+        # center
+        A.M[ix,ix] = be_copy_in_hw(M.M[ix,ix])
+        if ix < size(M.blockSizes)[1]
+            # right
+            for jx = (ix+1):1:min(size(M.blockSizes)[1], ix + Int((ndiag["out"] - 1) / 2))
+                A.M[ix,jx] = be_copy_in_hw(M.M[ix,jx])
+            end
+        end
+    end
+
+    return A
+
 end

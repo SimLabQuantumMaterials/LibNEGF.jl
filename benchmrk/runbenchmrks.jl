@@ -10,7 +10,6 @@ end
 
 Pkg.activate("../");
 # depending on the type of hardware, remove packages as necessary
-# (TODO : this removal needs to be generalized to be more friendly)
 if ARGS[1] == "cpu"
     Pkg.rm("Metal")
 end
@@ -29,6 +28,7 @@ Printf.@printf("  -- nr of outer threads: %d\n", Threads.nthreads())
 Printf.@printf("  -- nr of energy points: %d\n\n", nrEvals)
 
 # benchmarks common to all of the supported hardwares
-include("benchmrk_matinverter_dirinvndiag.jl")
+# include("benchmrk_matinvertndiag_direct.jl")
+include("benchmrk_matinvertndiag_rgf.jl")
 
 println(to)

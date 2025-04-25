@@ -42,3 +42,8 @@ end
 function be_copy_in_hw!(Mout::Metal.MtlArray, Min::Metal.MtlArray)
     copy!(Mout, Min)
 end
+
+# TODO : documentation
+function be_copy_in_hw(M::Metal.MtlArray)::Metal.MtlArray
+    copy(M)
+end

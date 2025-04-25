@@ -35,6 +35,11 @@ function be_copy_in_hw!(Mout::Array, Min::Array)
 end
 
 # TODO : documentation
+function be_copy_in_hw(M::Array)
+    copy(M)
+end
+
+# TODO : documentation
 function be_inv(M::Array)::Array
     return inv(M)
 end

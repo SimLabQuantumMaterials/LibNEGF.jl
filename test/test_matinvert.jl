@@ -8,20 +8,20 @@ import LinearAlgebra, PROPACK
     #     LinearAlgebra.BLAS.set_num_threads(nrBLASthreads)
     #     include("test_matinvert_full.jl")
     # end
-    @testset "Matinverter Direct Inverse Ndiag" begin
-        include("test_matinvertndiag_direct.jl")
-    end
-    # @testset "Matinverter RGF Full" begin
-    #     include("test_matinvertndiag_rgf.jl")
+    # @testset "Matinverter Direct Inverse Ndiag" begin
+    #     include("test_matinvertndiag_direct.jl")
     # end
-    @testset "Matinverter RGF Trid" begin
-        # under construction. This is the traditional RGF
+    # @testset "Matinverter RGF Full" begin
+    #     # under construction. This is the traditional RGF
+    # end
+    @testset "Matinverter RGF Ndiag" begin
+        include("test_matinvertndiag_rgf.jl")
     end
-    @testset "Matinverter DD-RGF Full" begin
-        # under construction. This is our (@ JSC) approach
-    end
-    @testset "Matinverter DD-RGF Trid" begin
-        # under construction. This is our (@ JSC) approach
-    end
+    # @testset "Matinverter DD-RGF Full" begin
+    #     # under construction. This is our (@ JSC) approach
+    # end
+    # @testset "Matinverter DD-RGF Ndiag" begin
+    #     # under construction. This is our (@ JSC) approach
+    # end
 end
 end

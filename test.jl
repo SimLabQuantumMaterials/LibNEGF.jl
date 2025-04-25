@@ -10,9 +10,7 @@ end
 
 Pkg.activate(".");
 
-# depending on the type of hardware, remove packages as
-# necessary (TODO : this needs to be generalized to be more
-# friendly)
+# depending on the type of hardware, remove packages as necessary
 if ARGS[1] != "apple"
     Pkg.rm("Metal")
 end
