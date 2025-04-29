@@ -15,9 +15,9 @@ for systemx in systemNames
             S = loadedMats[2]
             Se = loadedMats[3]
             M = build_M_from_HS(H, S, Se, energVals[E])
-            Ux, sLg, Vx, bndx, nprodx, ntprodx = PROPACK.tsvd(M, k=1)
-            sSm, bndx, nprodx, ntprodx = PROPACK.tsvdvals_irl(M, k=1, kmax=50)
-            condNum = sLg[1]/sSm[1]
+            # Ux, sLg, Vx, bndx, nprodx, ntprodx = PROPACK.tsvd(M, k=1)
+            # sSm, bndx, nprodx, ntprodx = PROPACK.tsvdvals_irl(M, k=1, kmax=50)
+            # condNum = sLg[1]/sSm[1]
 
             for precx in precs
                 # load matrices and build M
@@ -43,8 +43,12 @@ for systemx in systemNames
 
                 # convert to BlockMatrix
                 Mbm = convert_S2BM_ndiag(M, blockSizes, Dict("in" => 3, "out" => 3))
+
+                # pre-allocate buffer data for DD-RGF
+                auxData = allocate_aux_data_DDRGF(Mbm)
+
                 # get the block n-diagonal of M^-1 via RGF
-                MbmInvNdiag = bndiag_of_inv_rgf(Mbm)
+                MbmInvNdiag = bndiag_of_inv_ddrgf(Mbm, auxData)
                 # # get the block n-diagonal of M^-1 via DD-RGF
                 # MbmInvNdiag = bndiag_of_inv_ddrgf(M)
                 # convert back to sparse
