@@ -17,6 +17,15 @@ export BlockMatrix
 export convert_S2BM_ndiag
 export convert_BM2S_ndiag
 
+# from backend_*.jl
+export be_zero_array
+export be_copy_in_hw!
+export be_copy_from_hw
+export be_copy_in_hw
+export be_copy_to_hw
+export be_copy_from_hw!
+export be_copy_to_hw!
+
 # include the backend for the desired harwdware, replace
 # HW by one of cpu, apple, nvidia, etc
 include("backend_HW.jl")
