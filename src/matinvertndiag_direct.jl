@@ -27,11 +27,6 @@ function bndiag_of_inv_direct!(M::SparseArrays.SparseMatrixCSC,
     MdenseInvHW = be_inv(MdenseHW)
     MdenseInv = be_copy_from_hw(MdenseInvHW)
 
-    # # de-allocate so that the garbage collector can later take care
-    # # of that (in case hw!="cpu" some extra de-allocs will happen)
-    # Mdense = 0
-    # GC.gc()
-
     # do not allocate memory for the block tridiagonal part of the inverse
     # but rather re-label the input M
     MInvTrid = M
