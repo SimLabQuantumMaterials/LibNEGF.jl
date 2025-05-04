@@ -15,7 +15,7 @@ import LinearAlgebra, PROPACK
     #     # under construction. This is the traditional RGF
     # end
     @testset "Matinverter RGF Ndiag" begin
-        include("test_matinvertndiag_rgf.jl")
+        include("test_matinvertndiag_ddrgf.jl")
     end
     # @testset "Matinverter DD-RGF Full" begin
     #     # under construction. This is our (@ JSC) approach

@@ -11,6 +11,7 @@ export build_M_from_HS
 # from matinvertndiag_*.jl
 export bndiag_of_inv_direct
 export bndiag_of_inv_ddrgf
+export allocate_aux_data_DDRGF
 
 # from blockmatrix.jl
 export BlockMatrix

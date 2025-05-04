@@ -18,7 +18,7 @@ end
 # TODO : documentation
 # TODO(?) : put this inside a constructor for AuxDataDDRGF
 function allocate_aux_data_DDRGF(M::BlockMatrix)::AuxDataDDRGF
-    npl = size(Mout.blockSizes)[1]
+    npl = size(M.blockSizes)[1]
 
     # 1. RGF-related buffers
 
@@ -91,6 +91,8 @@ function bndiag_of_inv_ddrgf(Min::BlockMatrix, auxData::AuxDataDDRGF)::BlockMatr
 
     # bottom element
     be_lu!(buffM1.M[npl, npl], Min.M[npl, npl])
+
+    exit()
 
     # middle elements
     for ix = npl-1:-1:1

@@ -164,34 +164,7 @@ function similar_bm_but_zero(M::BlockMatrix)::BlockMatrix
     npl = size(blockSizes)[1]
     A = similar_bm(M)
 
-    # loop over the block sizes, conversely over the block rows
-    for ix = 1:npl
-        # indices for the rows
-        ibeg = sum(blockSizes[1:ix-1]) + 1
-        iend = sum(blockSizes[1:ix])
-        # now, copy the blocks within the ix-th row
-        if ix > 1
-            # left
-            for jx = (ix-1):-1:max(1, ix - Int((ndiag["in"] - 1) / 2))
-                jbeg = sum(blockSizes[1:jx-1]) + 1
-                jend = sum(blockSizes[1:jx])
-                # TODO : call a backend function to assign zeros
-                A.M[ix, jx] = zeros(A.nrsType, iend - ibeg, jend - jbeg)
-            end
-        end
-        # center
-        jbeg = ibeg
-        jend = iend
-        A.M[ix, ix] = zeros(A.nrsType, iend - ibeg, jend - jbeg)
-        if ix < npl
-            # right
-            for jx = (ix+1):1:min(size(blockSizes)[1], ix + Int((ndiag["in"] - 1) / 2))
-                jbeg = sum(blockSizes[1:jx-1]) + 1
-                jend = sum(blockSizes[1:jx])
-                A.M[ix, jx] = zeros(A.nrsType, iend - ibeg, jend - jbeg)
-            end
-        end
-    end
+    set_blocks_to_zero!(A)
 
     return A
 end
@@ -217,26 +190,24 @@ function set_blocks_to_zero!(M::BlockMatrix)
             for jx = (ix-1):-1:max(1, ix - Int((ndiag["in"] - 1) / 2))
                 jbeg = sum(blockSizes[1:jx-1]) + 1
                 jend = sum(blockSizes[1:jx])
-                A.M[ix, jx] = be_zero_array(A.nrsType, (iend - ibeg, jend - jbeg))
+                A.M[ix, jx] = be_zero_array(A.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
             end
         end
         # center
         jbeg = ibeg
         jend = iend
         if isArrayOrLU == 0
-            A.M[ix, ix] = be_zero_array(A.nrsType, (iend - ibeg, jend - jbeg))
+            A.M[ix, ix] = be_zero_array(A.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
         else
-            A.M[ix, ix] = be_zero_lu(A.nrsType, iend - ibeg)
+            A.M[ix, ix] = be_zero_lu(A.nrsType, iend - ibeg + 1)
         end
         if ix < npl
             # right
             for jx = (ix+1):1:min(size(blockSizes)[1], ix + Int((ndiag["in"] - 1) / 2))
                 jbeg = sum(blockSizes[1:jx-1]) + 1
                 jend = sum(blockSizes[1:jx])
-                A.M[ix, jx] = be_zero_array(A.nrsType, (iend - ibeg, jend - jbeg))
+                A.M[ix, jx] = be_zero_array(A.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
             end
         end
     end
-
-    return A
 end
