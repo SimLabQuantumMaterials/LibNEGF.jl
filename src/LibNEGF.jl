@@ -27,7 +27,7 @@ export be_copy_from_hw!
 export be_copy_to_hw!
 export be_zero_lu
 export be_lu!
-# export be_identity
+export be_lu
 export be_A_from_LU
 
 # from utils.jl

@@ -63,6 +63,10 @@ end
                         be_lu!(Bzlu, Abm.M[1, 1])
                         Aflu = be_A_from_LU(Bzlu)
                         check_if_equal(Aflu, Abm.M[1, 1], roundoffs[precx], 1.0E1)
+
+                        Bzlu = be_lu(Abm.M[1, 1])
+                        Aflu = be_A_from_LU(Bzlu)
+                        check_if_equal(Aflu, Abm.M[1, 1], roundoffs[precx], 1.0E1)
                     end
                 end
             end

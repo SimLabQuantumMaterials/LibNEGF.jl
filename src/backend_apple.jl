@@ -222,12 +222,15 @@ function be_lu!(Mout::MtlLU, Min::Metal.MtlArray)
     be_copy_to_hw!(Mout, Moutcpu)
 end
 
-# function be_lu(M::Metal.MtlArray)::MtlLU
-#     Mcpu = be_copy_from_hw(M)
-#     McpuLU = lu(Mcpu)
-#     MmtlLU = be_copy_to_hw(McpuLU)
-#     return MmtlLU
-# end
+function be_lu(M::Metal.MtlArray)::MtlLU
+    n = size(M)[1]
+    Metal.@allowscalar precx = typeof(M[1, 1])
+    Mout = be_zero_lu(precx, n)
+
+    be_lu!(Mout, M)
+
+    return Mout
+end
 
 # # this corresponds to mldivide, but using a precomputed LU
 # function be_mldivide!(Mout::Metal.MtlArray, Min::Metal.MtlArray, Mlu::MtlLU)

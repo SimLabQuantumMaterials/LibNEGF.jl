@@ -203,12 +203,11 @@ function be_lu!(Mout::CpuLU, Min::Array)
     end
 end
 
-# function be_lu(M::Metal.MtlArray)::MtlLU
-#     Mcpu = be_copy_from_hw(M)
-#     McpuLU = lu(Mcpu)
-#     MmtlLU = be_copy_to_hw(McpuLU)
-#     return MmtlLU
-# end
+function be_lu(M::Array)::CpuLU
+    Mlu = be_zero_lu(typeof(M[1,1]), size(M)[1])
+    be_lu!(Mlu, M)
+    return Mlu
+end
 
 # # this corresponds to mldivide, but using a precomputed LU
 # function be_mldivide!(Mout::Metal.MtlArray, Min::Metal.MtlArray, Mlu::MtlLU)
