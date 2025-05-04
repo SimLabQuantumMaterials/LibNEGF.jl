@@ -30,6 +30,9 @@ export be_zero_lu
 export be_lu!
 export be_lu
 export be_A_from_LU
+export be_mldivide!
+export be_identity
+export be_mul
 
 # from utils.jl
 # export @codeLocation

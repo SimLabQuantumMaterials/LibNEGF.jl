@@ -71,20 +71,24 @@ function be_zero_array(nrsType::DataType, dimsOfArr::Tuple{Int,Int})::Array
     return Array(zeros(nrsType, dimsOfArr))
 end
 
+function be_identity(nrsType::DataType, n::Int)
+    return Array(LinearAlgebra.Diagonal(ones(nrsType, (n, n))))
+end
+
 # # ----------------------------------------------------
 # # then composite types e.g. LU and MtlLU
 # # TODO : check : is Julia inlining these? Or use macros instead?
 
 # explicitly build the matrix A = LU from L and U
-# WARNING : this is not to be used if performance is critical
+# WARNING : this function is not to be used if performance is important
 function be_A_from_LU(M::CpuLU)::Array
     precx = typeof(M.A[1, 1])
     n = size(M.A)[1]
 
-    identM = Array(LinearAlgebra.Diagonal(ones(precx, (n, n))))
+    idM = Array(LinearAlgebra.Diagonal(ones(precx, (n, n))))
 
     # first, compute PA = LU
-    Ux = LinearAlgebra.BLAS.trmm('L', 'U', 'N', 'N', convert(precx, 1.0), M.A, identM)
+    Ux = LinearAlgebra.BLAS.trmm('L', 'U', 'N', 'N', convert(precx, 1.0), M.A, idM)
     PAx = LinearAlgebra.BLAS.trmm('L', 'L', 'N', 'U', convert(precx, 1.0), M.A,
         Ux)
 
@@ -209,13 +213,11 @@ function be_lu(M::Array)::CpuLU
     return Mlu
 end
 
-# # this corresponds to mldivide, but using a precomputed LU
-# function be_mldivide!(Mout::Metal.MtlArray, Min::Metal.MtlArray, Mlu::MtlLU)
-#     Mlucpu = be_copy_from_hw(Mlu)
-#     Mcpu = be_copy_from_hw(Min)
-#     X = Mlucpu \ Mcpu
-#     be_copy_to_hw!(Mout, X)
-# end
+# this corresponds to mldivide, but using a precomputed LU
+function be_mldivide!(Mout::Array, Min::Array, Mlu::CpuLU)
+    copy!(Mout, Min)
+    LinearAlgebra.LAPACK.getrs!('N', Mlu.A, Mlu.piv, Mout)
+end
 
 # # this corresponds to mldivide, but using a precomputed LU
 # function be_mldivide(M::Metal.MtlArray, Mlu::MtlLU)::Metal.MtlArray
@@ -280,11 +282,9 @@ end
 # #     be_copy_to_hw!(Mout, Moutcpu)
 # # end
 
-# # function be_mul(M1::Metal.MtlArray, M2::Metal.MtlArray)::Metal.MtlArray
-# #     Mcpy = be_copy_in_hw(M1)
-# #     be_mul!(Mcpy, M1, M2)
-# #     return Mcpy
-# # end
+function be_mul(M1::Array, M2::Array)::Array
+    return M1 * M2
+end
 
 # # # this overrides M1 with the result of the subtraction
 # # function be_minus!(M1::Metal.MtlArray, M2::Metal.MtlArray)

@@ -87,46 +87,50 @@ function bndiag_of_inv_ddrgf(Min::BlockMatrix, auxData::AuxDataDDRGF)::BlockMatr
     # labeling for clarity of the implementation
     buffM2 = Mout
 
+    # TODO : we might not need a full block n-diagonal as a buffer. To see this,
+    #        go again over the algorithm, first simple RGF, and note that there
+    #        are more LAPACK in-place possibilities
+
     # FIRST, upward pass
 
     # bottom element
     be_lu!(buffM1.M[npl, npl], Min.M[npl, npl])
 
-    exit()
-
     # middle elements
     for ix = npl-1:-1:1
         be_mldivide!(buffM1.M[ix+1, ix], Min.M[ix+1, ix], buffM1.M[ix+1, ix+1])
 
-        be_copy_in_hw!(buffM2.M[ix, ix], Min.M[ix, ix])
+        break
 
-        be_gemm!(Min.nrsType, Min.nrsType, -1.0, Min.M[ix, ix+1], buffM1.M[ix+1, ix],
-            1.0, buffM2.M[ix, ix])
+        # be_copy_in_hw!(buffM2.M[ix, ix], Min.M[ix, ix])
 
-        be_mrdivide!(buffM1.M[ix, ix+1], Min.M[ix, ix+1], buffM1.M[ix+1, ix+1])
-        be_lu!(buffM1.M[ix, ix], buffM2.M[ix, ix])
+        # be_gemm!(Min.nrsType, Min.nrsType, -1.0, Min.M[ix, ix+1], buffM1.M[ix+1, ix],
+        #     1.0, buffM2.M[ix, ix])
+
+        # be_mrdivide!(buffM1.M[ix, ix+1], Min.M[ix, ix+1], buffM1.M[ix+1, ix+1])
+        # be_lu!(buffM1.M[ix, ix], buffM2.M[ix, ix])
     end
 
-    # THEN, downward pass
+    # # THEN, downward pass
 
-    # top element
-    be_inv_from_lu!(Mout.M[1, 1], buffM1.M[1, 1])
+    # # top element
+    # be_inv_from_lu!(Mout.M[1, 1], buffM1.M[1, 1])
 
-    # middle elements
-    for ix = 2:npl
-        # upper diagonal of Mout
-        be_gemm!(Min.nrsType, Min.nrsType, 1.0, Mout.M[ix-1, ix-1], buffM1.M[ix-1, ix],
-            Mout.M[ix-1, ix])
+    # # middle elements
+    # for ix = 2:npl
+    #     # upper diagonal of Mout
+    #     be_gemm!(Min.nrsType, Min.nrsType, 1.0, Mout.M[ix-1, ix-1], buffM1.M[ix-1, ix],
+    #         Mout.M[ix-1, ix])
 
-        # diagonal of Mout
-        be_inv_from_lu!(Mout.M[ix, ix], buffM.M[ix, ix])
-        be_gemm!(Min.nrsType, Min.nrsType, 1.0, buffM1.M[ix, ix-1], buffM2.M[ix-1, ix],
-            1.0, Mout.M[ix, ix])
+    #     # diagonal of Mout
+    #     be_inv_from_lu!(Mout.M[ix, ix], buffM.M[ix, ix])
+    #     be_gemm!(Min.nrsType, Min.nrsType, 1.0, buffM1.M[ix, ix-1], buffM2.M[ix-1, ix],
+    #         1.0, Mout.M[ix, ix])
 
-        # lower diagonal of Mout
-        be_gemm!(Min.nrsType, Min.nrsType, -1.0, Mout.M[ix-1, ix-1], buffM1.M[ix, ix-1],
-            Mout.M[ix, ix-1])
-    end
+    #     # lower diagonal of Mout
+    #     be_gemm!(Min.nrsType, Min.nrsType, -1.0, Mout.M[ix-1, ix-1], buffM1.M[ix, ix-1],
+    #         Mout.M[ix, ix-1])
+    # end
 
     return Mout
 end

@@ -67,6 +67,13 @@ end
                         Bzlu = be_lu(Abm.M[1, 1])
                         Aflu = be_A_from_LU(Bzlu)
                         check_if_equal(Aflu, Abm.M[1, 1], roundoffs[precx], 1.0E1)
+
+                        B = be_copy_in_hw(Abm.M[1,2])
+                        Bz = be_zero_array(precx, size(Abm.M[1,2]))
+                        Blu = be_lu(Abm.M[1,1])
+                        be_mldivide!(Bz, B, Blu)
+                        Bout = be_mul(Abm.M[1,1], Bz)
+                        check_if_equal(Bout, B, roundoffs[precx], 1.0E3)
                     end
                 end
             end

@@ -50,7 +50,7 @@ for systemx in systemNames
                 # get the block n-diagonal of M^-1 via RGF
                 MbmInvNdiag = bndiag_of_inv_ddrgf(Mbm, auxData)
                 # # get the block n-diagonal of M^-1 via DD-RGF
-                MbmInvNdiag = bndiag_of_inv_ddrgf(M)
+                # MbmInvNdiag = bndiag_of_inv_ddrgf(M)
                 # convert back to sparse
                 MinvSp = convert_BM2S_ndiag(MbmInvNdiag)
 

@@ -232,13 +232,17 @@ function be_lu(M::Metal.MtlArray)::MtlLU
     return Mout
 end
 
-# # this corresponds to mldivide, but using a precomputed LU
-# function be_mldivide!(Mout::Metal.MtlArray, Min::Metal.MtlArray, Mlu::MtlLU)
-#     Mlucpu = be_copy_from_hw(Mlu)
-#     Mcpu = be_copy_from_hw(Min)
-#     X = Mlucpu \ Mcpu
-#     be_copy_to_hw!(Mout, X)
-# end
+# this corresponds to mldivide, but using a precomputed LU
+function be_mldivide!(Mout::Metal.MtlArray, Min::Metal.MtlArray, Mlu::MtlLU)
+    Moutcpu = be_copy_from_hw(Mout)
+    Mincpu = be_copy_from_hw(Min)
+    Mlucpu = be_copy_from_hw(Mlu)
+
+    copy!(Moutcpu, Mincpu)
+    LinearAlgebra.LAPACK.getrs!('N', Mlucpu.A, Mlucpu.piv, Moutcpu)
+
+    be_copy_to_hw!(Mout, Moutcpu)
+end
 
 # # this corresponds to mldivide, but using a precomputed LU
 # function be_mldivide(M::Metal.MtlArray, Mlu::MtlLU)::Metal.MtlArray
@@ -296,18 +300,22 @@ end
 #     return Minvmtl
 # end
 
-# # function be_mul!(Mout::Metal.MtlArray, M1::Metal.MtlArray, M2::Metal.MtlArray)
-# #     M1cpu = be_copy_from_hw(M1)
-# #     M2cpu = be_copy_from_hw(M2)
-# #     Moutcpu = M1cpu*M2cpu
-# #     be_copy_to_hw!(Mout, Moutcpu)
-# # end
+function be_mul!(Mout::Metal.MtlArray, M1::Metal.MtlArray, M2::Metal.MtlArray)
+    M1cpu = be_copy_from_hw(M1)
+    M2cpu = be_copy_from_hw(M2)
+    Moutcpu = M1cpu*M2cpu
+    be_copy_to_hw!(Mout, Moutcpu)
+end
 
-# # function be_mul(M1::Metal.MtlArray, M2::Metal.MtlArray)::Metal.MtlArray
-# #     Mcpy = be_copy_in_hw(M1)
-# #     be_mul!(Mcpy, M1, M2)
-# #     return Mcpy
-# # end
+function be_mul(M1::Metal.MtlArray, M2::Metal.MtlArray)::Metal.MtlArray
+    Metal.@allowscalar nrsType = typeof(M1[1,1])
+    n = size(M1)[1]
+    m = size(M2)[2]
+
+    Mout = be_zero_array(nrsType, (n,m))
+    be_mul!(Mout, M1, M2)
+    return Mout
+end
 
 # # # this overrides M1 with the result of the subtraction
 # # function be_minus!(M1::Metal.MtlArray, M2::Metal.MtlArray)
