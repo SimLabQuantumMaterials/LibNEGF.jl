@@ -89,7 +89,8 @@ function bndiag_of_inv_ddrgf(Min::BlockMatrix, auxData::AuxDataDDRGF)::BlockMatr
 
     # TODO : we might not need a full block n-diagonal as a buffer. To see this,
     #        go again over the algorithm, first simple RGF, and note that there
-    #        are more LAPACK in-place possibilities
+    #        are more LAPACK in-place possibilities (namely, due to getrs! within
+    #        be_mldivide(..))
 
     # FIRST, upward pass
 
@@ -100,9 +101,9 @@ function bndiag_of_inv_ddrgf(Min::BlockMatrix, auxData::AuxDataDDRGF)::BlockMatr
     for ix = npl-1:-1:1
         be_mldivide!(buffM1.M[ix+1, ix], Min.M[ix+1, ix], buffM1.M[ix+1, ix+1])
 
-        break
+        be_copy_in_hw!(buffM2.M[ix, ix], Min.M[ix, ix])
 
-        # be_copy_in_hw!(buffM2.M[ix, ix], Min.M[ix, ix])
+        break
 
         # be_gemm!(Min.nrsType, Min.nrsType, -1.0, Min.M[ix, ix+1], buffM1.M[ix+1, ix],
         #     1.0, buffM2.M[ix, ix])

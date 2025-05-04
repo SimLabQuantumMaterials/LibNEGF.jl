@@ -68,6 +68,14 @@ end
                         Aflu = be_A_from_LU(Bzlu)
                         check_if_equal(Aflu, Abm.M[1, 1], roundoffs[precx], 1.0E1)
 
+                        B1 = be_copy_in_hw(Abm.M[1,1])
+                        B2 = be_copy_in_hw(Abm.M[1,2])
+                        B1cpu = be_copy_from_hw(B1)
+                        B2cpu = be_copy_from_hw(B2)
+                        B3cpu = B1cpu * B2cpu
+                        B3 = be_copy_to_hw(B3cpu)
+                        check_if_equal(be_mul(B1, B2), B3, roundoffs[precx], 1.0E0)
+
                         B = be_copy_in_hw(Abm.M[1,2])
                         Bz = be_zero_array(precx, size(Abm.M[1,2]))
                         Blu = be_lu(Abm.M[1,1])
