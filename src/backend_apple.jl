@@ -2,10 +2,14 @@ using Metal
 
 # TODO : documentation
 struct MtlLU
-    L::Metal.MtlArray
-    U::Metal.MtlArray
-    p::Metal.MtlVector
-    P::Metal.MtlArray
+    A::Metal.MtlArray
+    piv::Metal.MtlVector
+end
+
+# TODO : documentation
+mutable struct CpuLU
+    A::Array
+    piv::Vector{Int}
 end
 
 """
@@ -20,6 +24,23 @@ ArrayOrLU_ = Matrix{Union{Metal.MtlArray,MtlLU,Nothing}}
 #        tests have to be backend-blind
 
 # TODO : add documentation for all of the following functions
+
+# taken from:
+# https://discourse.julialang.org/t/how-to-print-function-name-and-source-file-line-number/43486/2
+macro code_location()
+    return quote
+        st = stacktrace(backtrace())
+        myf = ""
+        for frm in st
+            funcname = frm.func
+            if frm.func != :backtrace && frm.func != Symbol("macro expansion")
+                myf = frm.func
+                break
+            end
+        end
+        println("in function ", $("$(__module__)"), ".$(myf) at ", $("$(__source__.file)"), ":", $("$(__source__.line)"))
+    end
+end
 
 # ----------------------------------------------------
 # 'base' types first e.g. Array and Metal.MtlArray
@@ -55,7 +76,7 @@ end
 #     be_copy_to_hw!(M, zero(size(M)[1], size(M)[2]))
 # end
 
-function be_zero_array(nrsType::DataType, dimsOfArr::Tuple{Int, Int})::Metal.MtlArray
+function be_zero_array(nrsType::DataType, dimsOfArr::Tuple{Int,Int})::Metal.MtlArray
     return Metal.MtlArray(zeros(nrsType, dimsOfArr))
 end
 
@@ -63,14 +84,48 @@ end
 # # then composite types e.g. LU and MtlLU
 # # TODO : check : is Julia inlining these? Or use macros instead?
 
-# function be_copy_to_hw!(Mout::MtlLU, Min::LU)
-#     # for now, we have to emulate this i.e. we do the copies
-#     # 'manually'
-#     be_copy_to_hw!(Mout.L, Min.L)
-#     be_copy_to_hw!(Mout.U, Min.U)
-#     be_copy_to_hw!(Mout.p, Min.p)
-#     be_copy_to_hw!(Mout.P, Min.P)
-# end
+# explicitly build the matrix A = LU from L and U
+# WARNING : this is not to be used if performance is critical
+function be_A_from_LU(M::MtlLU)::Metal.MtlArray
+    Mcpu = be_copy_from_hw(M)
+
+    precx = typeof(Mcpu.A[1, 1])
+    n = size(Mcpu.A)[1]
+
+    identM = Array(LinearAlgebra.Diagonal(ones(precx, (n, n))))
+
+    # first, compute PA = LU
+    Ux = LinearAlgebra.BLAS.trmm('L', 'U', 'N', 'N', convert(precx, 1.0), Mcpu.A, identM)
+    PAx = LinearAlgebra.BLAS.trmm('L', 'L', 'N', 'U', convert(precx, 1.0), Mcpu.A,
+        Ux)
+
+    # second, compute A, but for this we need P
+
+    # create a vector px that matches the convention
+    # of the p in LU (i.e. when calling lu(...))
+    px = Vector{Int}(1:n)
+    for ix in 1:n
+        i1 = ix
+        i2 = Mcpu.piv[ix]
+        buffx = px[i1]
+        px[i1] = px[i2]
+        px[i2] = buffx
+    end
+    Px = zeros(precx, size(Mcpu.A))
+    for ix in 1:n
+        Px[ix, px[ix]] = 1
+    end
+
+    # finally, we can compute A = P' * PA
+    Ax = Px' * PAx
+
+    return be_copy_to_hw(Ax)
+end
+
+function be_copy_to_hw!(Mout::MtlLU, Min::CpuLU)
+    be_copy_to_hw!(Mout.A, Min.A)
+    be_copy_to_hw!(Mout.piv, Min.piv)
+end
 
 # function be_copy_to_hw(M::LU)::MtlLU
 #     # for now, we have to emulate this i.e. we do the copies
@@ -94,15 +149,12 @@ end
 #     # copy!(Mout.P, Alu.P)
 # end
 
-# function be_copy_from_hw(M::MtlLU)::LU
-#     # for now, we have to emulate this i.e. copy to CPU, do
-#     # things on the CPU and return
-#     Lcpu = be_copy_from_hw(M.L)
-#     Ucpu = be_copy_from_hw(M.U)
-#     Pcpu = be_copy_from_hw(M.P)
-#     A = Pcpu' * (Lcpu * Ucpu)
-#     return lu(A)
-# end
+function be_copy_from_hw(M::MtlLU)::CpuLU
+    Acpu = be_copy_from_hw(M.A)
+    pcpu = be_copy_from_hw(M.piv)
+    Mcpu = CpuLU(Acpu, pcpu)
+    return Mcpu
+end
 
 # function be_copy_in_hw!(Mout::MtlLU, Min::MtlLU)
 #     be_copy_in_hw!(Mout.L, Min.L)
@@ -120,6 +172,13 @@ end
 #     Mlu = MtlLU(zeros(nrsType, (n, n)), zeros(nrsType, (n, n)), zeros(Int, (n, n)), 1:n)
 #     return Mlu
 # end
+
+function be_zero_lu(nrsType::DataType, n::Int)::MtlLU
+    Az = be_copy_to_hw(zeros(nrsType, (n, n)))
+    pivz = be_copy_to_hw(Vector{Int}(undef, n))
+    Mlu = MtlLU(Az, pivz)
+    return Mlu
+end
 
 # # ----------------------------------------------------
 # # finally, some functionality e.g. inv(...) and lu(...), where
@@ -145,17 +204,23 @@ end
 #     return Mcpy
 # end
 
-# function be_lu!(Mout::MtlLU, Min::Metal.MtlArray)
-#     Mincpu = be_copy_from_hw(Min)
-#     McpuLU = lu(Mincpu)
-#     be_copy_to_hw!(Mout, McpuLU)
-# end
+function be_lu!(Mout::MtlLU, Min::Metal.MtlArray)
+    Mincpu = be_copy_from_hw(Min)
 
-# function be_lu!(Mout::MtlLU, Min::Metal.MtlArray)
-#     Mincpu = be_copy_from_hw(Min)
-#     McpuLU = lu(Mincpu)
-#     be_copy_to_hw!(Mout, McpuLU)
-# end
+    n = size(Mincpu)[1]
+    precx = typeof(Mincpu[1, 1])
+    Moutcpu = CpuLU(zeros(precx, (n, n)), Vector{Int}(undef, n))
+
+    copy!(Moutcpu.A, Mincpu)
+    Moutcpu.A, Moutcpu.piv, info = LinearAlgebra.LAPACK.getrf!(Moutcpu.A, Moutcpu.piv)
+    if info != 0
+        println("ERROR: LAPACK lu returned an error info")
+        @code_location
+        exit()
+    end
+
+    be_copy_to_hw!(Mout, Moutcpu)
+end
 
 # function be_lu(M::Metal.MtlArray)::MtlLU
 #     Mcpu = be_copy_from_hw(M)

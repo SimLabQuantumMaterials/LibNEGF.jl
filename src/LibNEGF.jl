@@ -25,6 +25,13 @@ export be_copy_in_hw
 export be_copy_to_hw
 export be_copy_from_hw!
 export be_copy_to_hw!
+export be_zero_lu
+export be_lu!
+# export be_identity
+export be_A_from_LU
+
+# from utils.jl
+# export @codeLocation
 
 # include the backend for the desired harwdware, replace
 # HW by one of cpu, apple, nvidia, etc
@@ -34,5 +41,6 @@ include("matloader.jl")
 include("blockmatrix.jl")
 include("matinvertndiag_direct.jl")
 include("matinvertndiag_ddrgf.jl")
+include("utils.jl")
 
 end

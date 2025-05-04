@@ -1,19 +1,45 @@
 # TODO : documentation
+struct RgfBuffs
+    buffM::BlockMatrix
+end
+
+# # TODO : documentation
+# struct LapackBuffs
+#     pivB::Vector{Int}
+# end
+
+# TODO : documentation
 # buffers for RGF, packed in a single struct
 struct AuxDataDDRGF
-    buffM::BlockMatrix
+    rgfBuffs::RgfBuffs
+    # lapackBuffs::LapackBuffs
 end
 
 # TODO : documentation
 # TODO(?) : put this inside a constructor for AuxDataDDRGF
-function allocate_aux_data_DDRGF(M::BlockMatrix)
+function allocate_aux_data_DDRGF(M::BlockMatrix)::AuxDataDDRGF
     npl = size(Mout.blockSizes)[1]
+
+    # 1. RGF-related buffers
+
     # in general, these type of auxiliary block matrices will contain
-    # Array-like object and not LU-like
+    # Array-like object and not LU-like, as specified by the last param
     buffM = BlockMatrix(M.blockSizes, ArrayOrLU_(undef, npl, npl),
         M.ndiag, M.nrsType, 1)
-    auxData = AuxDataDDRGF(buffM)
-    set_blocks_to_zero!(auxData.buffM)
+    set_blocks_to_zero!(buffM)
+
+    # # 2. LAPACK-related buffers
+
+    # # buffer vector used by getrf! when pivoting
+    # pivB = Vector{Int}(undef, maximum(M.blockSizes))
+
+    # the final struct with the buffers
+
+    rgfBuffs = RgfBuffs(buffM)
+    # lapackBuffs = RgfBuffs(pivB)
+    # auxData = AuxDataDDRGF(rgfBuffs, lapackBuffs)
+    auxData = AuxDataDDRGF(rgfBuffs)
+
     return auxData
 end
 
@@ -51,12 +77,12 @@ function bndiag_of_inv_ddrgf(Min::BlockMatrix, auxData::AuxDataDDRGF)::BlockMatr
     #        to keep it as the simple traditional RGF
 
     # IMPORTANT : we assume here that all of the blocks in Min and Mout argument
-    #             Array-like, and that those in auxData.buffM are LU-like
+    #             Array-like, and that those in auxData.rgfBuffs.buffM are LU-like
 
     # a copy of Min, where we place the output
     Mout = similar_bm_but_zero(Min)
     npl = size(Mout.blockSizes)[1]
-    buffM1 = auxData.buffM
+    buffM1 = auxData.rgfBuffs.buffM
     # Mout is used as a buffer in multiple places, this is just
     # labeling for clarity of the implementation
     buffM2 = Mout
