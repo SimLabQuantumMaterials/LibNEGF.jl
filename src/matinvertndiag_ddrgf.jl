@@ -118,18 +118,18 @@ function bndiag_of_inv_ddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxD
 
     # # middle elements
     for ix = 2:npl
-        # # upper diagonal of Mout
-        # be_gemm!(Min.nrsType, Min.nrsType, 1.0, Mout.M[ix-1, ix-1], buffM1.M[ix-1, ix],
-        #     Mout.M[ix-1, ix])
+        # upper diagonal of Mout
+        be_gemm!('N', 'N', convert(Min.nrsType, 1.0), Mout.M[ix-1, ix-1], buffM1.M[ix-1, ix],
+            convert(Min.nrsType, 0.0), Mout.M[ix-1, ix])
 
         # diagonal of Mout
         be_inv_from_lu!(Mout.M[ix, ix], buffM1.M[ix, ix])
         be_gemm!('N', 'N', convert(Min.nrsType, 1.0), buffM1.M[ix, ix-1], buffM2.M[ix-1, ix],
                  convert(Min.nrsType, 1.0), Mout.M[ix, ix])
 
-    #     # lower diagonal of Mout
-    #     be_gemm!(Min.nrsType, Min.nrsType, -1.0, Mout.M[ix-1, ix-1], buffM1.M[ix, ix-1],
-    #         Mout.M[ix, ix-1])
+        # lower diagonal of Mout
+        be_gemm!('N', 'N', convert(Min.nrsType, -1.0), Mout.M[ix-1, ix-1], buffM1.M[ix, ix-1],
+            convert(Min.nrsType, 0.0), Mout.M[ix, ix-1])
     end
 end
 
