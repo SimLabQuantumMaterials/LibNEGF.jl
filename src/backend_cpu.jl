@@ -169,7 +169,10 @@ end
 # end
 
 function be_zero_lu(nrsType::DataType, n::Int)::CpuLU
-    Mlu = CpuLU(zeros(nrsType, (n, n)), Vector{Int}(undef, n))
+    # IMPORTANT : the first option here gives issues at the level
+    #             of the garbage collector
+    # Mlu = CpuLU(zeros(nrsType, (n, n)), Vector{Int}(undef, n))
+    Mlu = CpuLU(zeros(nrsType, (n, n)), Vector{Int}(ones(Int, (1,n))[1,:]))
     return Mlu
 end
 
@@ -241,15 +244,10 @@ end
 #     return Mcpy
 # end
 
-# function be_gemm!(tA::DataType, tB::DataType, alpha::Number, A::Metal.MtlArray,
-#     B::Metal.MtlArray, beta::Number, C::Metal.MtlArray)
-#     # TODO : do we need to take care of data conversions?
-#     Acpu = be_copy_from_hw(A)
-#     Bcpu = be_copy_from_hw(B)
-#     Ccpu = be_copy_from_hw(C)
-#     LinearAlgebra.BLAS.gemm!(tA, tB, alpha, Acpu, Bcpu, beta, Ccpu)
-#     be_copy_to_hw!(C, Ccpu)
-# end
+function be_gemm!(tA::Char, tB::Char, alpha::Number, A::Array,
+    B::Array, beta::Number, C::Array)
+    LinearAlgebra.BLAS.gemm!(tA, tB, alpha, A, B, beta, C)
+end
 
 # function be_gemm!(tA::DataType, tB::DataType, alpha::Number, A::Metal.MtlArray,
 #     B::Metal.MtlArray, C::Metal.MtlArray)

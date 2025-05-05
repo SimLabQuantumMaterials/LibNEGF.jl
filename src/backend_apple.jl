@@ -175,7 +175,7 @@ end
 
 function be_zero_lu(nrsType::DataType, n::Int)::MtlLU
     Az = be_copy_to_hw(zeros(nrsType, (n, n)))
-    pivz = be_copy_to_hw(Vector{Int}(undef, n))
+    pivz = be_copy_to_hw(Vector{Int}(ones(Int, (1,n))[1,:]))
     Mlu = MtlLU(Az, pivz)
     return Mlu
 end
@@ -265,6 +265,17 @@ end
 #     be_mrdivide!(Mcpy, M, Mlu)
 #     return Mcpy
 # end
+
+function be_gemm!(tA::Char, tB::Char, alpha::Number, A::Metal.MtlArray,
+    B::Metal.MtlArray, beta::Number, C::Metal.MtlArray)
+    Acpu = be_copy_from_hw(A)
+    Bcpu = be_copy_from_hw(B)
+    Ccpu = be_copy_from_hw(C)
+
+    LinearAlgebra.BLAS.gemm!(tA, tB, alpha, Acpu, Bcpu, beta, Ccpu)
+
+    be_copy_to_hw!(C, Ccpu)
+end
 
 # function be_gemm!(tA::DataType, tB::DataType, alpha::Number, A::Metal.MtlArray,
 #     B::Metal.MtlArray, beta::Number, C::Metal.MtlArray)

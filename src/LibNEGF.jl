@@ -33,6 +33,7 @@ export be_A_from_LU
 export be_mldivide!
 export be_identity
 export be_mul
+export be_gemm!
 
 # from utils.jl
 # export @codeLocation

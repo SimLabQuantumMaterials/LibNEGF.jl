@@ -99,16 +99,16 @@ function bndiag_of_inv_ddrgf(Min::BlockMatrix, auxData::AuxDataDDRGF)::BlockMatr
 
     # middle elements
     for ix = npl-1:-1:1
+        # TODO : first run mrdivide, to make use of the mldivide data as a buffer
+        #        for mrdivide
+        # # be_mrdivide!(buffM1.M[ix, ix+1], Min.M[ix, ix+1], buffM1.M[ix+1, ix+1])
         be_mldivide!(buffM1.M[ix+1, ix], Min.M[ix+1, ix], buffM1.M[ix+1, ix+1])
 
         be_copy_in_hw!(buffM2.M[ix, ix], Min.M[ix, ix])
 
-        break
-
         # be_gemm!(Min.nrsType, Min.nrsType, -1.0, Min.M[ix, ix+1], buffM1.M[ix+1, ix],
         #     1.0, buffM2.M[ix, ix])
 
-        # be_mrdivide!(buffM1.M[ix, ix+1], Min.M[ix, ix+1], buffM1.M[ix+1, ix+1])
         # be_lu!(buffM1.M[ix, ix], buffM2.M[ix, ix])
     end
 
