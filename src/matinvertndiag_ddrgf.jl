@@ -77,10 +77,9 @@ function bndiag_of_inv_ddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxD
     #        to keep it as the simple traditional RGF
 
     # IMPORTANT : we assume here that all of the blocks in Min and Mout argument
-    #             Array-like, and that those in auxData.rgfBuffs.buffM are LU-like
+    #             Array-like, and that those in the block-diagonal of auxData.rgfBuffs.buffM
+    #             are LU-like
 
-    # a copy of Min, where we place the output
-    # Mout = similar_bm_but_zero(Min)
     npl = size(Mout.blockSizes)[1]
     buffM1 = auxData.rgfBuffs.buffM
     # Mout is used as a buffer in multiple places, this is just
@@ -112,28 +111,26 @@ function bndiag_of_inv_ddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxD
         be_lu!(buffM1.M[ix, ix], buffM2.M[ix, ix])
     end
 
-    # # THEN, downward pass
+    # THEN, downward pass
 
-    # # top element
-    # be_inv_from_lu!(Mout.M[1, 1], buffM1.M[1, 1])
+    # top element
+    be_inv_from_lu!(Mout.M[1, 1], buffM1.M[1, 1])
 
     # # middle elements
-    # for ix = 2:npl
-    #     # upper diagonal of Mout
-    #     be_gemm!(Min.nrsType, Min.nrsType, 1.0, Mout.M[ix-1, ix-1], buffM1.M[ix-1, ix],
-    #         Mout.M[ix-1, ix])
+    for ix = 2:npl
+        # # upper diagonal of Mout
+        # be_gemm!(Min.nrsType, Min.nrsType, 1.0, Mout.M[ix-1, ix-1], buffM1.M[ix-1, ix],
+        #     Mout.M[ix-1, ix])
 
-    #     # diagonal of Mout
-    #     be_inv_from_lu!(Mout.M[ix, ix], buffM.M[ix, ix])
-    #     be_gemm!(Min.nrsType, Min.nrsType, 1.0, buffM1.M[ix, ix-1], buffM2.M[ix-1, ix],
-    #         1.0, Mout.M[ix, ix])
+        # diagonal of Mout
+        be_inv_from_lu!(Mout.M[ix, ix], buffM1.M[ix, ix])
+        be_gemm!('N', 'N', convert(Min.nrsType, 1.0), buffM1.M[ix, ix-1], buffM2.M[ix-1, ix],
+                 convert(Min.nrsType, 1.0), Mout.M[ix, ix])
 
     #     # lower diagonal of Mout
     #     be_gemm!(Min.nrsType, Min.nrsType, -1.0, Mout.M[ix-1, ix-1], buffM1.M[ix, ix-1],
     #         Mout.M[ix, ix-1])
-    # end
-
-    # return Mout
+    end
 end
 
 # TODO(?) : do we want/need catch-all versions of the above function?

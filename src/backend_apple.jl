@@ -80,6 +80,10 @@ function be_zero_array(nrsType::DataType, dimsOfArr::Tuple{Int,Int})::Metal.MtlA
     return Metal.MtlArray(zeros(nrsType, dimsOfArr))
 end
 
+function be_identity(nrsType::DataType, n::Int)::Metal.MtlArray
+    return be_copy_to_hw(Array(LinearAlgebra.Diagonal(ones(nrsType, (n, n)))))
+end
+
 # # ----------------------------------------------------
 # # then composite types e.g. LU and MtlLU
 # # TODO : check : is Julia inlining these? Or use macros instead?
@@ -230,6 +234,14 @@ function be_lu(M::Metal.MtlArray)::MtlLU
     be_lu!(Mout, M)
 
     return Mout
+end
+
+function be_inv_from_lu!(Mout::Metal.MtlArray, Min::MtlLU)
+    Mincpu = be_copy_from_hw(Min)
+    Moutcpu = be_copy_from_hw(Mout)
+    copy!(Moutcpu, Mincpu.A)
+    LinearAlgebra.LAPACK.getri!(Moutcpu, Mincpu.piv)
+    be_copy_to_hw!(Mout, Moutcpu)
 end
 
 # this corresponds to mldivide, but using a precomputed LU

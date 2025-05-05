@@ -71,7 +71,7 @@ function be_zero_array(nrsType::DataType, dimsOfArr::Tuple{Int,Int})::Array
     return Array(zeros(nrsType, dimsOfArr))
 end
 
-function be_identity(nrsType::DataType, n::Int)
+function be_identity(nrsType::DataType, n::Int)::Array
     return Array(LinearAlgebra.Diagonal(ones(nrsType, (n, n))))
 end
 
@@ -214,6 +214,11 @@ function be_lu(M::Array)::CpuLU
     Mlu = be_zero_lu(typeof(M[1,1]), size(M)[1])
     be_lu!(Mlu, M)
     return Mlu
+end
+
+function be_inv_from_lu!(Mout::Array, Min::CpuLU)
+    copy!(Mout, Min.A)
+    LinearAlgebra.LAPACK.getri!(Mout, Min.piv)
 end
 
 # this corresponds to mldivide, but using a precomputed LU

@@ -117,6 +117,20 @@ end
                         check_if_equal(C, Cx, roundoffs[precx], 1.0E0)
                         A = 0; B = 0; C = 0; Acpu = 0; Bcpu = 0; Ccpu = 0; Cx = 0
                         GC.gc()
+
+                        Alu = be_lu(Abm.M[1,1])
+                        Ainv = be_copy_in_hw(Abm.M[1,1])
+                        be_inv_from_lu!(Ainv, Alu)
+                        idM = be_identity(precx, size(Abm.M[1,1])[1])
+                        idMx = be_mul(Abm.M[1,1], Ainv)
+                        if precx == ComplexF32
+                            relxFctr = 1.0E4
+                        elseif precx == ComplexF64
+                            relxFctr = 1.0E3
+                        end
+                        check_if_equal(idM, idMx, roundoffs[precx], relxFctr)
+                        Alu = 0; Ainv = 0; idM = 0; idMx = 0
+                        GC.gc()
                     end
                 end
             end
