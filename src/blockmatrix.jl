@@ -28,6 +28,10 @@ mutable struct Block
 	begin
 		new(M, undef, false, size(M,1), size(M,2))
 	end
+	Block(M::LU) =
+	begin
+		new(undef, M, false, size(M,1), size(M,2))
+	end
 	Block(row, col) =
 	begin
 		new(undef, undef, false, row, col)
@@ -220,6 +224,30 @@ function convert_ALU2M(A::Matrix, rind::Vector{Int}, cind::Vector{Int})::Array
 	end
 
 	return B
+end
+
+"""
+	convert_M2Block(A::Matrix)::Block
+
+Convert a `Matrix` type object `A` into `Block` type
+
+# Arguments
+- `A::Matrix` : The matrix object we convert into `Block` type.
+"""
+function convert_M2Block(A::Matrix)::Block
+	return Block(A)
+end
+
+"""
+	convert_M2Block(A::LU)::Block
+
+Convert a `LU` type object `A` into `Block` type
+
+# Arguments
+- `A::LU` : The matrix of factors object we convert into `Block` type.
+"""
+function convert_M2Block(A::LU)::Block
+	return Block(A)
 end
 
 """
