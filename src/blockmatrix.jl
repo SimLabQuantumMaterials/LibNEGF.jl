@@ -30,12 +30,39 @@ mutable struct Block
 	end
 	Block(M::LU) =
 	begin
-		new(undef, M, false, size(M,1), size(M,2))
+		new(undef, M, false, size(M.L,1), size(M.L,2))
 	end
 	Block(row, col) =
 	begin
 		new(undef, undef, false, row, col)
 	end
+end
+
+"""
+	+(A::Block, B::Block)::Array
+
+Do `A+B` operation of their `Full` fields.
+"""
+function Base.:+(A::Block, B::Block)::Array
+	return A.Full + B.Full
+end
+
+"""
+	+(A::Array, B::Block)::Array
+
+Do `A+B` operation of their `Full` fields.
+"""
+function Base.:+(A::Array, B::Block)::Array
+	return A + B.Full
+end
+
+"""
+	+(A::Block, B::Array)::Array
+
+Do `A+B` operation of their `Full` fields.
+"""
+function Base.:+(A::Block, B::Array)::Array
+	return A.Full + B
 end
 
 """
@@ -177,6 +204,24 @@ Do `A*B` product of their `Full` fields.
 """
 function Base.prod(A::Block, B::Block)::Array
 	return A.Full * B.Full
+end
+
+"""
+	Base.prod(A::Array, B::Block)::Array
+
+Do `A*B` product of their `Full` fields.
+"""
+function Base.prod(A::Array, B::Block)::Array
+	return A * B.Full
+end
+
+"""
+	Base.prod(A::Block, B::Array)::Array
+
+Do `A*B` product of their `Full` fields.
+"""
+function Base.prod(A::Block, B::Array)::Array
+	return A.Full * B
 end
 
 """
