@@ -72,7 +72,7 @@ of `M`. This function uses the RGF method.
 # Arguments
 - `M::BlockMatrix`: the matrix to be inverted.
 """
-function bndiag_of_inv_ddrgf(Min::BlockMatrix, auxData::AuxDataDDRGF)::BlockMatrix
+function bndiag_of_inv_ddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxDataDDRGF)
     # TODO : extend this code to n-diagonal, otherwise rename this function
     #        to keep it as the simple traditional RGF
 
@@ -80,7 +80,7 @@ function bndiag_of_inv_ddrgf(Min::BlockMatrix, auxData::AuxDataDDRGF)::BlockMatr
     #             Array-like, and that those in auxData.rgfBuffs.buffM are LU-like
 
     # a copy of Min, where we place the output
-    Mout = similar_bm_but_zero(Min)
+    # Mout = similar_bm_but_zero(Min)
     npl = size(Mout.blockSizes)[1]
     buffM1 = auxData.rgfBuffs.buffM
     # Mout is used as a buffer in multiple places, this is just
@@ -106,10 +106,10 @@ function bndiag_of_inv_ddrgf(Min::BlockMatrix, auxData::AuxDataDDRGF)::BlockMatr
 
         be_copy_in_hw!(buffM2.M[ix, ix], Min.M[ix, ix])
 
-        # be_gemm!(Min.nrsType, Min.nrsType, -1.0, Min.M[ix, ix+1], buffM1.M[ix+1, ix],
-        #     1.0, buffM2.M[ix, ix])
+        be_gemm!('N', 'N', convert(Min.nrsType, -1.0), Min.M[ix, ix+1], buffM1.M[ix+1, ix],
+                 convert(Min.nrsType, 1.0), buffM2.M[ix, ix])
 
-        # be_lu!(buffM1.M[ix, ix], buffM2.M[ix, ix])
+        be_lu!(buffM1.M[ix, ix], buffM2.M[ix, ix])
     end
 
     # # THEN, downward pass
@@ -133,7 +133,7 @@ function bndiag_of_inv_ddrgf(Min::BlockMatrix, auxData::AuxDataDDRGF)::BlockMatr
     #         Mout.M[ix, ix-1])
     # end
 
-    return Mout
+    # return Mout
 end
 
 # TODO(?) : do we want/need catch-all versions of the above function?
