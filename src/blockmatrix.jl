@@ -211,3 +211,46 @@ function set_blocks_to_zero!(M::BlockMatrix)
         end
     end
 end
+
+# TODO : documentation
+function set_blocks_to_identity!(M::BlockMatrix)
+    blockSizes = M.blockSizes
+    ndiag = M.ndiag
+    if ndiag["in"] > 1
+        println("ERROR: this function is meant, for now, only for block-diagonal block matrices")
+        exit()
+    end
+    npl = size(blockSizes)[1]
+    # blocks will be set to 0-Array or 0-LU accordingly
+    # isArrayOrLU = M.isArrayOrLU
+    # just a label of M
+    A = M
+
+    # loop over the block sizes, conversely over the block rows
+    for ix = 1:npl
+        # indices for the rows
+        ibeg = sum(blockSizes[1:ix-1]) + 1
+        iend = sum(blockSizes[1:ix])
+        # # now, copy the blocks within the ix-th row
+        # if ix > 1
+        #     # left
+        #     for jx = (ix-1):-1:max(1, ix - Int((ndiag["in"] - 1) / 2))
+        #         jbeg = sum(blockSizes[1:jx-1]) + 1
+        #         jend = sum(blockSizes[1:jx])
+        #         A.M[ix, jx] = be_zero_array(A.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+        #     end
+        # end
+        # center
+        # jbeg = ibeg
+        # jend = iend
+        A.M[ix, ix] = be_identity(A.nrsType, iend - ibeg + 1)
+        # if ix < npl
+        #     # right
+        #     for jx = (ix+1):1:min(size(blockSizes)[1], ix + Int((ndiag["in"] - 1) / 2))
+        #         jbeg = sum(blockSizes[1:jx-1]) + 1
+        #         jend = sum(blockSizes[1:jx])
+        #         A.M[ix, jx] = be_zero_array(A.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+        #     end
+        # end
+    end
+end

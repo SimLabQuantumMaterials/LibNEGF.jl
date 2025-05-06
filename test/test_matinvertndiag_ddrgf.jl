@@ -54,11 +54,10 @@ for systemx in systemNames
                 # convert back to sparse
                 MinvSp = convert_BM2S_ndiag(MbmInvNdiag)
 
-                # TODO : uncomment the following once RGF is implemented
-                # relErr = LinearAlgebra.opnorm(Array(MinvSp - Gr), 2) / LinearAlgebra.opnorm(Array(Gr), 2)
-                # # making a rough assumption on backward stability. The additional
-                # # 1.0E1 is because we see a loss in 1 digit in some cases
-                # @test relErr < roundoffs[precx] * condNum * 1.0E1
+                relErr = LinearAlgebra.norm(Array(MinvSp - Gr), 2) / LinearAlgebra.norm(Array(Gr), 2)
+                # making a rough assumption on backward stability. The additional
+                # 1.0E1 is because we see a loss in 1 digit in some cases
+                @test relErr < roundoffs[precx] * 1.0E4
             end
         end
     end

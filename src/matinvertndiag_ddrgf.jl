@@ -1,6 +1,7 @@
 # TODO : documentation
 struct RgfBuffs
     buffM::BlockMatrix
+    bIdM::BlockMatrix
 end
 
 # # TODO : documentation
@@ -28,6 +29,10 @@ function allocate_aux_data_DDRGF(M::BlockMatrix)::AuxDataDDRGF
         M.ndiag, M.nrsType, 1)
     set_blocks_to_zero!(buffM)
 
+    bIdM = BlockMatrix(M.blockSizes, ArrayOrLU_(undef, npl, npl),
+        Dict("in" => 1, "out" => 1), M.nrsType, 0)
+    set_blocks_to_identity!(bIdM)
+
     # # 2. LAPACK-related buffers
 
     # # buffer vector used by getrf! when pivoting
@@ -35,7 +40,7 @@ function allocate_aux_data_DDRGF(M::BlockMatrix)::AuxDataDDRGF
 
     # the final struct with the buffers
 
-    rgfBuffs = RgfBuffs(buffM)
+    rgfBuffs = RgfBuffs(buffM, bIdM)
     # lapackBuffs = RgfBuffs(pivB)
     # auxData = AuxDataDDRGF(rgfBuffs, lapackBuffs)
     auxData = AuxDataDDRGF(rgfBuffs)
@@ -85,6 +90,7 @@ function bndiag_of_inv_ddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxD
     # Mout is used as a buffer in multiple places, this is just
     # labeling for clarity of the implementation
     buffM2 = Mout
+    buffId = auxData.rgfBuffs.bIdM
 
     # TODO : we might not need a full block n-diagonal as a buffer. To see this,
     #        go again over the algorithm, first simple RGF, and note that there
@@ -98,38 +104,51 @@ function bndiag_of_inv_ddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxD
 
     # middle elements
     for ix = npl-1:-1:1
-        # TODO : first run mrdivide, to make use of the mldivide data as a buffer
-        #        for mrdivide
-        # # be_mrdivide!(buffM1.M[ix, ix+1], Min.M[ix, ix+1], buffM1.M[ix+1, ix+1])
-        be_mldivide!(buffM1.M[ix+1, ix], Min.M[ix+1, ix], buffM1.M[ix+1, ix+1])
+        # first run mrdivide, to make use of the mldivide data as a buffer for mrdivide
+
+        # this is how we implement be_mrdivide!(..) via be_mldivide!(..)
+        # X '=' buffM1.M[ix, ix+1]
+        # LU '=' buffM1.M[ix+1, ix+1]
+        # X = Min.M[ix, ix+1] * inv( LU )
+        # X * LU = Min.M[ix, ix+1]
+        # ( LU )^{H} * X^{H}  = ( Min.M[ix, ix+1] )^{H}
+        # ( LU )^{H} * Y  = ( Min.M[ix, ix+1] )^{H}
+
+        # be_mrdivide!(buffM1.M[ix, ix+1], Min.M[ix, ix+1], buffM1.M[ix+1, ix+1])
+        be_ctranspose!(buffM1.M[ix+1, ix], Min.M[ix, ix+1])
+        be_mldivide!('C', buffM2.M[ix+1, ix], buffM1.M[ix+1, ix], buffM1.M[ix+1, ix+1])
+        be_ctranspose!(buffM1.M[ix, ix+1], buffM2.M[ix+1, ix])
+
+        be_mldivide!('N', buffM1.M[ix+1, ix], Min.M[ix+1, ix], buffM1.M[ix+1, ix+1])
 
         be_copy_in_hw!(buffM2.M[ix, ix], Min.M[ix, ix])
-
         be_gemm!('N', 'N', convert(Min.nrsType, -1.0), Min.M[ix, ix+1], buffM1.M[ix+1, ix],
-                 convert(Min.nrsType, 1.0), buffM2.M[ix, ix])
-
+            convert(Min.nrsType, 1.0), buffM2.M[ix, ix])
         be_lu!(buffM1.M[ix, ix], buffM2.M[ix, ix])
     end
 
     # THEN, downward pass
 
     # top element
-    be_inv_from_lu!(Mout.M[1, 1], buffM1.M[1, 1])
+    # be_inv_from_lu!(Mout.M[1, 1], buffM1.M[1, 1])
+    # using be_mldivide!(..) instead of be_inv_from_lu!(..) because we want
+    # to preallocate everything ourselves and avoid LAPACK from doing it on the fly
+    be_mldivide!('N', Mout.M[1, 1], buffId.M[1, 1], buffM1.M[1, 1])
 
     # # middle elements
     for ix = 2:npl
         # upper diagonal of Mout
-        be_gemm!('N', 'N', convert(Min.nrsType, 1.0), Mout.M[ix-1, ix-1], buffM1.M[ix-1, ix],
+        be_gemm!('N', 'N', convert(Min.nrsType, -1.0), Mout.M[ix-1, ix-1], buffM1.M[ix-1, ix],
             convert(Min.nrsType, 0.0), Mout.M[ix-1, ix])
 
-        # diagonal of Mout
-        be_inv_from_lu!(Mout.M[ix, ix], buffM1.M[ix, ix])
-        be_gemm!('N', 'N', convert(Min.nrsType, 1.0), buffM1.M[ix, ix-1], buffM2.M[ix-1, ix],
-                 convert(Min.nrsType, 1.0), Mout.M[ix, ix])
-
         # lower diagonal of Mout
-        be_gemm!('N', 'N', convert(Min.nrsType, -1.0), Mout.M[ix-1, ix-1], buffM1.M[ix, ix-1],
+        be_gemm!('N', 'N', convert(Min.nrsType, -1.0), buffM1.M[ix, ix-1], Mout.M[ix-1, ix-1],
             convert(Min.nrsType, 0.0), Mout.M[ix, ix-1])
+
+        # diagonal of Mout
+        be_mldivide!('N', Mout.M[ix, ix], buffId.M[ix, ix], buffM1.M[ix, ix])
+        be_gemm!('N', 'N', convert(Min.nrsType, -1.0), buffM1.M[ix, ix-1], Mout.M[ix-1, ix],
+            convert(Min.nrsType, 1.0), Mout.M[ix, ix])
     end
 end
 

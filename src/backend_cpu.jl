@@ -75,6 +75,10 @@ function be_identity(nrsType::DataType, n::Int)::Array
     return Array(LinearAlgebra.Diagonal(ones(nrsType, (n, n))))
 end
 
+function be_ctranspose!(Mout::Array, Min::Array)
+    adjoint!(Mout, Min)
+end
+
 # # ----------------------------------------------------
 # # then composite types e.g. LU and MtlLU
 # # TODO : check : is Julia inlining these? Or use macros instead?
@@ -172,7 +176,7 @@ function be_zero_lu(nrsType::DataType, n::Int)::CpuLU
     # IMPORTANT : the first option here gives issues at the level
     #             of the garbage collector
     # Mlu = CpuLU(zeros(nrsType, (n, n)), Vector{Int}(undef, n))
-    Mlu = CpuLU(zeros(nrsType, (n, n)), Vector{Int}(ones(Int, (1,n))[1,:]))
+    Mlu = CpuLU(zeros(nrsType, (n, n)), Vector{Int}(ones(Int, (1, n))[1, :]))
     return Mlu
 end
 
@@ -192,13 +196,9 @@ end
 #     be_copy_to_hw!(Mout, MincpuInv)
 # end
 
-# function be_inv(M::Metal.MtlArray)::Metal.MtlArray
-#     Mcpy = be_copy_in_hw(M)
-#     # TODO(?) : change the following line once we have create a function
-#     #           be_inv!(...) that actually modifies Min
-#     be_inv!(Mcpy, M)
-#     return Mcpy
-# end
+function be_inv(M::Array)::Array
+    return inv(M)
+end
 
 function be_lu!(Mout::CpuLU, Min::Array)
     copy!(Mout.A, Min)
@@ -211,7 +211,7 @@ function be_lu!(Mout::CpuLU, Min::Array)
 end
 
 function be_lu(M::Array)::CpuLU
-    Mlu = be_zero_lu(typeof(M[1,1]), size(M)[1])
+    Mlu = be_zero_lu(typeof(M[1, 1]), size(M)[1])
     be_lu!(Mlu, M)
     return Mlu
 end
@@ -222,9 +222,9 @@ function be_inv_from_lu!(Mout::Array, Min::CpuLU)
 end
 
 # this corresponds to mldivide, but using a precomputed LU
-function be_mldivide!(Mout::Array, Min::Array, Mlu::CpuLU)
+function be_mldivide!(trans::Char, Mout::Array, Min::Array, Mlu::CpuLU)
     copy!(Mout, Min)
-    LinearAlgebra.LAPACK.getrs!('N', Mlu.A, Mlu.piv, Mout)
+    LinearAlgebra.LAPACK.getrs!(trans, Mlu.A, Mlu.piv, Mout)
 end
 
 # # this corresponds to mldivide, but using a precomputed LU

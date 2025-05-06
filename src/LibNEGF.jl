@@ -36,6 +36,7 @@ export be_identity
 export be_mul
 export be_gemm!
 export be_inv_from_lu!
+export be_inv
 
 # from utils.jl
 # export @codeLocation
