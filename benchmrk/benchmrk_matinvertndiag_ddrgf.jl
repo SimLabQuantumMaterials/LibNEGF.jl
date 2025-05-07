@@ -60,12 +60,14 @@ for systemx in systemNames
                         # multiple inversions per energy point, for statistics purposes
                         for ix = 1:ninvs
                             if ix == 1
-                                timerTagLocal = "bndiag_of_inv_direct_" * string(precx) * "_thread" * string(Threads.threadid()) * "_first"
+                                timerTagLocal = "thread" * string(Threads.threadid()) * "_first"
                             else
-                                timerTagLocal = "bndiag_of_inv_direct_" * string(precx) * "_thread" * string(Threads.threadid()) * "_others"
+                                timerTagLocal = "thread" * string(Threads.threadid()) * "_wo_first"
                             end
                             Printf.@printf(".")
-                            @timeit timers[tid] timerTagLocal bndiag_of_inv_ddrgf!(Mouts[tid], Mins[tid], auxs[tid])
+                            td = TimingData(timers[tid], timerTagLocal)
+                            # TODO : we need to be able to pass <nothing> as the last parameter in the next function call
+                            @timeit timers[tid] timerTagLocal*"_total" bndiag_of_inv_ddrgf!(Mouts[tid], Mins[tid], auxs[tid], td)
                         end
                     end
 

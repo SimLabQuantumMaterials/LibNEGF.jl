@@ -12,3 +12,10 @@
 #         println("in function ", $("$(__module__)"),".$(myf) at ",$("$(__source__.file)"),":",$("$(__source__.line)"))
 #     end
 # end
+
+# a struct to pack timing info
+# TODO : documentation
+struct TimingData
+    to::TimerOutput
+    label::String
+end
