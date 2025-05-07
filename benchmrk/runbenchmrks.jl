@@ -25,10 +25,10 @@ Printf.@printf("\nBenchmarking, common info:\n")
 Printf.@printf("  -- hardware: %s\n", ARGS[1])
 Printf.@printf("  -- nr of BLAS threads: %d\n", LinearAlgebra.BLAS.get_num_threads())
 Printf.@printf("  -- nr of outer threads: %d\n", Threads.nthreads())
-Printf.@printf("  -- nr of energy points: %d\n\n", nrEvals)
+Printf.@printf("  -- nr of energy points: %d\n\n", size(Epoints)[1])
 
 # benchmarks common to all of the supported hardwares
 # include("benchmrk_matinvertndiag_direct.jl")
-include("benchmrk_matinvertndiag_rgf.jl")
+include("benchmrk_matinvertndiag_ddrgf.jl")
 
 println(to)

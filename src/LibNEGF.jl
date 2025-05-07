@@ -12,12 +12,14 @@ export build_M_from_HS
 export bndiag_of_inv_direct
 export bndiag_of_inv_ddrgf!
 export allocate_aux_data_DDRGF
+export AuxDataDDRGF
 
 # from blockmatrix.jl
 export BlockMatrix
 export convert_S2BM_ndiag
 export convert_BM2S_ndiag
 export similar_bm_but_zero
+export copy_BM
 
 # from backend_*.jl
 export be_zero_array

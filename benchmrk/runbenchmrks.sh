@@ -25,8 +25,8 @@ HWs="cpu apple nvidia amd intel"
 if exists_in_list "$HWs" " " $1; then
     # get the manifest specific to the chosen HW
     cp ../Manifest_$1.toml ../Manifest.toml
-    export OPENBLAS_NUM_THREADS=3
-    export JULIA_NUM_THREADS=2
+    export OPENBLAS_NUM_THREADS=2
+    export JULIA_NUM_THREADS=3
     # include the backend for that HW
     sed -i -e "s/backend_HW.jl/backend_$1.jl/g" ../src/LibNEGF.jl
     # launch the benchmark runs

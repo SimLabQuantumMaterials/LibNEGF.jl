@@ -1,18 +1,8 @@
 # load the energy points from an input file
-energValsIn = LibNEGF.load_energies("3x3")
-EvalsIn = Vector{Float64}()
-for (key, value) in energValsIn
-    push!(EvalsIn, value)
-end
-
-# creating an artifial set of energy values, for benchmarking purposes
-nrEvals = 8
-eMin = EvalsIn[1]
-eMax = last(EvalsIn)
-Evals = Vector{Float64}(undef, nrEvals)
-nrEvals > 1 ? deltaE = (eMax - eMin) / (nrEvals - 1) : deltaE = 0
-for ix = 1:nrEvals
-    Evals[ix] = eMin + (ix - 1) * deltaE
+energVals = LibNEGF.load_energies("3x3")
+Epoints = Vector{Int}()
+for (key, value) in energVals
+    push!(Epoints, key)
 end
 
 # list of the precisions to be tested
