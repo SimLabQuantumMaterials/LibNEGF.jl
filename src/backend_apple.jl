@@ -1,12 +1,10 @@
 using Metal
 
-# TODO : documentation
 struct MtlLU
     A::Metal.MtlArray
     piv::Metal.MtlVector
 end
 
-# TODO : documentation
 mutable struct CpuLU
     A::Array
     piv::Vector{Int}
@@ -20,33 +18,9 @@ with blocks stored in the (GPU) device.
 """
 ArrayOrLU_ = Matrix{Union{Metal.MtlArray,MtlLU,Nothing}}
 
-# TODO : write tests for many of the following backend function, but these
-#        tests have to be backend-blind
-
-# TODO : add documentation for all of the following functions
-
-# taken from:
-# https://discourse.julialang.org/t/how-to-print-function-name-and-source-file-line-number/43486/2
-macro code_location()
-    return quote
-        st = stacktrace(backtrace())
-        myf = ""
-        for frm in st
-            funcname = frm.func
-            if frm.func != :backtrace && frm.func != Symbol("macro expansion")
-                myf = frm.func
-                break
-            end
-        end
-        println("in function ", $("$(__module__)"), ".$(myf) at ", $("$(__source__.file)"), ":", $("$(__source__.line)"))
-    end
-end
-
 # ----------------------------------------------------
 # 'base' types first e.g. Array and Metal.MtlArray
 # TODO : check : is Julia inlining these? Or use macros instead?
-
-# done : all the tests have been added for this section
 
 function be_copy_to_hw!(Mout::Metal.MtlArray, Min::Array)
     copy!(Mout, Min)
@@ -71,10 +45,6 @@ end
 function be_copy_in_hw(M::Metal.MtlArray)::Metal.MtlArray
     copy(M)
 end
-
-# function be_set_to_zero_dev_array!(M::Metal.MtlArray)
-#     be_copy_to_hw!(M, zero(size(M)[1], size(M)[2]))
-# end
 
 function be_zero_array(nrsType::DataType, dimsOfArr::Tuple{Int,Int})::Metal.MtlArray
     return Metal.MtlArray(zeros(nrsType, dimsOfArr))
@@ -138,51 +108,12 @@ function be_copy_to_hw!(Mout::MtlLU, Min::CpuLU)
     be_copy_to_hw!(Mout.piv, Min.piv)
 end
 
-# function be_copy_to_hw(M::LU)::MtlLU
-#     # for now, we have to emulate this i.e. we do the copies
-#     # 'manually'
-#     Mmtl = MtlLU(M.L, M.U, M.p, M.P)
-#     return Mmtl
-# end
-
-# function be_copy_from_hw!(Mout::LU, Min::MtlLU)
-#     # for now, we have to emulate this i.e. copy to CPU, do
-#     # things on the CPU and return
-#     Lcpu = be_copy_from_hw(Min.L)
-#     Ucpu = be_copy_from_hw(Min.U)
-#     Pcpu = be_copy_from_hw(Min.P)
-#     A = Pcpu' * (Lcpu * Ucpu)
-#     Alu = lu(A)
-#     copy!(Mout, Alu)
-#     # copy!(Mout.L, Alu.L)
-#     # copy!(Mout.U, Alu.U)
-#     # copy!(Mout.p, Alu.p)
-#     # copy!(Mout.P, Alu.P)
-# end
-
 function be_copy_from_hw(M::MtlLU)::CpuLU
     Acpu = be_copy_from_hw(M.A)
     pcpu = be_copy_from_hw(M.piv)
     Mcpu = CpuLU(Acpu, pcpu)
     return Mcpu
 end
-
-# function be_copy_in_hw!(Mout::MtlLU, Min::MtlLU)
-#     be_copy_in_hw!(Mout.L, Min.L)
-#     be_copy_in_hw!(Mout.U, Min.U)
-#     be_copy_in_hw!(Mout.p, Min.p)
-#     be_copy_in_hw!(Mout.P, Min.P)
-# end
-
-# function be_copy_in_hw(M::MtlLU)::MtlLU
-#     Mcpy = MtlLU(M.L, M.U, M.p, M.P)
-#     return Mcpy
-# end
-
-# function be_zero_lu(nrsType::DataType, n::Int)::MtlLU
-#     Mlu = MtlLU(zeros(nrsType, (n, n)), zeros(nrsType, (n, n)), zeros(Int, (n, n)), 1:n)
-#     return Mlu
-# end
 
 function be_zero_lu(nrsType::DataType, n::Int)::MtlLU
     Az = be_copy_to_hw(zeros(nrsType, (n, n)))
@@ -195,25 +126,6 @@ end
 # # finally, some functionality e.g. inv(...) and lu(...), where
 # # all of the input and output matrices are assumed to be in the
 # # desired hardware i.e. apple GPUs
-
-# # for now, we have to emulate these i.e. copy to CPU, do things
-# # on the CPU, and copy back to Metal
-
-# # TODO(?) : create a function be_inv!(...) that actually modifies Min
-
-# function be_inv!(Mout::Metal.MtlArray, Min::Metal.MtlArray)
-#     Mincpu = be_copy_from_hw(Min)
-#     MincpuInv = inv(Mincpu)
-#     be_copy_to_hw!(Mout, MincpuInv)
-# end
-
-# function be_inv(M::Metal.MtlArray)::Metal.MtlArray
-#     Mcpy = be_copy_in_hw(M)
-#     # TODO(?) : change the following line once we have create a function
-#     #           be_inv!(...) that actually modifies Min
-#     be_inv!(Mcpy, M)
-#     return Mcpy
-# end
 
 function be_lu!(Mout::MtlLU, Min::Metal.MtlArray)
     Mincpu = be_copy_from_hw(Min)
@@ -263,28 +175,6 @@ function be_mldivide!(trans::Char, Mout::Metal.MtlArray, Min::Metal.MtlArray, Ml
     be_copy_to_hw!(Mout, Moutcpu)
 end
 
-# # this corresponds to mldivide, but using a precomputed LU
-# function be_mldivide(M::Metal.MtlArray, Mlu::MtlLU)::Metal.MtlArray
-#     Mcpy = be_copy_in_hw(M)
-#     be_mldivide!(Mcpy, M, Mlu)
-#     return Mcpy
-# end
-
-# # this corresponds to mrdivide, but using a precomputed LU
-# function be_mrdivide!(Mout::Metal.MtlArray, Min::Metal.MtlArray, Mlu::MtlLU)
-#     Mlucpu = be_copy_from_hw(Mlu)
-#     Mincpu = be_copy_from_hw(Min)
-#     X = Mincpu / Mlucpu
-#     be_copy_to_hw!(Mout, X)
-# end
-
-# # this corresponds to mrdivide, but using a precomputed LU
-# function be_mrdivide(M::Metal.MtlArray, Mlu::MtlLU)::Metal.MtlArray
-#     Mcpy = be_copy_in_hw(M)
-#     be_mrdivide!(Mcpy, M, Mlu)
-#     return Mcpy
-# end
-
 function be_gemm!(tA::Char, tB::Char, alpha::Number, A::Metal.MtlArray,
     B::Metal.MtlArray, beta::Number, C::Metal.MtlArray)
     Acpu = be_copy_from_hw(A)
@@ -295,40 +185,6 @@ function be_gemm!(tA::Char, tB::Char, alpha::Number, A::Metal.MtlArray,
 
     be_copy_to_hw!(C, Ccpu)
 end
-
-# function be_gemm!(tA::DataType, tB::DataType, alpha::Number, A::Metal.MtlArray,
-#     B::Metal.MtlArray, beta::Number, C::Metal.MtlArray)
-#     # TODO : do we need to take care of data conversions?
-#     Acpu = be_copy_from_hw(A)
-#     Bcpu = be_copy_from_hw(B)
-#     Ccpu = be_copy_from_hw(C)
-#     LinearAlgebra.BLAS.gemm!(tA, tB, alpha, Acpu, Bcpu, beta, Ccpu)
-#     be_copy_to_hw!(C, Ccpu)
-# end
-
-# function be_gemm!(tA::DataType, tB::DataType, alpha::Number, A::Metal.MtlArray,
-#     B::Metal.MtlArray, C::Metal.MtlArray)
-#     # TODO : do we need to take care of data conversions?
-#     Acpu = be_copy_from_hw(A)
-#     Bcpu = be_copy_from_hw(B)
-#     Ccpu = LinearAlgebra.BLAS.gemm(tA, tB, alpha, Acpu, Bcpu)
-#     be_copy_to_hw!(C, Ccpu)
-# end
-
-# function be_inverse_from_lu!(Mout::Metal.MtlArray, Mlu::MtlLU)
-#     Mlucpu = be_copy_from_hw(Mlu)
-#     # find the inverse by solving with the identity as rhs
-#     Minvcpu = Mlucpu \ I
-#     be_copy_from_hw!(Mout, Minvcpu)
-# end
-
-# function be_inverse_from_lu(Mlu::MtlLU)::Metal.MtlArray
-#     Mlucpu = be_copy_from_hw(Mlu)
-#     # find the inverse by solving with the identity as rhs
-#     Minvcpu = Mlucpu \ I
-#     Minvmtl = be_copy_from_hw(Minvcpu)
-#     return Minvmtl
-# end
 
 function be_mul!(Mout::Metal.MtlArray, M1::Metal.MtlArray, M2::Metal.MtlArray)
     M1cpu = be_copy_from_hw(M1)
@@ -346,19 +202,3 @@ function be_mul(M1::Metal.MtlArray, M2::Metal.MtlArray)::Metal.MtlArray
     be_mul!(Mout, M1, M2)
     return Mout
 end
-
-# # # this overrides M1 with the result of the subtraction
-# # function be_minus!(M1::Metal.MtlArray, M2::Metal.MtlArray)
-# #     M1cpu = be_copy_from_hw(M1)
-# #     M2cpu = be_copy_from_hw(M2)
-# #     Moutcpu = M1cpu - M2cpu
-# #     be_copy_to_hw!(M1, Moutcpu)
-# # end
-
-# # function be_minus(M1::Metal.MtlArray, M2::Metal.MtlArray)::Metal.MtlArray
-# #     M1cpu = be_copy_from_hw(M1)
-# #     M2cpu = be_copy_from_hw(M2)
-# #     Moutcpu = M1cpu - M2cpu
-# #     Moutmtl = be_copy_to_hw(Moutcpu)
-# #     return Moutmtl
-# # end

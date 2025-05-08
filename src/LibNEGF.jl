@@ -44,11 +44,11 @@ export be_inv
 # export @codeLocation
 export TimingData
 
+include("utils.jl")
+
 # include the backend for the desired harwdware, replace
 # HW by one of cpu, apple, nvidia, etc
 include("backend_HW.jl")
-
-include("utils.jl")
 
 include("matloader.jl")
 include("blockmatrix.jl")
