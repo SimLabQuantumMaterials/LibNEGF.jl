@@ -100,7 +100,7 @@ resizing of arrays. This is the catch-all version.
 - `ndiag::Any`: the number of block diagonals for the input
   and the output, e.g. Dict("in" => 3, "out" => 3) for block tri-diagonal.
 """
-function bndiag_of_inv_direct(M_::Any, blockSizes_::Any, ndiag::Any)::T where {T}
+function bndiag_of_inv_direct(M_::Any, blockSizes_::Any, ndiag::Any)
     if typeof(M_) != SparseArrays.SparseMatrixCSC
         # first, try to convert M_
         try
@@ -141,18 +141,21 @@ function bndiag_of_inv_direct(M_::Any, blockSizes_::Any, ndiag::Any)::T where {T
     # do the computation in-place, as M is already a copy
     bndiag_of_inv_direct!(M, blockSizes, ndiag)
 
-    if typeof(M) != T
-        # finally, try to convert M to the desired output type T
-        try
-            M2T = convert(T, M)
-        catch
-            println("Error in converting M within bndiag_of_inv_direct(...)
-            to the desired output type, stopping")
-            exit()
-        end
-    else
-        M2T = M
-    end
+    # this function is not so relevant, so omiting this to avoid precompilation warning message
+    # every time
+    # if typeof(M) != T
+    #     # finally, try to convert M to the desired output type T
+    #     try
+    #         M2T = convert(T, M)
+    #     catch
+    #         println("Error in converting M within bndiag_of_inv_direct(...)
+    #         to the desired output type, stopping")
+    #         exit()
+    #     end
+    # else
+    #     M2T = M
+    # end
+    M2T = M
     return M2T
 end
 
