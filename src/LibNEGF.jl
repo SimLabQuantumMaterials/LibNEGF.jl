@@ -1,7 +1,7 @@
 "A Julia package consisting of a rework of some parts of [libNEGF](https://github.com/libnegf/libnegf)."
 module LibNEGF
 
-using SparseArrays, CSV, MAT, LinearAlgebra, TimerOutputs
+using SparseArrays, CSV, MAT, LinearAlgebra
 
 # from matloader.jl
 export load_energies
@@ -40,11 +40,12 @@ export be_gemm!
 export be_inv_from_lu!
 export be_inv
 
-# from utils.jl
-# export @codeLocation
-export TimingData
-
-include("utils.jl")
+# from utils/
+# this is the core set of utils, where some macros are included
+# empty, and if then utils_optnl.jl is included those empty macros
+# are replaced
+include("utils/common.jl")
+include("utils/full_timings.jl")
 
 # include the backend for the desired harwdware, replace
 # HW by one of cpu, apple, nvidia, etc

@@ -100,7 +100,9 @@ function bndiag_of_inv_ddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxD
     # FIRST, upward pass
 
     # bottom element
-    @timeit td.to td.label*"_lu" be_lu!(buffM1.M[npl, npl], Min.M[npl, npl])
+    # @timer(td,"_lu") \
+    # @timeit td.to td.label*"_lu" 
+    @timewrap td "_lu" be_lu!(buffM1.M[npl, npl], Min.M[npl, npl])
 
     # middle elements
     for ix = npl-1:-1:1
@@ -115,18 +117,18 @@ function bndiag_of_inv_ddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxD
         # ( LU )^{H} * Y  = ( Min.M[ix, ix+1] )^{H}
 
         # be_mrdivide!(buffM1.M[ix, ix+1], Min.M[ix, ix+1], buffM1.M[ix+1, ix+1])
-        @timeit td.to td.label*"_mrdivide" begin
+        @timewrap td "_mrdivide" begin
             be_ctranspose!(buffM1.M[ix+1, ix], Min.M[ix, ix+1])
             be_mldivide!('C', buffM2.M[ix+1, ix], buffM1.M[ix+1, ix], buffM1.M[ix+1, ix+1])
             be_ctranspose!(buffM1.M[ix, ix+1], buffM2.M[ix+1, ix])
         end
 
-        @timeit td.to td.label*"_mldivide" be_mldivide!('N', buffM1.M[ix+1, ix], Min.M[ix+1, ix], buffM1.M[ix+1, ix+1])
+        @timewrap td "_mldivide" be_mldivide!('N', buffM1.M[ix+1, ix], Min.M[ix+1, ix], buffM1.M[ix+1, ix+1])
 
         be_copy_in_hw!(buffM2.M[ix, ix], Min.M[ix, ix])
-        @timeit td.to td.label*"_gemm" be_gemm!('N', 'N', convert(Min.nrsType, -1.0), Min.M[ix, ix+1], buffM1.M[ix+1, ix],
+        @timewrap td "_gemm" be_gemm!('N', 'N', convert(Min.nrsType, -1.0), Min.M[ix, ix+1], buffM1.M[ix+1, ix],
             convert(Min.nrsType, 1.0), buffM2.M[ix, ix])
-        @timeit td.to td.label*"_lu" be_lu!(buffM1.M[ix, ix], buffM2.M[ix, ix])
+        @timewrap td "_lu" be_lu!(buffM1.M[ix, ix], buffM2.M[ix, ix])
     end
 
     # THEN, downward pass
@@ -135,21 +137,21 @@ function bndiag_of_inv_ddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxD
     # be_inv_from_lu!(Mout.M[1, 1], buffM1.M[1, 1])
     # using be_mldivide!(..) instead of be_inv_from_lu!(..) because we want
     # to preallocate everything ourselves and avoid LAPACK from doing it on the fly
-    @timeit td.to td.label*"_mldivide" be_mldivide!('N', Mout.M[1, 1], buffId.M[1, 1], buffM1.M[1, 1])
+    @timewrap td "_mldivide" be_mldivide!('N', Mout.M[1, 1], buffId.M[1, 1], buffM1.M[1, 1])
 
     # # middle elements
     for ix = 2:npl
         # upper diagonal of Mout
-        @timeit td.to td.label*"_gemm" be_gemm!('N', 'N', convert(Min.nrsType, -1.0), Mout.M[ix-1, ix-1], buffM1.M[ix-1, ix],
+        @timewrap td "_gemm" be_gemm!('N', 'N', convert(Min.nrsType, -1.0), Mout.M[ix-1, ix-1], buffM1.M[ix-1, ix],
             convert(Min.nrsType, 0.0), Mout.M[ix-1, ix])
 
         # lower diagonal of Mout
-        @timeit td.to td.label*"_gemm" be_gemm!('N', 'N', convert(Min.nrsType, -1.0), buffM1.M[ix, ix-1], Mout.M[ix-1, ix-1],
+        @timewrap td "_gemm" be_gemm!('N', 'N', convert(Min.nrsType, -1.0), buffM1.M[ix, ix-1], Mout.M[ix-1, ix-1],
             convert(Min.nrsType, 0.0), Mout.M[ix, ix-1])
 
         # diagonal of Mout
-        @timeit td.to td.label*"_mldivide" be_mldivide!('N', Mout.M[ix, ix], buffId.M[ix, ix], buffM1.M[ix, ix])
-        @timeit td.to td.label*"_gemm" be_gemm!('N', 'N', convert(Min.nrsType, -1.0), buffM1.M[ix, ix-1], Mout.M[ix-1, ix],
+        @timewrap td "_mldivide" be_mldivide!('N', Mout.M[ix, ix], buffId.M[ix, ix], buffM1.M[ix, ix])
+        @timewrap td "_gemm" be_gemm!('N', 'N', convert(Min.nrsType, -1.0), buffM1.M[ix, ix-1], Mout.M[ix-1, ix],
             convert(Min.nrsType, 1.0), Mout.M[ix, ix])
     end
 end

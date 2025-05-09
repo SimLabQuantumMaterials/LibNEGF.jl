@@ -65,9 +65,13 @@ for systemx in systemNames
                                 timerTagLocal = "thread" * string(Threads.threadid()) * "_wo_first"
                             end
                             Printf.@printf(".")
-                            td = TimingData(timers[tid], timerTagLocal)
+                            if Int(parse(Float64, ARGS[2])) == 1
+                                td = TimingData(timers[tid], timerTagLocal)
+                            else
+                                td = TimingData()
+                            end
                             # TODO : we need to be able to pass <nothing> as the last parameter in the next function call
-                            @timeit timers[tid] timerTagLocal*"_total" bndiag_of_inv_ddrgf!(Mouts[tid], Mins[tid], auxs[tid], td)
+                            @timeit timers[tid] timerTagLocal * "_total" bndiag_of_inv_ddrgf!(Mouts[tid], Mins[tid], auxs[tid], td)
                         end
                     end
 

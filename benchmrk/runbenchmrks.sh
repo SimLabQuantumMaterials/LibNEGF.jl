@@ -1,9 +1,10 @@
 #!/bin/bash
 
-# run as : ./runbenchmrks.sh HW
+# run as : ./runbenchmrks.sh HW 0/1
 # where HW is one of : cpu, amd, nvidia, intel, apple,
 # with all of these indicating that we run on GPUs, except
-# the first one (i.e. cpu)
+# the first one (i.e. cpu). The second parameter is whether
+# we want to include timings within the LibNEGF.jl or not
 
 # function taken from:
 # https://www.baeldung.com/linux/check-variable-exists-in-list
@@ -20,6 +21,16 @@ function exists_in_list() {
     return 1
 }
 
+# checks on the param that specifies whether we add finer timings or not
+if [ "$#" -ne 2 ]; then
+    echo "The number of params for runbencharks.sh has to be 2"
+    exit
+fi
+if [ "$2" -ne 0 ] && [ "$2" -ne 1 ]; then
+    echo "The second param in runbenchmarks.sh has to be either 0 or 1"
+    exit
+fi
+
 HWs="cpu apple nvidia amd intel"
 
 if exists_in_list "$HWs" " " $1; then
@@ -29,10 +40,14 @@ if exists_in_list "$HWs" " " $1; then
     export JULIA_NUM_THREADS=3
     # include the backend for that HW
     sed -i -e "s/backend_HW.jl/backend_$1.jl/g" ../src/LibNEGF.jl
+    if [ "$2" -ne 1 ];then
+        sed -i -e 's|include("utils/full_timings.jl")|include("utils/empty_timings.jl")|' ../src/LibNEGF.jl
+    fi
     # launch the benchmark runs
-    julia runbenchmrks.jl $1
+    julia runbenchmrks.jl $1 $2
     # revert the change to ../src/LibNEGF.jl
     sed -i -e "s/backend_$1.jl/backend_HW.jl/g" ../src/LibNEGF.jl
+    sed -i -e 's|include("utils/empty_timings.jl")|include("utils/full_timings.jl")|' ../src/LibNEGF.jl
 else
     echo "The hardware $1 is not in the list, not running the tests"
 fi
