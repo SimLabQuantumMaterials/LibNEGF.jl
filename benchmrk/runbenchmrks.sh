@@ -44,7 +44,7 @@ if exists_in_list "$HWs" " " $1; then
         sed -i -e 's|include("utils/empty_timings.jl")|include("utils/full_timings.jl")|' ../src/LibNEGF.jl
     fi
     # launch the benchmark runs
-    julia runbenchmrks.jl $1 $2
+    julia --threads=$JULIA_NUM_THREADS runbenchmrks.jl $1 $2
     # revert the change to ../src/LibNEGF.jl
     sed -i -e "s/backend_$1.jl/backend_HW.jl/g" ../src/LibNEGF.jl
     if [ "$2" -ne 0 ];then

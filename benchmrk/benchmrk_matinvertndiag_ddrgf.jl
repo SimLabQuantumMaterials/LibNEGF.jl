@@ -1,4 +1,4 @@
-Printf.@printf("Benchmarking bndiag_of_inv_direct(...)\n")
+Printf.@printf("Benchmarking bndiag_of_inv_ddrgf(...)\n")
 
 for systemx in systemNames
     for precx in precs
@@ -53,9 +53,7 @@ for systemx in systemNames
                     # (?) force the garbage collector before doing the core computations
                     GC.gc()
 
-                    Threads.@threads for E in Epoints
-                        tid = Threads.threadid()
-
+                    tx(tid) = begin
                         ninvs = 10
                         # multiple inversions per energy point, for statistics purposes
                         for ix = 1:ninvs
@@ -70,14 +68,18 @@ for systemx in systemNames
                             else
                                 td = TimingData()
                             end
-                            # TODO : we need to be able to pass <nothing> as the last parameter in the next function call
                             @timeit timers[tid] timerTagLocal * "_total" bndiag_of_inv_ddrgf!(Mouts[tid], Mins[tid], auxs[tid], td)
                         end
+                    end
+
+                    Threads.@threads for ix in 1:length(Epoints)
+                        tx(ix)
                     end
 
                     for ix = 1:Threads.nthreads()
                         merge!(to, timers[ix], tree_point=[timerTagGlobal])
                     end
+
                     Printf.@printf("\n")
                 end
             end
