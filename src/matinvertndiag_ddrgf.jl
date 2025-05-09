@@ -1,12 +1,24 @@
-# TODO : documentation
-# buffers for RGF, packed in a single struct
+"""
+	AuxDataDDRGF
+
+Buffers used by RGF. The matrix `buffM` is used at the RGF level,
+while `bIdM` is the identity in block 1-diagonal form whic his used
+for explicit inversions via `getrs!(..)`.
+"""
 struct AuxDataDDRGF
     buffM::BlockMatrix
     bIdM::BlockMatrix
 end
 
-# TODO : documentation
-# TODO(?) : put this inside a constructor for AuxDataDDRGF
+"""
+	allocate_aux_data_DDRGF(M::BlockMatrix)
+
+Based on the block-sparsity pattern of the input matrix `M`, allocate the
+buffers in `AuxDataDDRGF`.
+
+# Arguments
+- `M::BlockMatrix`: the matrix used as reference.
+"""
 function allocate_aux_data_DDRGF(M::BlockMatrix)::AuxDataDDRGF
     npl = size(M.blockSizes)[1]
 
@@ -26,34 +38,19 @@ function allocate_aux_data_DDRGF(M::BlockMatrix)::AuxDataDDRGF
     return auxData
 end
 
-# """
-#     bndiag_of_inv_rgf!(M::BlockMatrix)
-
-# For an input matrix `M`, possibly but not necessarily block n-diagonal,
-# where n is tri, penta, etc., compute the block n-diagonal part of the inverse
-# of `M`. This function uses the RGF method. This is the in-place version.
-
-# # Arguments
-# - `M::BlockMatrix`: the matrix to be inverted.
-# """
-# function bndiag_of_inv_rgf!(M::BlockMatrix)
-
-#     # TODO : fix everything in this function to implement first the basic
-#     #        RGF method
-
-#     # does it make sense to have an in-place of this? If so, then make
-#     # use of be_copy_in_hw(...) before calling this
-# end
-
 """
-    bndiag_of_inv_rgf(M::BlockMatrix)::BlockMatrix
+    bndiag_of_inv_ddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxDataDDRGF, td::TimingData)
 
 For an input matrix `M`, possibly but not necessarily block n-diagonal,
-where n is tri, penta, etc., compute the block n-diagonal part of the inverse
-of `M`. This function uses the RGF method.
+where n is 3, 5, etc., compute the block n-diagonal part of the inverse
+of `M`. This function uses the RGF method (soon to be extended to DD-RGF).
 
 # Arguments
-- `M::BlockMatrix`: the matrix to be inverted.
+- `Min::BlockMatrix`: the matrix to be inverted.
+- `Mout::BlockMatrix`: the output matrix.
+- `auxData`: auxiliary buffers.
+- `td`: struct for fine-level (i.e. of the backend kernels) timing. The user can choose no timing,
+in which case `td` is an empty `TimingData` struct.
 """
 function bndiag_of_inv_ddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxDataDDRGF, td::TimingData)
     # TODO : extend this code to n-diagonal, otherwise rename this function
@@ -78,8 +75,6 @@ function bndiag_of_inv_ddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxD
     # FIRST, upward pass
 
     # bottom element
-    # @timer(td,"_lu") \
-    # @timeit td.to td.label*"_lu" 
     @timewrap td "_lu" be_lu!(buffM1.M[npl, npl], Min.M[npl, npl])
 
     # middle elements
@@ -87,14 +82,6 @@ function bndiag_of_inv_ddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxD
         # first run mrdivide, to make use of the mldivide data as a buffer for mrdivide
 
         # this is how we implement be_mrdivide!(..) via be_mldivide!(..)
-        # X '=' buffM1.M[ix, ix+1]
-        # LU '=' buffM1.M[ix+1, ix+1]
-        # X = Min.M[ix, ix+1] * inv( LU )
-        # X * LU = Min.M[ix, ix+1]
-        # ( LU )^{H} * X^{H}  = ( Min.M[ix, ix+1] )^{H}
-        # ( LU )^{H} * Y  = ( Min.M[ix, ix+1] )^{H}
-
-        # be_mrdivide!(buffM1.M[ix, ix+1], Min.M[ix, ix+1], buffM1.M[ix+1, ix+1])
         @timewrap td "_mrdivide" begin
             be_ctranspose!(buffM1.M[ix+1, ix], Min.M[ix, ix+1])
             be_mldivide!('C', buffM2.M[ix+1, ix], buffM1.M[ix+1, ix], buffM1.M[ix+1, ix+1])
@@ -112,7 +99,6 @@ function bndiag_of_inv_ddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxD
     # THEN, downward pass
 
     # top element
-    # be_inv_from_lu!(Mout.M[1, 1], buffM1.M[1, 1])
     # using be_mldivide!(..) instead of be_inv_from_lu!(..) because we want
     # to preallocate everything ourselves and avoid LAPACK from doing it on the fly
     @timewrap td "_mldivide" be_mldivide!('N', Mout.M[1, 1], buffId.M[1, 1], buffM1.M[1, 1])

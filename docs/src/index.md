@@ -21,4 +21,7 @@ convert_S2BM_ndiag(M::SparseArrays.SparseMatrixCSC, blockSizes::Vector{Int},
 convert_BM2S_ndiag(M::BlockMatrix)
 copy_BM(M::BlockMatrix)
 similar_bm_but_zero(M::BlockMatrix)
+AuxDataDDRGF
+allocate_aux_data_DDRGF(M::BlockMatrix)
+bndiag_of_inv_ddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxDataDDRGF, td::TimingData)
 ```
