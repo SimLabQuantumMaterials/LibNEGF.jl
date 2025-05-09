@@ -1,9 +1,12 @@
 """
     BlockMatrix
 
-Struct containing an attribute with the block sizes, and another one with
-the matrix stored in `ArrayOrLU_` format. The latter consists of a block matrix
-where the blocks can contain a `Array`, `LU factor` and/or `undef`.
+Encapsulates the data for a block n-diagonal matrix. The actual matrix is
+stored in `M`, with underlying scalars type specified by `nrsType`. The
+blocks along the diagonal can be either an `Array`-like or an `LU`-like struct,
+which is indicated via `isArrayOrLU`. The number of offdiagonals is stored
+in the dictionary `ndiag`, e.g. Dict("in" => 3, "out" => 3) tells us that an
+algorithm will read tye block 3-diagonal of `M` only, and return a block 3-diagonal.
 """
 struct BlockMatrix
     blockSizes::Vector{Int}
@@ -17,13 +20,11 @@ end
 # IMPORTANT : we work here under the assumption that the matrices of type
 #             BlockMatrix live always in the wanted hardware (cpu, apple, etc)
 
-# TODO(?) : create in-place versions of the following functions
-
 """
     convert_S2BM_ndiag(M::SparseArrays.SparseMatrixCSC, blockSizes::Vector{Int},
         ndiag::Dict{String,Int})
 
-Convert the sparse input matrix `M` to the `BlockMatrix` type.
+Converts the sparse input matrix `M` to the `BlockMatrix` type.
 
 # Arguments
 - `M::BlockMatrix`: the matrix to be converted.
@@ -72,7 +73,7 @@ end
 """
 	convert_BM2S_ndiag(M::BlockMatrix)
 
-Convert the input matrix `M` of type `BlockMatrix` to sparse.
+Converts the input matrix `M` of type `BlockMatrix` to sparse.
 
 # Arguments
 - `M::BlockMatrix`: the matrix to be converted.
@@ -97,8 +98,6 @@ function convert_BM2S_ndiag(M::BlockMatrix)::SparseArrays.SparseMatrixCSC
             for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
                 jbeg = sum(M.blockSizes[1:jx-1]) + 1
                 jend = sum(M.blockSizes[1:jx])
-                # MInvTrid[ibeg:iend, jbeg:jend] = MdenseInv[ibeg:iend, jbeg:jend]
-                # A.M[ix, jx] = Array(M[ibeg:iend, jbeg:jend])
                 A[ibeg:iend, jbeg:jend] = sparse(be_copy_from_hw(M.M[ix, jx]))
             end
         end
@@ -119,7 +118,14 @@ function convert_BM2S_ndiag(M::BlockMatrix)::SparseArrays.SparseMatrixCSC
     return A
 end
 
-# TODO : documentation
+"""
+	copy_BM(M::BlockMatrix)
+
+Receives a BlockMatrix object and returns a deep copy of it.
+
+# Arguments
+- `M::BlockMatrix`: the matrix to be copied.
+"""
 function copy_BM(M::BlockMatrix)::BlockMatrix
     ndiag = M.ndiag
     npl = size(M.blockSizes)[1]
@@ -149,15 +155,29 @@ function copy_BM(M::BlockMatrix)::BlockMatrix
 
 end
 
-# TODO : documentation
-# this returns an empty similar
+"""
+	similar_bm(M::BlockMatrix)
+
+Receives a BlockMatrix object and returns an empty BlockMatrix with the
+same properties (block n-diagonal wise).
+
+# Arguments
+- `M::BlockMatrix`: the matrix to be copied.
+"""
 function similar_bm(M::BlockMatrix)
     npl = size(M.blockSizes)[1]
     return BlockMatrix(M.blockSizes, ArrayOrLU_(undef, npl, npl), M.ndiag, M.nrsType, M.isArrayOrLU)
 end
 
-# TODO : documentation
-# this returns a similar matrix but filled with zeroes
+"""
+	similar_bm(M::BlockMatrix)
+
+Receives a BlockMatrix object and returns a zero BlockMatrix with the
+same properties (block n-diagonal wise).
+
+# Arguments
+- `M::BlockMatrix`: the matrix to be copied.
+"""
 function similar_bm_but_zero(M::BlockMatrix)::BlockMatrix
     blockSizes = M.blockSizes
     ndiag = M.ndiag
@@ -169,7 +189,14 @@ function similar_bm_but_zero(M::BlockMatrix)::BlockMatrix
     return A
 end
 
-# TODO : documentation
+"""
+	similar_bm(M::BlockMatrix)
+
+Receives a BlockMatrix object, and set its dense blocks to zero.
+
+# Arguments
+- `M::BlockMatrix`: the matrix to be copied.
+"""
 function set_blocks_to_zero!(M::BlockMatrix)
     blockSizes = M.blockSizes
     ndiag = M.ndiag
@@ -212,7 +239,16 @@ function set_blocks_to_zero!(M::BlockMatrix)
     end
 end
 
-# TODO : documentation
+"""
+	similar_bm(M::BlockMatrix)
+
+Receives a BlockMatrix object, and set its dense blocks to the identity.
+This has, for now, been restricted to the identity, i.e. we are constructing
+here the identity in block 1-diagonal form.
+
+# Arguments
+- `M::BlockMatrix`: the matrix to be copied.
+"""
 function set_blocks_to_identity!(M::BlockMatrix)
     blockSizes = M.blockSizes
     ndiag = M.ndiag
@@ -221,8 +257,6 @@ function set_blocks_to_identity!(M::BlockMatrix)
         exit()
     end
     npl = size(blockSizes)[1]
-    # blocks will be set to 0-Array or 0-LU accordingly
-    # isArrayOrLU = M.isArrayOrLU
     # just a label of M
     A = M
 
@@ -231,26 +265,6 @@ function set_blocks_to_identity!(M::BlockMatrix)
         # indices for the rows
         ibeg = sum(blockSizes[1:ix-1]) + 1
         iend = sum(blockSizes[1:ix])
-        # # now, copy the blocks within the ix-th row
-        # if ix > 1
-        #     # left
-        #     for jx = (ix-1):-1:max(1, ix - Int((ndiag["in"] - 1) / 2))
-        #         jbeg = sum(blockSizes[1:jx-1]) + 1
-        #         jend = sum(blockSizes[1:jx])
-        #         A.M[ix, jx] = be_zero_array(A.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
-        #     end
-        # end
-        # center
-        # jbeg = ibeg
-        # jend = iend
         A.M[ix, ix] = be_identity(A.nrsType, iend - ibeg + 1)
-        # if ix < npl
-        #     # right
-        #     for jx = (ix+1):1:min(size(blockSizes)[1], ix + Int((ndiag["in"] - 1) / 2))
-        #         jbeg = sum(blockSizes[1:jx-1]) + 1
-        #         jend = sum(blockSizes[1:jx])
-        #         A.M[ix, jx] = be_zero_array(A.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
-        #     end
-        # end
     end
 end

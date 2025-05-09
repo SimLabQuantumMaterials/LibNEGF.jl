@@ -19,4 +19,6 @@ BlockMatrix
 convert_S2BM_ndiag(M::SparseArrays.SparseMatrixCSC, blockSizes::Vector{Int},
     ndiag::Dict{String,Int})
 convert_BM2S_ndiag(M::BlockMatrix)
+copy_BM(M::BlockMatrix)
+similar_bm_but_zero(M::BlockMatrix)
 ```
