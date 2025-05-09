@@ -45,7 +45,7 @@ export be_inv
 # empty, and if then utils_optnl.jl is included those empty macros
 # are replaced
 include("utils/common.jl")
-include("utils/full_timings.jl")
+include("utils/empty_timings.jl")
 
 # include the backend for the desired harwdware, replace
 # HW by one of cpu, apple, nvidia, etc

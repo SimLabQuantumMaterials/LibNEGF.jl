@@ -40,14 +40,16 @@ if exists_in_list "$HWs" " " $1; then
     export JULIA_NUM_THREADS=3
     # include the backend for that HW
     sed -i -e "s/backend_HW.jl/backend_$1.jl/g" ../src/LibNEGF.jl
-    if [ "$2" -ne 1 ];then
-        sed -i -e 's|include("utils/full_timings.jl")|include("utils/empty_timings.jl")|' ../src/LibNEGF.jl
+    if [ "$2" -ne 0 ];then
+        sed -i -e 's|include("utils/empty_timings.jl")|include("utils/full_timings.jl")|' ../src/LibNEGF.jl
     fi
     # launch the benchmark runs
     julia runbenchmrks.jl $1 $2
     # revert the change to ../src/LibNEGF.jl
     sed -i -e "s/backend_$1.jl/backend_HW.jl/g" ../src/LibNEGF.jl
-    sed -i -e 's|include("utils/empty_timings.jl")|include("utils/full_timings.jl")|' ../src/LibNEGF.jl
+    if [ "$2" -ne 0 ];then
+        sed -i -e 's|include("utils/full_timings.jl")|include("utils/empty_timings.jl")|' ../src/LibNEGF.jl
+    fi
 else
     echo "The hardware $1 is not in the list, not running the tests"
 fi
