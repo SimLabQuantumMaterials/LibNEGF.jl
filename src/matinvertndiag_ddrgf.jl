@@ -1,27 +1,14 @@
 # TODO : documentation
-struct RgfBuffs
-    buffM::BlockMatrix
-    bIdM::BlockMatrix
-end
-
-# # TODO : documentation
-# struct LapackBuffs
-#     pivB::Vector{Int}
-# end
-
-# TODO : documentation
 # buffers for RGF, packed in a single struct
 struct AuxDataDDRGF
-    rgfBuffs::RgfBuffs
-    # lapackBuffs::LapackBuffs
+    buffM::BlockMatrix
+    bIdM::BlockMatrix
 end
 
 # TODO : documentation
 # TODO(?) : put this inside a constructor for AuxDataDDRGF
 function allocate_aux_data_DDRGF(M::BlockMatrix)::AuxDataDDRGF
     npl = size(M.blockSizes)[1]
-
-    # 1. RGF-related buffers
 
     # in general, these type of auxiliary block matrices will contain
     # Array-like object and not LU-like, as specified by the last param
@@ -33,17 +20,8 @@ function allocate_aux_data_DDRGF(M::BlockMatrix)::AuxDataDDRGF
         Dict("in" => 1, "out" => 1), M.nrsType, 0)
     set_blocks_to_identity!(bIdM)
 
-    # # 2. LAPACK-related buffers
-
-    # # buffer vector used by getrf! when pivoting
-    # pivB = Vector{Int}(undef, maximum(M.blockSizes))
-
     # the final struct with the buffers
-
-    rgfBuffs = RgfBuffs(buffM, bIdM)
-    # lapackBuffs = RgfBuffs(pivB)
-    # auxData = AuxDataDDRGF(rgfBuffs, lapackBuffs)
-    auxData = AuxDataDDRGF(rgfBuffs)
+    auxData = AuxDataDDRGF(buffM, bIdM)
 
     return auxData
 end
@@ -86,11 +64,11 @@ function bndiag_of_inv_ddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxD
     #             are LU-like
 
     npl = size(Mout.blockSizes)[1]
-    buffM1 = auxData.rgfBuffs.buffM
+    buffM1 = auxData.buffM
     # Mout is used as a buffer in multiple places, this is just
     # labeling for clarity of the implementation
     buffM2 = Mout
-    buffId = auxData.rgfBuffs.bIdM
+    buffId = auxData.bIdM
 
     # TODO : we might not need a full block n-diagonal as a buffer. To see this,
     #        go again over the algorithm, first simple RGF, and note that there
@@ -155,5 +133,3 @@ function bndiag_of_inv_ddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxD
             convert(Min.nrsType, 1.0), Mout.M[ix, ix])
     end
 end
-
-# TODO(?) : do we want/need catch-all versions of the above function?
