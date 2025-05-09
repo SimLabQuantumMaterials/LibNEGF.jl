@@ -1,20 +1,33 @@
 using Metal
 
+"""
+	MtlLU
+
+Encapsulates the bare data needed for `LU`-like-related computations. The data
+lives entirely on the Metal GPU.
+"""
 struct MtlLU
     A::Metal.MtlArray
     piv::Metal.MtlVector
 end
 
+"""
+	CpuLU
+
+Encapsulates the bare data needed for `LU`-like-related computations. This lives
+on the CPU, and it is used by device code either for mimicking the CPU or for comparisons
+in tests.
+"""
 mutable struct CpuLU
     A::Array
     piv::Vector{Int}
 end
 
 """
-	ArrayOrLU_ = Matrix{Union{Metal.MtlArray, MtlLU, Nothing}}
+	ArrayOrLU_
 
-Type for a matrix that can contain an `Array`, `LU factor` and/or `undef`,
-with blocks stored in the (GPU) device.
+Contains a Metal `Array`, Metal `LU factor` and/or `undef`, with blocks stored
+in the (GPU) device. This is at the base of BlockMatrix.
 """
 ArrayOrLU_ = Matrix{Union{Metal.MtlArray,MtlLU,Nothing}}
 

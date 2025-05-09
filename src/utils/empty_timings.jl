@@ -1,11 +1,19 @@
 export TimingData
 
-# a struct to pack timing info
-# TODO : documentation
+"""
+	TimingData
+
+The empty version of `TimingData` in `full_timings.jl`.
+"""
 struct TimingData
     # empty
 end
 
+"""
+	TimingData
+
+The non-timing version of `timewrap(tdx, suffx, codex)` in `full_timings.jl`.
+"""
 macro timewrap(tdx, suffx, codex)
     return quote
         # just run the code itself, no timings

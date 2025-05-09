@@ -1,12 +1,19 @@
+"""
+	CpuLU
+
+Encapsulates the bare data needed for `LU`-like-related computations. This lives
+on the CPU.
+"""
 mutable struct CpuLU
     A::Array
     piv::Vector{Int}
 end
 
 """
-	ArrayOrLU_ = Matrix{Union{Array, LU, Nothing}}
+	ArrayOrLU_
 
-Type for a matrix that can contain an `Array`, `LU factor` and/or `undef`.
+Contains a CPU `Array`, CPU `LU factor` and/or `undef`, with blocks stored
+in the (CPU) device. This is at the base of BlockMatrix.
 """
 ArrayOrLU_ = Matrix{Union{Array,CpuLU,Nothing}}
 
