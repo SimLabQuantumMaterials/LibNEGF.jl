@@ -26,17 +26,52 @@ if exists_in_list "$HWs" " " $1; then
     # get the manifest specific to the chosen HW
     cp Manifest_$1.toml Manifest.toml
     export OPENBLAS_NUM_THREADS=6
-    # include the backend for that HW
-    sed -i -e "s/backend_HW.jl/backend_$1.jl/g" src/LibNEGF.jl
+
+    # variables used to mimic C's ifdef
+    export LIBNEGF_HW=$1
+    export LIBNEGF_FINER_TIMINGS=0
+    # if we want to really mimic C's ifdef, we need to force recompilation,
+    # which we do by removing the precompiled binaries
+    JULIA_MAJOR_VERSION=`julia --version | egrep -o '[0-9].[0-9][0-9]'`
+    BINS_JULIA=`ls ~/.julia/compiled/v$JULIA_MAJOR_VERSION/LibNEGF/*.ji`
+    rm $BINS_JULIA
+
+    # # include the backend for that HW
+    # sed -i -e "s/backend_HW.jl/backend_$1.jl/g" src/LibNEGF.jl
     # launch the tests
     julia test.jl $1
-    # revert the change in src/LibNEGF.jl
-    sed -i -e "s/backend_$1.jl/backend_HW.jl/g" src/LibNEGF.jl
+    # # revert the change in src/LibNEGF.jl
+    # sed -i -e "s/backend_$1.jl/backend_HW.jl/g" src/LibNEGF.jl
 else
     echo "The hardware $1 is not in the list, not running the tests"
 fi
 
-# restore Project.toml and src/LibNEGF.jl in case it was modified
-# by this execution, save the modified versions to avoid being too intrusive
+
+
+
+# if exists_in_list "$HWs" " " $1; then
+#     # get the manifest specific to the chosen HW
+#     cp ../Manifest_$1.toml ../Manifest.toml
+#     export OPENBLAS_NUM_THREADS=2
+#     export JULIA_NUM_THREADS=3
+#     # variables used to mimic C's ifdef
+#     export LIBNEGF_HW=$1
+#     export LIBNEGF_FINER_TIMINGS=$2
+#     # if we want to really mimic C's ifdef, we need to force recompilation,
+#     # which we do by removing the precompiled binaries
+#     JULIA_MAJOR_VERSION=`julia --version | egrep -o '[0-9].[0-9][0-9]'`
+#     BINS_JULIA=`ls ~/.julia/compiled/v$JULIA_MAJOR_VERSION/LibNEGF/*.ji`
+#     rm $BINS_JULIA
+
+#     # launch the benchmark runs
+#     julia --threads=$JULIA_NUM_THREADS runbenchmrks.jl $1 $2
+# else
+#     echo "The hardware $1 is not in the list, not running the tests"
+# fi
+
+
+
+# restore Project.toml in case it was modified by this execution, save
+# the modified versions to avoid being too intrusive
 cp Project.toml Project_modif.toml
 git restore Project.toml
