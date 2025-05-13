@@ -12,7 +12,11 @@ Pkg.activate(".");
 
 # depending on the type of hardware, remove packages as necessary
 if ARGS[1] != "apple"
-    Pkg.rm("Metal")
+    try
+        Pkg.rm("Metal")
+    catch
+        println("Tried to remove Metal but already not in Project.toml")
+    end
 end
 
 # passing the hardware type as argument, this creates the
