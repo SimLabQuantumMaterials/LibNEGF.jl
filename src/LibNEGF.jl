@@ -40,16 +40,24 @@ export be_gemm!
 export be_inv_from_lu!
 export be_inv
 
+include("utils/parsing.jl")
+
 # from utils/
 # this is the core set of utils, where some macros are included
 # empty, and if then utils_optnl.jl is included those empty macros
 # are replaced
 include("utils/common.jl")
-include("utils/empty_timings.jl")
+@ifdef "LIBNEGF_FINER_TIMINGS" begin
+    if ENV["LIBNEGF_FINER_TIMINGS"]=="0" which_timer = "empty"
+    else which_timer = "full" end
+    include("utils/"*which_timer*"_timings.jl")
+end
 
-# include the backend for the desired harwdware, replace
-# HW by one of cpu, apple, nvidia, etc
-include("backend_HW.jl")
+# # include the backend for the desired harwdware, replace
+# # HW by one of cpu, apple, nvidia, etc
+@ifdef "LIBNEGF_HW" begin
+    include("backend_"*ENV["LIBNEGF_HW"]*".jl")
+end
 
 include("matloader.jl")
 include("blockmatrix.jl")

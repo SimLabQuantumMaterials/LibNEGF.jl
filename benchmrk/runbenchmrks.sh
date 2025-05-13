@@ -38,23 +38,22 @@ if exists_in_list "$HWs" " " $1; then
     cp ../Manifest_$1.toml ../Manifest.toml
     export OPENBLAS_NUM_THREADS=2
     export JULIA_NUM_THREADS=3
-    # include the backend for that HW
-    sed -i -e "s/backend_HW.jl/backend_$1.jl/g" ../src/LibNEGF.jl
-    if [ "$2" -ne 0 ];then
-        sed -i -e 's|include("utils/empty_timings.jl")|include("utils/full_timings.jl")|' ../src/LibNEGF.jl
-    fi
+    # variables used to mimic C's ifdef
+    export LIBNEGF_HW=$1
+    export LIBNEGF_FINER_TIMINGS=$2
+    # if we want to really mimic C's ifdef, we need to force recompilation,
+    # which we do by removing the precompiled binaries
+    JULIA_MAJOR_VERSION=`julia --version | egrep -o '[0-9].[0-9][0-9]'`
+    BINS_JULIA=`ls ~/.julia/compiled/v$JULIA_MAJOR_VERSION/LibNEGF/*.ji`
+    rm $BINS_JULIA
+
     # launch the benchmark runs
     julia --threads=$JULIA_NUM_THREADS runbenchmrks.jl $1 $2
-    # revert the change to ../src/LibNEGF.jl
-    sed -i -e "s/backend_$1.jl/backend_HW.jl/g" ../src/LibNEGF.jl
-    if [ "$2" -ne 0 ];then
-        sed -i -e 's|include("utils/full_timings.jl")|include("utils/empty_timings.jl")|' ../src/LibNEGF.jl
-    fi
 else
     echo "The hardware $1 is not in the list, not running the tests"
 fi
 
-# restore Project.toml and src/LibNEGF.jl in case it was modified
-# by this execution, save the modified versions to avoid being too intrusive
+# restore Project.toml in case it was modified by this execution, save
+# the modified versions to avoid being too intrusive
 cp ../Project.toml ../Project_modif.toml
 git restore ../Project.toml
