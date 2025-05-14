@@ -19,6 +19,7 @@ if ARGS[1] != "apple"
     end
 end
 
-# passing the hardware type as argument, this creates the
+# Passing the hardware type as argument, this creates the
 # ARGS variable which is accessible to all of the testsets
+# The following call triggers the precompilation of LibNEGF
 Pkg.test(; test_args=[ARGS[1],]);

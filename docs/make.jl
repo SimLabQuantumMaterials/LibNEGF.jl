@@ -14,6 +14,7 @@ end
 Pkg.activate("./")
 Pkg.develop(path="../")
 
+# calling 'using' on LibNEGF triggers the precompilation
 using Documenter, LibNEGF, SparseArrays
 
 makedocs(sitename="LibNEGF", remotes=nothing)

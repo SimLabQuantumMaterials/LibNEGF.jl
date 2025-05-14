@@ -13,6 +13,7 @@ Pkg.activate("../");
 if ARGS[1] == "cpu"
     Pkg.rm("Metal")
 end
+# the following line triggers the precompilation of LibNEGF
 Pkg.instantiate()
 
 using LibNEGF, LinearAlgebra, Printf, TimerOutputs, .Threads

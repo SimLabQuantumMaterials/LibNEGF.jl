@@ -20,6 +20,12 @@ function exists_in_list() {
     return 1
 }
 
+# check that the correct number of params has been passed
+if [ "$#" -ne 1 ]; then
+    echo "The number of params for runbencharks.sh has to be 1"
+    exit
+fi
+
 HWs="cpu apple nvidia amd intel"
 
 if exists_in_list "$HWs" " " $1; then
