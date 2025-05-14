@@ -2,6 +2,4 @@ trash/
 deps/build.log
 matrices/
 Manifest.toml
-Project_modif.toml
-src/LibNEGF_modif.jl
-src/LibNEGF.jl-e
+Project.toml
