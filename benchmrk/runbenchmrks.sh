@@ -36,6 +36,8 @@ HWs="cpu apple nvidia amd intel"
 if exists_in_list "$HWs" " " $1; then
     # get the manifest specific to the chosen HW
     cp ../Manifest_$1.toml ../Manifest.toml
+    # create usable copy of Project_common.toml
+    cp ../Project_common.toml ../Project.toml
     export OPENBLAS_NUM_THREADS=2
     export JULIA_NUM_THREADS=3
     # variables used to mimic C's ifdef
@@ -52,8 +54,3 @@ if exists_in_list "$HWs" " " $1; then
 else
     echo "The hardware $1 is not in the list, not running the tests"
 fi
-
-# restore Project.toml in case it was modified by this execution, save
-# the modified versions to avoid being too intrusive
-cp ../Project.toml ../Project_modif.toml
-git restore ../Project.toml
