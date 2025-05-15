@@ -44,6 +44,7 @@ if exists_in_list "$HWs" " " $1; then
     # variables used to mimic C's ifdef
     export LIBNEGF_HW=$1
     export LIBNEGF_FINER_TIMINGS=$2
+    export LIBNEGF_TEST_OR_BENCH=benchmark
     # if we want to really mimic C's ifdef, we need to force recompilation,
     # which we do by removing the precompiled binaries
     JULIA_MAJOR_VERSION=`julia --version | egrep -o '[0-9].[0-9][0-9]'`
