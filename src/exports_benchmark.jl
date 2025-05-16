@@ -9,8 +9,12 @@ export bndiag_of_inv_ddrgf!
 export allocate_aux_data_DDRGF
 export AuxDataDDRGF
 
+# from keldyshndiag.jl
+export keldyshndiag!
+
 # from blockmatrix.jl
 export BlockMatrix
 export convert_S2BM_ndiag
 export convert_BM2S_ndiag
 export copy_BM
+export similar_bm_but_random

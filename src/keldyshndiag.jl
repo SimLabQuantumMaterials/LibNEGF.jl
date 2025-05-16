@@ -1,6 +1,10 @@
 # computes C = A bndiag(B^{-1}) A^{H}
-function keldyshndiag!(C::BlockMatrix, Binv::BlockMatrix, B::BlockMatrix, A::BlockMatrix, auxData::AuxDataDDRGF, td::TimingData)
-    keldyshndiag_v1!(C, Binv, B, A, auxData, td)
+function keldyshndiag!(C::BlockMatrix, Binv::BlockMatrix, B::BlockMatrix, A::BlockMatrix, auxData::AuxDataDDRGF, td::TimingData, vsn::String)
+    if vsn == "v1"
+        keldyshndiag_v1!(C, Binv, B, A, auxData, td)
+    else
+        println("ERROR: Keldysh implementation version not available")
+    end
 end
 
 # first version, naive, inefficient

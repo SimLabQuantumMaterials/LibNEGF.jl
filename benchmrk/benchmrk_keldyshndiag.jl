@@ -1,4 +1,7 @@
-Printf.@printf("Benchmarking bndiag_of_inv_ddrgf!(...)\n")
+Printf.@printf("Benchmarking keldyshndiag!(...)\n")
+
+# choose the version of Keldysh's implementation to benchmark (see src/keldyshndiag.jl)
+keldyshVersion = "v1"
 
 for systemx in systemNames
     for precx in precs
@@ -8,7 +11,7 @@ for systemx in systemNames
             for ix = 1:Threads.nthreads()
                 push!(timers, TimerOutput())
             end
-            timerTagGlobal = "bndiag_of_inv_ddrgf_" * string(precx)
+            timerTagGlobal = "keldyshndiag_" * string(precx)
 
             # first, check if the number of threads divides the number of energy points,
             # exit if it doesn't
@@ -30,7 +33,9 @@ for systemx in systemNames
                 for iEG = 1:nrEgroups
                     # preallocate large data per thread
                     Mins = Vector{BlockMatrix}()
-                    Mouts = Vector{BlockMatrix}()
+                    MoutsRGF = Vector{BlockMatrix}()
+                    MoutsKeldysh = Vector{BlockMatrix}()
+                    Mrands = Vector{BlockMatrix}()
                     for ix = 1:Threads.nthreads()
                         iE = ix + (iEG - 1) * Threads.nthreads()
                         # load matrices and build M
@@ -43,7 +48,9 @@ for systemx in systemNames
                         Msp = build_M_from_HS(H, S, Se, energVals[Epoints[iE]])
                         Min = convert_S2BM_ndiag(Msp, blockSizes, Dict("in" => 3, "out" => 3))
                         push!(Mins, Min)
-                        push!(Mouts, copy_BM(Min))
+                        push!(MoutsRGF, copy_BM(Min))
+                        push!(MoutsKeldysh, copy_BM(Min))
+                        push!(Mrands, similar_bm_but_random(Min))
                     end
                     auxs = Vector{AuxDataDDRGF}()
                     for ix = 1:Threads.nthreads()
@@ -68,7 +75,8 @@ for systemx in systemNames
                             else
                                 td = TimingData()
                             end
-                            @timeit timers[tid] timerTagLocal * "_total" bndiag_of_inv_ddrgf!(Mouts[tid], Mins[tid], auxs[tid], td)
+                            @timeit timers[tid] timerTagLocal * "_total" keldyshndiag!(MoutsKeldysh[tid],
+                                            MoutsRGF[tid], Mins[tid], Mrands[tid], auxs[tid], td, keldyshVersion)
                         end
                     end
 

@@ -61,7 +61,7 @@ import LinearAlgebra
                     # THEN, do Keldysh via its function
 
                     C2bm = similar_bm_but_zero(Mbm)
-                    keldyshndiag!(C2bm, MbmInvNdiag, Mbm, Arandbm, auxData, TimingData())
+                    keldyshndiag!(C2bm, MbmInvNdiag, Mbm, Arandbm, auxData, TimingData(), "v1")
                     C2sp = convert_BM2S_ndiag(C2bm)
 
                     relErr = LinearAlgebra.norm(Array(C1sp - C2sp), 2) / LinearAlgebra.norm(Array(C1sp), 2)
