@@ -1,7 +1,7 @@
 Printf.@printf("Benchmarking keldyshndiag!(...)\n")
 
 # choose the version of Keldysh's implementation to benchmark (see src/keldyshndiag.jl)
-keldyshVersion = "v1"
+keldyshVersion = "v2"
 
 for systemx in systemNames
     for precx in precs
@@ -48,20 +48,26 @@ for systemx in systemNames
                         Msp = build_M_from_HS(H, S, Se, energVals[Epoints[iE]])
                         Min = convert_S2BM_ndiag(Msp, blockSizes, Dict("in" => 3, "out" => 3))
                         push!(Mins, Min)
-                        push!(MoutsRGF, copy_BM(Min))
-                        push!(MoutsKeldysh, copy_BM(Min))
+                        push!(MoutsRGF, similar_bm_but_zero(Min))
+                        push!(MoutsKeldysh, similar_bm_but_zero(Min))
                         push!(Mrands, similar_bm_but_random(Min))
                     end
-                    auxs = Vector{AuxDataDDRGF}()
+                    auxs = Vector{AuxDataKeldysh}()
                     for ix = 1:Threads.nthreads()
-                        push!(auxs, allocate_aux_data_DDRGF(Mins[ix]))
+                        auxLoc = allocate_aux_data_DDRGF(Mins[ix])
+                        bmLoc = similar_bm_but_zero(Mins[ix])
+                        push!(auxs, allocate_aux_data_Keldysh(bmLoc, auxLoc))
                     end
 
                     # (?) force the garbage collector before doing the core computations
                     GC.gc()
 
                     tx(tid) = begin
-                        ninvs = 10
+                        if keldyshVersion == "v1"
+                            ninvs = 1
+                        else
+                            ninvs = 10
+                        end
                         # multiple inversions per energy point, for statistics purposes
                         for ix = 1:ninvs
                             if ix == 1
@@ -76,7 +82,7 @@ for systemx in systemNames
                                 td = TimingData()
                             end
                             @timeit timers[tid] timerTagLocal * "_total" keldyshndiag!(MoutsKeldysh[tid],
-                                            MoutsRGF[tid], Mins[tid], Mrands[tid], auxs[tid], td, keldyshVersion)
+                                MoutsRGF[tid], Mins[tid], Mrands[tid], auxs[tid], td, keldyshVersion)
                         end
                     end
 
