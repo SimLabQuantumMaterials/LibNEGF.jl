@@ -1,7 +1,7 @@
 "A Julia package consisting of a rework of some parts of [libNEGF](https://github.com/libnegf/libnegf)."
 module LibNEGF
 
-using SparseArrays, CSV, MAT, LinearAlgebra
+using SparseArrays, CSV, MAT, LinearAlgebra, Random
 
 include("utils/parsing.jl")
 
@@ -31,5 +31,6 @@ include("matloader.jl")
 include("blockmatrix.jl")
 include("matinvertndiag_direct.jl")
 include("matinvertndiag_ddrgf.jl")
+include("keldyshndiag.jl")
 
 end

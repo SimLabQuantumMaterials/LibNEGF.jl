@@ -156,13 +156,46 @@ function copy_BM(M::BlockMatrix)::BlockMatrix
 end
 
 """
+	copy_BM!(Mout::BlockMatrix, Min::BlockMatrix)
+
+In place copy of BlockMatrix to BlockMatrix.
+
+# Arguments
+- `Mout::BlockMatrix`: the copy of `Min``.
+- `Min::BlockMatrix`: the matrix to be copied.
+"""
+function copy_BM!(Mout::BlockMatrix, Min::BlockMatrix)
+    ndiag = Min.ndiag
+    npl = size(Min.blockSizes)[1]
+
+    # loop over the block sizes, conversely over the block rows
+    for ix = 1:size(Min.blockSizes)[1]
+        # now, copy the blocks within the ix-th row
+        if ix > 1
+            # left
+            for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
+                be_copy_in_hw!(Mout.M[ix, jx], Min.M[ix, jx])
+            end
+        end
+        # center
+        be_copy_in_hw!(Mout.M[ix, ix], Min.M[ix, ix])
+        if ix < size(Min.blockSizes)[1]
+            # right
+            for jx = (ix+1):1:min(size(Min.blockSizes)[1], ix + Int((ndiag["out"] - 1) / 2))
+                be_copy_in_hw!(Mout.M[ix, jx], Min.M[ix, jx])
+            end
+        end
+    end
+end
+
+"""
 	similar_bm(M::BlockMatrix)
 
 Receives a BlockMatrix object and returns an empty BlockMatrix with the
 same properties (block n-diagonal wise).
 
 # Arguments
-- `M::BlockMatrix`: the matrix to be copied.
+- `M::BlockMatrix`: the matrix to be used as base.
 """
 function similar_bm(M::BlockMatrix)
     npl = size(M.blockSizes)[1]
@@ -170,13 +203,13 @@ function similar_bm(M::BlockMatrix)
 end
 
 """
-	similar_bm(M::BlockMatrix)
+	similar_bm_but_zero(M::BlockMatrix)
 
 Receives a BlockMatrix object and returns a zero BlockMatrix with the
 same properties (block n-diagonal wise).
 
 # Arguments
-- `M::BlockMatrix`: the matrix to be copied.
+- `M::BlockMatrix`: the matrix to be used as base.
 """
 function similar_bm_but_zero(M::BlockMatrix)::BlockMatrix
     blockSizes = M.blockSizes
@@ -190,12 +223,32 @@ function similar_bm_but_zero(M::BlockMatrix)::BlockMatrix
 end
 
 """
-	similar_bm(M::BlockMatrix)
+	similar_bm_but_random(M::BlockMatrix)
+
+Receives a BlockMatrix object and returns a random BlockMatrix with the
+same properties (block n-diagonal wise).
+
+# Arguments
+- `M::BlockMatrix`: the matrix to be used as base.
+"""
+function similar_bm_but_random(M::BlockMatrix)::BlockMatrix
+    blockSizes = M.blockSizes
+    ndiag = M.ndiag
+    npl = size(blockSizes)[1]
+    A = similar_bm(M)
+
+    set_blocks_to_random!(A)
+
+    return A
+end
+
+"""
+	set_blocks_to_zero!(M::BlockMatrix)
 
 Receives a BlockMatrix object, and set its dense blocks to zero.
 
 # Arguments
-- `M::BlockMatrix`: the matrix to be copied.
+- `M::BlockMatrix`: the matrix to be modified.
 """
 function set_blocks_to_zero!(M::BlockMatrix)
     blockSizes = M.blockSizes
@@ -240,14 +293,58 @@ function set_blocks_to_zero!(M::BlockMatrix)
 end
 
 """
-	similar_bm(M::BlockMatrix)
+	set_blocks_to_random!(M::BlockMatrix)
+
+Receives a BlockMatrix object, and set its dense blocks to zero.
+
+# Arguments
+- `M::BlockMatrix`: the matrix to be modified.
+"""
+function set_blocks_to_random!(M::BlockMatrix)
+    blockSizes = M.blockSizes
+    ndiag = M.ndiag
+    npl = size(blockSizes)[1]
+    # just a label of M
+    A = M
+
+    # loop over the block sizes, conversely over the block rows
+    for ix = 1:npl
+        # indices for the rows
+        ibeg = sum(blockSizes[1:ix-1]) + 1
+        iend = sum(blockSizes[1:ix])
+        # now, copy the blocks within the ix-th row
+        if ix > 1
+            # left
+            for jx = (ix-1):-1:max(1, ix - Int((ndiag["in"] - 1) / 2))
+                jbeg = sum(blockSizes[1:jx-1]) + 1
+                jend = sum(blockSizes[1:jx])
+                A.M[ix, jx] = be_random_array(A.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+            end
+        end
+        # center
+        jbeg = ibeg
+        jend = iend
+        A.M[ix, ix] = be_random_array(A.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+        if ix < npl
+            # right
+            for jx = (ix+1):1:min(size(blockSizes)[1], ix + Int((ndiag["in"] - 1) / 2))
+                jbeg = sum(blockSizes[1:jx-1]) + 1
+                jend = sum(blockSizes[1:jx])
+                A.M[ix, jx] = be_random_array(A.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+            end
+        end
+    end
+end
+
+"""
+	set_blocks_to_identity!(M::BlockMatrix)
 
 Receives a BlockMatrix object, and set its dense blocks to the identity.
 This has, for now, been restricted to the identity, i.e. we are constructing
 here the identity in block 1-diagonal form.
 
 # Arguments
-- `M::BlockMatrix`: the matrix to be copied.
+- `M::BlockMatrix`: the matrix to be modified.
 """
 function set_blocks_to_identity!(M::BlockMatrix)
     blockSizes = M.blockSizes
