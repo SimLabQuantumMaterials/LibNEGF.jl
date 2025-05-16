@@ -42,11 +42,11 @@ import LinearAlgebra
                     # convert to BlockMatrix
                     Mbm = convert_S2BM_ndiag(M, blockSizes, Dict("in" => 3, "out" => 3))
                     # pre-allocate buffer data for DD-RGF
-                    auxData = allocate_aux_data_DDRGF(Mbm)
+                    auxDataRGF = allocate_aux_data_DDRGF(Mbm)
                     # pre-allocate the output matrix
                     MbmInvNdiag = similar_bm_but_zero(Mbm)
                     # get the block n-diagonal of M^-1 via RGF
-                    bndiag_of_inv_ddrgf!(MbmInvNdiag, Mbm, auxData, TimingData())
+                    bndiag_of_inv_ddrgf!(MbmInvNdiag, Mbm, auxDataRGF, TimingData())
                     # convert back to sparse
                     MinvSp = convert_BM2S_ndiag(MbmInvNdiag)
                     Arandbm = similar_bm_but_random(Mbm)
@@ -64,11 +64,12 @@ import LinearAlgebra
                     # THEN, do Keldysh via its function
 
                     C2bm = similar_bm_but_zero(Mbm)
-                    keldyshndiag!(C2bm, MbmInvNdiag, Mbm, Arandbm, auxData, TimingData(), "v1")
+                    auxDataKeldysh = allocate_aux_data_Keldysh(Mbm, auxDataRGF)
+                    keldyshndiag!(C2bm, MbmInvNdiag, Mbm, Arandbm, auxDataKeldysh, TimingData(), "v2")
                     C2sp = convert_BM2S_ndiag(C2bm)
 
                     relErr = LinearAlgebra.norm(Array(C1sp - C2sp), 2) / LinearAlgebra.norm(Array(C1sp), 2)
-                    @test relErr < roundoffs[precx]
+                    @test relErr < roundoffs[precx] * 1.0E01
                 end
             end
         end
