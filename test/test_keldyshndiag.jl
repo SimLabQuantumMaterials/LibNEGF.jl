@@ -51,12 +51,15 @@ import LinearAlgebra
                     MinvSp = convert_BM2S_ndiag(MbmInvNdiag)
                     Arandbm = similar_bm_but_random(Mbm)
                     Arandsp = convert_BM2S_ndiag(Arandbm)
-                    C1sp = Arandsp * ( MinvSp * Arandsp' )
+                    C1sp = Arandsp * (MinvSp * Arandsp')
                     # but, we need to extract the bndiag part of C1sp
                     C1bm = convert_S2BM_ndiag(C1sp, Mbm.blockSizes, Mbm.ndiag)
                     C1sp = convert_BM2S_ndiag(C1bm)
                     # for de-allocation of some matrices
-                    MinvSp = 0; Arandsp = 0; C1bm = 0; GC.gc()
+                    MinvSp = 0
+                    Arandsp = 0
+                    C1bm = 0
+                    GC.gc()
 
                     # THEN, do Keldysh via its function
 
