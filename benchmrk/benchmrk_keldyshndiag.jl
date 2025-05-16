@@ -61,7 +61,7 @@ for systemx in systemNames
                     GC.gc()
 
                     tx(tid) = begin
-                        ninvs = 2
+                        ninvs = 10
                         # multiple inversions per energy point, for statistics purposes
                         for ix = 1:ninvs
                             if ix == 1

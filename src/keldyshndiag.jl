@@ -13,7 +13,7 @@ function keldyshndiag_v1!(C::BlockMatrix, Binv::BlockMatrix, B::BlockMatrix, A::
 
     Binvsp = convert_BM2S_ndiag(Binv)
     Asp = convert_BM2S_ndiag(A)
-    Csp = Asp * (Binvsp * Asp')
+    @timewrap td "_sp_symm_gemm" Csp = Asp * (Binvsp * Asp')
     Cbm = convert_S2BM_ndiag(Csp, B.blockSizes, B.ndiag)
     copy_BM!(C, Cbm)
 end
