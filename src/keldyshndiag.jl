@@ -12,7 +12,7 @@ function allocate_aux_data_Keldysh(M::BlockMatrix, auxDataRGF::AuxDataDDRGF)::Au
     # Array-like object and not LU-like, as specified by the last param
     bmLargeBuff = BlockMatrix(M.blockSizes, ArrayOrLU_(undef, npl, npl),
         Dict("in" => m, "out" => m), M.nrsType, 0)
-    set_blocks_to_zero!(bmLargeBuff)
+    bm_blocks_define!(bmLargeBuff, 1)
 
     # the final struct with the buffers
     auxDataKeldysh = AuxDataKeldysh(auxDataRGF, bmLargeBuff)
@@ -35,11 +35,11 @@ end
 function keldyshndiag_v1!(C::BlockMatrix, Binv::BlockMatrix, B::BlockMatrix, A::BlockMatrix, auxData::AuxDataKeldysh, td::TimingData)
     bndiag_of_inv_ddrgf!(Binv, B, auxData.auxDataRGF, td)
 
-    Binvsp = convert_BM2S_ndiag(Binv)
-    Asp = convert_BM2S_ndiag(A)
+    Binvsp = bm_convert(Binv)
+    Asp = bm_convert(A)
     @timewrap td "_sp_symm_gemm" Csp = Asp * (Binvsp * Asp')
-    Cbm = convert_S2BM_ndiag(Csp, B.blockSizes, B.ndiag)
-    copy_BM!(C, Cbm)
+    Cbm = bm_convert(Csp, B.blockSizes, B.ndiag)
+    bm_copy!(C, Cbm)
 end
 
 # tB can be either 'C' (for adjoint) or 'N' for no adjoint

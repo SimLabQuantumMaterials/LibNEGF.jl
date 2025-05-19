@@ -42,17 +42,17 @@ for systemx in systemNames
                     listMatsToLoad, precx)
 
                 # convert to BlockMatrix
-                Mbm = convert_S2BM_ndiag(M, blockSizes, Dict("in" => 3, "out" => 3))
+                Mbm = bm_convert(M, blockSizes, Dict("in" => 3, "out" => 3))
 
                 # pre-allocate buffer data for DD-RGF
                 auxData = allocate_aux_data_DDRGF(Mbm)
                 # pre-allocate the output matrix
-                MbmInvNdiag = similar_bm_but_zero(Mbm)
+                MbmInvNdiag = bm_similar(Mbm, 1)
                 # get the block n-diagonal of M^-1 via RGF
                 bndiag_of_inv_ddrgf!(MbmInvNdiag, Mbm, auxData, TimingData())
 
                 # convert back to sparse
-                MinvSp = convert_BM2S_ndiag(MbmInvNdiag)
+                MinvSp = bm_convert(MbmInvNdiag)
 
                 relErr = LinearAlgebra.norm(Array(MinvSp - Gr), 2) / LinearAlgebra.norm(Array(Gr), 2)
                 # making a rough assumption on backward stability. The additional

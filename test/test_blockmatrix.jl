@@ -25,9 +25,9 @@ import LinearAlgebra
                         M = build_M_from_HS(H, S, Se, energVals[E])
 
                         # convert to BlockMatrix
-                        Abm = convert_S2BM_ndiag(M, blockSizes, Dict("in" => 3, "out" => 3))
+                        Abm = bm_convert(M, blockSizes, Dict("in" => 3, "out" => 3))
                         # convert back to sparse
-                        Asp = convert_BM2S_ndiag(Abm)
+                        Asp = bm_convert(Abm)
 
                         relErr = LinearAlgebra.norm(M - Asp, 2) / LinearAlgebra.norm(M, 2)
                         @test relErr < roundoffs[precx]

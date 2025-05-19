@@ -16,10 +16,10 @@ export allocate_aux_data_Keldysh
 
 # from blockmatrix.jl
 export BlockMatrix
-export convert_S2BM_ndiag
-export convert_BM2S_ndiag
-export similar_bm_but_zero
-export similar_bm_but_random
+export bm_convert
+export bm_similar
+export set_blocks_to_zero!
+export set_blocks_to_identity!
 
 # from backend_*.jl
 export be_zero_array

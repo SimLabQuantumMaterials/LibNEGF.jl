@@ -16,8 +16,6 @@ export AuxDataKeldysh
 
 # from blockmatrix.jl
 export BlockMatrix
-export convert_S2BM_ndiag
-export convert_BM2S_ndiag
-export copy_BM
-export similar_bm_but_random
-export similar_bm_but_zero
+export bm_convert
+export bm_copy
+export bm_similar

@@ -41,7 +41,7 @@ end
                         M = build_M_from_HS(H, S, Se, energVals[E])
 
                         # convert to BlockMatrix, this lives in the device always
-                        Abm = convert_S2BM_ndiag(M, blockSizes, Dict("in" => 3, "out" => 3))
+                        Abm = bm_convert(M, blockSizes, Dict("in" => 3, "out" => 3))
 
                         # performance is not a problem here, therefore we call the garbage
                         # collector after each test to make sure there are no memory issues
