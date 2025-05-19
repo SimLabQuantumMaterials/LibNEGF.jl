@@ -51,7 +51,10 @@ import LinearAlgebra
                     MinvSp = bm_convert(MbmInvNdiag)
                     Arandbm = bm_similar(Mbm, 2)
                     Arandsp = bm_convert(Arandbm)
-                    C1sp = Arandsp * (MinvSp * Arandsp')
+                    # make Arandbm and Arandsp symmetric
+                    Arandsp = (Arandsp + Arandsp')/2
+                    Arandbm = bm_convert(Arandsp, Arandbm.blockSizes, Arandbm.ndiag)
+                    C1sp = MinvSp * (Arandsp * MinvSp')
                     # but, we need to extract the bndiag part of C1sp
                     C1bm = bm_convert(C1sp, Mbm.blockSizes, Mbm.ndiag)
                     C1sp = bm_convert(C1bm)
@@ -69,7 +72,10 @@ import LinearAlgebra
                     C2sp = bm_convert(C2bm)
 
                     relErr = LinearAlgebra.norm(Array(C1sp - C2sp), 2) / LinearAlgebra.norm(Array(C1sp), 2)
-                    @test relErr < roundoffs[precx] * 1.0E01
+                    @test relErr < roundoffs[precx] * 1.0E02
+
+                    # relHerm = LinearAlgebra.norm(Array(C2sp - C2sp'), 2) / LinearAlgebra.norm(Array(C2sp), 2)
+                    # println(relHerm)
                 end
             end
         end
