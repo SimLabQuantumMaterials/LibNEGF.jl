@@ -46,16 +46,16 @@ for systemx in systemNames
                         S = loadedMats[2]
                         Se = loadedMats[3]
                         Msp = build_M_from_HS(H, S, Se, energVals[Epoints[iE]])
-                        Min = convert_S2BM_ndiag(Msp, blockSizes, Dict("in" => 3, "out" => 3))
+                        Min = bm_convert(Msp, blockSizes, Dict("in" => 3, "out" => 3))
                         push!(Mins, Min)
-                        push!(MoutsRGF, similar_bm_but_zero(Min))
-                        push!(MoutsKeldysh, similar_bm_but_zero(Min))
-                        push!(Mrands, similar_bm_but_random(Min))
+                        push!(MoutsRGF, bm_similar(Min, 1))
+                        push!(MoutsKeldysh, bm_similar(Min, 1))
+                        push!(Mrands, bm_similar(Min, 2))
                     end
                     auxs = Vector{AuxDataKeldysh}()
                     for ix = 1:Threads.nthreads()
                         auxLoc = allocate_aux_data_DDRGF(Mins[ix])
-                        bmLoc = similar_bm_but_zero(Mins[ix])
+                        bmLoc = bm_similar(Mins[ix], 1)
                         push!(auxs, allocate_aux_data_Keldysh(bmLoc, auxLoc))
                     end
 

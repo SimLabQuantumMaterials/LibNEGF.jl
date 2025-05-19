@@ -41,9 +41,9 @@ for systemx in systemNames
                         S = loadedMats[2]
                         Se = loadedMats[3]
                         Msp = build_M_from_HS(H, S, Se, energVals[Epoints[iE]])
-                        Min = convert_S2BM_ndiag(Msp, blockSizes, Dict("in" => 3, "out" => 3))
+                        Min = bm_convert(Msp, blockSizes, Dict("in" => 3, "out" => 3))
                         push!(Mins, Min)
-                        push!(Mouts, copy_BM(Min))
+                        push!(Mouts, bm_copy(Min))
                     end
                     auxs = Vector{AuxDataDDRGF}()
                     for ix = 1:Threads.nthreads()
