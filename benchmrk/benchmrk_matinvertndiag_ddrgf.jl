@@ -3,13 +3,6 @@ Printf.@printf("Benchmarking bndiag_of_inv_ddrgf(...)\n")
 for systemx in systemNames
     for precx in precs
         for k in kpoints
-            # create array of timers
-            timers = Vector{TimerOutput}()
-            for ix = 1:Threads.nthreads()
-                push!(timers, TimerOutput())
-            end
-            timerTagGlobal = "bndiag_of_inv_direct_" * string(precx)
-
             # first, check if the number of threads divides the number of energy points,
             # exit if it doesn't
             # maybe put this check earlier ?
@@ -18,6 +11,13 @@ for systemx in systemNames
                                of energy points (%d)\n", Threads.nthreads(), size(Epoints)[1])
                 exit()
             end
+
+            # create array of timers
+            timers = Vector{TimerOutput}()
+            for ix = 1:Threads.nthreads()
+                push!(timers, TimerOutput())
+            end
+            timerTagGlobal = "bndiag_of_inv_direct_" * string(precx)
 
             @timeit to timerTagGlobal begin
                 # loading blockSizes only
