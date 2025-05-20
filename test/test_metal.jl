@@ -42,39 +42,6 @@ import LinearAlgebra, Metal
             end
         end
     end
-
-    # @testset "Matloader Consistent Matrices" begin
-    #     # check here that the built T makes sense if directly
-    #     # loaded or built via S,H,\Sigma_{c}
-
-    #     include("common_to_test_matloader.jl")
-
-    #     for systemx in systemNames
-    #         for E in Epoints
-    #             for k in kpoints
-    #                 for precx in precs
-    #                     # list of matrices to load
-    #                     listMatsToLoad = ["H", "S", "Sc"]
-    #                     # load in the desired precision
-    #                     loadedMats, blockSizes = load_matrices(systemx, E, k,
-    #                         listMatsToLoad, precx)
-    #                     H = loadedMats[1]
-    #                     S = loadedMats[2]
-    #                     Se = loadedMats[3]
-    #                     Tbuilt = build_T_from_HS(H, S, Se, energVals[E])
-    #                     # list of matrices to load
-    #                     listMatsToLoad = ["T"]
-    #                     # load in the desired precision
-    #                     loadedMats, blockSizes = load_matrices(systemx, E, k,
-    #                         listMatsToLoad, precx)
-    #                     Tload = loadedMats[1]
-    #                     relErr = LinearAlgebra.norm(Tload - Tbuilt, 2) / LinearAlgebra.norm(Tload, 2)
-    #                     @test relErr < roundoffs[precx]
-    #                 end
-    #             end
-    #         end
-    #     end
-    # end
 end
 
 end
