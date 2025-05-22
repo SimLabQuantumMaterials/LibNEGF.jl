@@ -23,12 +23,12 @@ function exists_in_list() {
 
 # check that the correct number of params has been passed
 if [ "$#" -ne 2 ]; then
-    echo "The number of params for runbencharks.sh has to be 2"
+    echo "The number of params for $0 has to be 2"
     exit
 fi
 # check on the param that specifies whether we add finer timings or not
 if [ "$2" -ne 0 ] && [ "$2" -ne 1 ]; then
-    echo "The second param in runbenchmarks.sh has to be either 0 or 1"
+    echo "The second param for $0 has to be either 0 or 1"
     exit
 fi
 

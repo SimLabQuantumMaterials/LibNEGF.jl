@@ -22,7 +22,7 @@ function exists_in_list() {
 
 # check that the correct number of params has been passed
 if [ "$#" -ne 1 ]; then
-    echo "The number of params for runbencharks.sh has to be 1"
+    echo "The number of params for $0 has to be 1"
     exit
 fi
 
