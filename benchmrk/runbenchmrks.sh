@@ -12,7 +12,7 @@ function exists_in_list() {
     LIST=$1
     DELIMITER=$2
     VALUE=$3
-    LIST_WHITESPACES=`echo $LIST | tr "$DELIMITER" " "`
+    LIST_WHITESPACES=$(echo $LIST | tr "$DELIMITER" ' ')
     for x in $LIST_WHITESPACES; do
         if [ "$x" = "$VALUE" ]; then
             return 0
@@ -23,12 +23,12 @@ function exists_in_list() {
 
 # check that the correct number of params has been passed
 if [ "$#" -ne 2 ]; then
-    echo "The number of params for $0 has to be 2"
+    echo "The number of params for runbencharks.sh has to be 2"
     exit
 fi
 # check on the param that specifies whether we add finer timings or not
 if [ "$2" -ne 0 ] && [ "$2" -ne 1 ]; then
-    echo "The second param for $0 has to be either 0 or 1"
+    echo "The second param in runbenchmarks.sh has to be either 0 or 1"
     exit
 fi
 
@@ -46,8 +46,8 @@ if exists_in_list "$HWs" " " $1; then
     export LIBNEGF_FINER_TIMINGS=$2
     # if we want to really mimic C's ifdef, we need to force recompilation,
     # which we do by removing the precompiled binaries
-    JULIA_MAJOR_VERSION=`julia --version | egrep -o '[0-9].[0-9][0-9]'`
-    BINS_JULIA=`ls ~/.julia/compiled/v$JULIA_MAJOR_VERSION/LibNEGF/*.ji`
+    JULIA_MAJOR_VERSION=$(julia --version | egrep -o '[0-9].[0-9][0-9]')
+    BINS_JULIA=$(ls ~/.julia/compiled/v$JULIA_MAJOR_VERSION/LibNEGF/*.ji)
     rm $BINS_JULIA
 
     # launch the benchmark runs
