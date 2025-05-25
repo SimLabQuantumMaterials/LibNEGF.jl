@@ -40,6 +40,7 @@ import LinearAlgebra
 	    N[1,1] = Block(c)
 	    N[2,2] = Block(g)
 	    N[3,2] = Block(d)
+	    res = prod_BlockMatrix(M,N)
 	    @test res[2,1] == a*c
 	    @test res[3,2] == b*d
 	    @test res[1,2] == (e*g+f*d)
@@ -54,8 +55,31 @@ import LinearAlgebra
 	    @test N[2,3] == M[2,3]
     end
     @testset "copy::Block" begin
-	    M = Block(undef,5,5)
+	    M = Block(5,5)
 	    B = copy(M)
 	    @test B == M
     end
+    @testset "bm_equal" begin
+	    M = Matrix(undef,5,5)
+	    N = Matrix(undef,4,5)
+	    @test bm_equal(M,N) broken = true
+	    N = Matrix(undef,5,5)
+	    N[4,4] = Block()
+	    @test bm_equal(M,N) broken = true
+	    N = M
+	    @test bm_equal(M,N)
+	    M[1,1] = Block(rand(5,5))
+	    M[2,3] = Block()
+	    N = M
+	    @test bm_equal(M,N)
+    end
+    @testset "bm_copy" begin
+	    M = Matrix(undef,5,5)
+	    M[1,1] = Block(rand(5,5))
+	    M[2,3] = Block()
+	    N = bm_copy(M)
+	    @test bm_equal(N, M)
+    end
+end
+
 end

@@ -46,6 +46,7 @@ Overload operators for Block
 """
 (==) operator
 """
+
 """
 	Base.:(==)(A::Block, B::Array)::Bool
 
@@ -88,6 +89,7 @@ end
 """
 (+) operator
 """
+
 """
 	+(A::Block, B::Block)::Array
 
@@ -190,6 +192,7 @@ end
 """
 copy overload
 """
+
 """
 	copy(A::Block)::Block
 
@@ -203,4 +206,104 @@ function Base.copy(A::Block)::Block
 	try B.row = copy(A.row) catch; nothing end
 	try B.col = copy(A.col) catch; nothing end
 	return B
+end
+
+"""
+	bm_equal(A::Matrix, B::Matrix)::Bool
+
+Check if two matrix `A` and `B` that contains `Block` object are equals or not.
+
+# Arguments
+- `A::Array` : the first matrix for comparison.
+- `B::Array` : the secodn matrix for comparison.
+"""
+function bm_equal(A::Matrix, B::Matrix)::Bool
+	sizeA = size(A)
+	sizeB = size(B)
+	if sizeA != sizeB
+		return false
+	end
+	for i in 1:sizeA[1]
+		for j in 1:sizeA[2]
+			if !(isassigned(A,i,j) == isassigned(B,i,j))
+				return false
+			end
+			if isassigned(A,i,j)
+				if !(A[i,j] == B[i,j])
+					return false
+				end
+			end
+		end
+	end
+	return true
+end
+
+"""
+	bm_copy(A::Matrix)::Matrix
+
+Copy a matrix that contains `Block` inside.
+"""
+function bm_copy(A::Matrix)::Matrix
+	B = Matrix(undef,size(A,1),size(A,2))
+	for i in 1:size(A,1)
+		for j in 1:size(A,2)
+			if isassigned(A,i,j)
+				B[i,j] = copy(A[i,j])
+			end
+		end
+	end
+	return B
+end
+
+"""
+	sum_BlockMatrix(A::Array, B::Array)::Array
+
+Do the addition of two `Matrix` that contains `Block` type.
+
+# Arguments
+- `A::Array` : A block matrix.
+- `B::Array` : A block matrix.
+"""
+function sum_BlockMatrix(A::Array, B::Array)::Array
+	@assert size(A)==size(B)
+	C = Matrix(undef,size(A,1),size(A,2))
+	for i in 1:size(A,1)
+		for j in 1:size(A,2)
+			if isassigned(A,i,j) && isassigned(B,i,j)
+				@assert A[i,j].row==B[i,j].row && A[i,j].col==B[i,j].col
+				C[i,j] = Block(A[i,j] + B[i,j])
+			elseif isassigned(A,i,j)
+				C[i,j] = copy(A[i,j])
+			elseif isassigned(B,i,j)
+				C[i,j] = copy(B[i,j])
+			end
+		end
+	end
+	return C
+end
+
+"""
+	prod_BlockMatrix(A::Matrix, B::Matrix)::Matrix
+
+Do the product of two matrix that contains `Block`, `A*B`.
+
+# Arguments
+- `A::Block` : the matrix on the left side.
+- `B::Block` : the matrix on the right side.
+"""
+function prod_BlockMatrix(A::Array, B::Array)::Array
+	C = Matrix(undef,size(A,1),size(B,2))
+	for i in 1:size(A,1)
+		for j in 1:size(A,2)
+			for k in 1:size(B,2)
+				if isassigned(A,i,j) && isassigned(B,j,k)
+					if !isassigned(C,i,k)
+						C[i,k] = Block(zeros(A[i,j].row,B[j,k].col))
+					end
+					C[i,k].Full += prod(A[i,j], B[j,k])
+				end
+			end
+		end
+	end
+	return C
 end

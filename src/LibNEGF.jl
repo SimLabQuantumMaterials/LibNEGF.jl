@@ -15,8 +15,16 @@ export btrid_of_inv_direct
 export convert_S2ALU_trid
 export convert_ALU2S_trid
 
+# from block.jl
+export Block
+export bm_equal
+export bm_copy
+export sum_BlockMatrix
+export prod_BlockMatrix
+
 include("matloader.jl")
 include("matinverter.jl")
 include("arrayorlu.jl")
+include("block.jl")
 
 end
