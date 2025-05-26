@@ -8,7 +8,7 @@ import LinearAlgebra
         # check that the read matrices are built properly with
         # the desired precision
 
-        include("common_to_test_matloader.jl")
+        include("common_to_test.jl")
 
         for systemx in systemNames
             for E in Epoints
@@ -38,10 +38,10 @@ import LinearAlgebra
     end
 
     @testset "Matloader Consistent Matrices" begin
-        # check here that the built T makes sense if directly
+        # check here that the built M makes sense if directly
         # loaded or built via S,H,\Sigma_{c}
 
-        include("common_to_test_matloader.jl")
+        include("common_to_test.jl")
 
         for systemx in systemNames
             for E in Epoints
@@ -55,14 +55,14 @@ import LinearAlgebra
                         H = loadedMats[1]
                         S = loadedMats[2]
                         Se = loadedMats[3]
-                        Tbuilt = build_T_from_HS(H, S, Se, energVals[E])
+                        Mbuilt = build_M_from_HS(H, S, Se, energVals[E])
                         # list of matrices to load
                         listMatsToLoad = ["T"]
                         # load in the desired precision
                         loadedMats, blockSizes = load_matrices(systemx, E, k,
                             listMatsToLoad, precx)
-                        Tload = loadedMats[1]
-                        relErr = LinearAlgebra.norm(Tload - Tbuilt, 2) / LinearAlgebra.norm(Tload, 2)
+                        Mload = loadedMats[1]
+                        relErr = LinearAlgebra.norm(Mload - Mbuilt, 2) / LinearAlgebra.norm(Mload, 2)
                         @test relErr < roundoffs[precx]
                     end
                 end

@@ -73,16 +73,15 @@ function load_matrices(systemName::String, E::Int, k::Int,
 end
 
 """
-    build_T_from_HS(H::SparseArrays.SparseMatrixCSC, S::SparseArrays.SparseMatrixCSC,
+    build_M_from_HS(H::SparseArrays.SparseMatrixCSC, S::SparseArrays.SparseMatrixCSC,
         Se::SparseArrays.SparseMatrixCSC, energVal::Float64)
 
-Construct ``T = ES - H - S_e``.
+Construct ``M = ES - H - S_e``.
 """
-function build_T_from_HS(H::SparseArrays.SparseMatrixCSC, S::SparseArrays.SparseMatrixCSC,
+function build_M_from_HS(H::SparseArrays.SparseMatrixCSC, S::SparseArrays.SparseMatrixCSC,
     Se::SparseArrays.SparseMatrixCSC, energVal::Float64)::SparseArrays.SparseMatrixCSC
-    # TODO : add a check that the types of S, H and Se are all the same
     # the convert(...) in the following line is to avoid casting
     # to ComplexF64
-    T = convert(typeof(H[1, 1]), energVal) * S - H - Se
-    return T
+    M = convert(typeof(H[1, 1]), energVal) * S - H - Se
+    return M
 end
