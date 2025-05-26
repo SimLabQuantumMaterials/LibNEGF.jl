@@ -137,6 +137,15 @@ import LinearAlgebra
 			@test typeof(elem) <: Number
 		end
 	end
+	@testset "set_sparse_Block" begin
+		M = rand(200,200)
+		npl = 2
+		b = div(size(M,1), npl)
+		N = set_sparse_Block(M, [b,b])
+		# O = set_sparse_Block(M, npl)
+		@test M == full(N)
+		# @test M == full(O)
+	end
 end
 
 end

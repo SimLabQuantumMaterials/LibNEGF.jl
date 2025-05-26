@@ -69,11 +69,20 @@ export bm_similar
 export get_rcIndex
 export get_rcIndexAt
 export get_blockSizes
+export full
+export set_sparse_Block
+
+# from selected_inverse.jl
+export blockMatrix_factorization
+export blockMatrix_inverse
+export blockMatrix_factorization!
+export blockMatrix_inverse!
 
 include("matloader.jl")
 include("blockmatrix.jl")
 include("matinvertndiag_direct.jl")
 include("matinvertndiag_ddrgf.jl")
 include("block.jl")
+include("selected_inverse.jl")
 
 end

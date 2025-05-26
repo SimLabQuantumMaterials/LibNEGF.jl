@@ -39,13 +39,13 @@ mutable struct Block
 	end
 end
 
-"""
-Overload operators for Block
-"""
+###
+# Overload operators for Block
+###
 
-"""
-(==) operator
-"""
+###
+# (==) operator
+###
 
 """
 	Base.:(==)(A::Block, B::Array)::Bool
@@ -86,9 +86,9 @@ function Base.:(==)(A::Block, B::Block)::Bool
 	return A.Full == B.Full && A.Factors == B.Factors && A.f_inv == B.f_inv && A.row == B.row && A.col == B.col
 end
 
-"""
-(+) operator
-"""
+###
+# (+) operator
+###
 
 """
 	+(A::Block, B::Block)::Array
@@ -189,9 +189,9 @@ function Base.:*(A::Block, B::Number)::Array
 	return A.Full * B
 end
 
-"""
-copy overload
-"""
+###
+# copy overload
+###
 
 """
 	copy(A::Block)::Block
@@ -317,10 +317,9 @@ function prod_BlockMatrix(A::Array, B::Array)::Array
 	return C
 end
 
-"""
-Get elements of a `Block` matrix.
-"""
-
+###
+# Get elements of a `Block` matrix.
+###
 """
 	get_rcIndex(M::Array, nrows::Int = size(M,1), ncols::Int = size(M,2))::Tuple{Vector{Int}, Vector{Int}}
 
@@ -394,9 +393,9 @@ function get_blockSizes(A::Matrix, npl::Int=size(A,1))::Vector{Int}
 	return b
 end
 
-"""
-Generate elements
-"""
+###
+# Generate elements
+###
 
 """
 	full(A::Matrix, rind::Vector{Int}, cind::Vector{Int})::Array
@@ -460,4 +459,122 @@ function full(A::Matrix)::Array
 	end
 
 	return B
+end
+
+"""
+	set_sparse_Block(b::Vector{Int}, rind::Vector{Int}, cind::Vector{Int}[, s_flag::Bool=false])::Block
+
+Create a matrix that contains `Block` (only work for square matrix).
+
+# Arguments
+- `b::Vector{Int}` : Vector that contains block sizes.
+- `rind::Vector{Int}` : row indeces vector.
+- `cind::Vector{Int}` : column indeces vector.
+- `s_flag::Bool` : flag to make the matrix symetric (by block).
+"""
+function set_sparse_Block(b::Vector{Int}, rind::Vector{Int}, cind::Vector{Int}, s_flag::Bool=false)::Matrix
+	npl = size(b,1)
+	A::Matrix = Matrix(undef, npl, npl)
+	idx = CartesianIndex.(rind,cind)
+	for j in 1:length(idx)
+		A[idx[j]] = Block(rand(Float64, b[idx[j][1]], b[idx[j][2]]))
+		if s_flag && idx[j][1] != idx[j][2]
+			A[idx[j][2],idx[j][1]] = Block(rand(Float64, b[idx[j][2]], b[idx[j][1]]))
+		end
+	end
+
+	return A
+end
+
+"""
+	set_sparse_Block(B::SparseArrays.SparseMatrixCSC, b::Vector{Int}[, s_flag::Bool=false])::Matrix
+
+Create a `Matrix` matrix from a sparse matrix `B`.
+
+# Arguments
+- `B::Array` : sparse matrix.
+- `b::Vector{Int}` : Vector that contains block sizes.
+- `s_flag::Bool` : flag to make the matrix symetric (by block).
+"""
+function set_sparse_Block(B::SparseArrays.SparseMatrixCSC, b::Vector{Int}, s_flag::Bool=false)::Matrix
+	npl = size(b,1)
+	A::Matrix = Matrix(undef, npl, npl)
+
+	for i in 1:npl
+		for j in 1:npl
+			idx = 1 + sum(b[1:i-1]) : sum(b[1:i])
+			idy = 1 + sum(b[1:j-1]) : sum(b[1:j])
+			if iszero(B[idx,idy])
+				continue
+			end
+			A[i,j] = Block(B[idx,idy])
+			if s_flag && i != j
+				A[j,i] = Block(B[idy,idx])
+			end
+		end
+	end
+
+	return A
+end
+
+"""
+	set_sparse_Block(B::Array, b::Vector{Int}[, s_flag::Bool=false])::Matrix
+
+Create a `Matrix` matrix from a full matrix `B`.
+
+# Arguments
+- `B::Array` : full matrix.
+- `b::Vector{Int}` : Vector that contains block sizes.
+- `s_flag::Bool` : flag to make the matrix symetric (by block).
+"""
+function set_sparse_Block(B::Array, b::Vector{Int}, s_flag::Bool=false)::Matrix
+	npl = size(b,1)
+	A::Matrix = Matrix(undef, npl, npl)
+
+	for i in 1:npl
+		for j in 1:npl
+			idx = 1 + sum(b[1:i-1]) : sum(b[1:i])
+			idy = 1 + sum(b[1:j-1]) : sum(b[1:j])
+			if iszero(B[idx,idy])
+				continue
+			end
+			A[i,j] = Block(B[idx,idy])
+			if s_flag && i != j
+				A[j,i] = Block(B[idy,idx])
+			end
+		end
+	end
+
+	return A
+end
+
+"""
+	set_sparse_Block(B::Array, npl::Int[, s_flag::Bool=false])::Matrix
+
+Create a `Matrix` matrix from a full matrix `B`.
+
+# Arguments
+- `B::Array` : full matrix.
+- `npl::Int` : Number of principal layer.
+- `s_flag::Bool` : flag to make the matrix symetric (by block).
+"""
+function set_sparse_Block(B::Array, npl::Int, s_flag::Bool=false)::Matrix
+	b = Vector{Int}(div(size(B,1),npl), npl)
+	A::Matrix = Matrix(undef, npl, npl)
+
+	for i in 1:npl
+		for j in 1:npl
+			idx = 1 + sum(b[1:i-1]) : sum(b[1:i])
+			idy = 1 + sum(b[1:j-1]) : sum(b[1:j])
+			if iszero(B[idx,idy])
+				continue
+			end
+			A[i,j] = Block(B[idx,idy])
+			if s_flag && i != j
+				A[j,i] = Block(B[idy,idx])
+			end
+		end
+	end
+
+	return A
 end
