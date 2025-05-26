@@ -3,9 +3,18 @@
 
 using Pkg
 
+supportedHWs = ["cpu", "apple"]
+# unsupportedHWs = ["nvidia", "amd", "intel"]
+
+if ARGS[1] ∉ supportedHWs
+    println("The chosen hardware (", ARGS[1], ") is not yet supported")
+    exit()
+end
+
 Pkg.activate("./")
 Pkg.develop(path="../")
 
+# calling 'using' on LibNEGF triggers the precompilation
 using Documenter, LibNEGF, SparseArrays
 
 makedocs(sitename="LibNEGF", remotes=nothing)
