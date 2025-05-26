@@ -1,7 +1,7 @@
-# computing the block tridiagonal of the inverse of T
+# computing the block n-diagonal of the inverse of T
 # by first computing inv(...)
 
-include("common_to_test_matinverter.jl")
+include("common_to_test.jl")
 
 for systemx in systemNames
     for E in Epoints
@@ -14,19 +14,20 @@ for systemx in systemNames
             H = loadedMats[1]
             S = loadedMats[2]
             Se = loadedMats[3]
-            T = build_T_from_HS(H, S, Se, energVals[E])
-            # LA.cond(..) makes use of LA.opnorm(..)
-            condNum = LinearAlgebra.cond(Array(T))
+            M = build_M_from_HS(H, S, Se, energVals[E])
+            Ux, sLg, Vx, bndx, nprodx, ntprodx = PROPACK.tsvd(M, k=1)
+            sSm, bndx, nprodx, ntprodx = PROPACK.tsvdvals_irl(M, k=1, kmax=50)
+            condNum = sLg[1]/sSm[1]
 
             for precx in precs
-                # load matrices and build T
+                # load matrices and build M
                 listMatsToLoad = ["H", "S", "Sc"]
                 loadedMats, blockSizes = load_matrices(systemx, E, k,
                     listMatsToLoad, precx)
                 H = loadedMats[1]
                 S = loadedMats[2]
                 Se = loadedMats[3]
-                T = build_T_from_HS(H, S, Se, energVals[E])
+                M = build_M_from_HS(H, S, Se, energVals[E])
 
                 # load Gr
                 listMatsToLoad = ["Gr"]
@@ -40,10 +41,9 @@ for systemx in systemNames
                 loadedMats, blockSizes = load_matrices(systemx, E, k,
                     listMatsToLoad, precx)
 
-                # get the block tridiagonal of T^-1 via inv(T)
-                TInvTrid = btrid_of_inv_direct(T, blockSizes)
-
-                relErr = LinearAlgebra.opnorm(Array(TInvTrid - Gr), 2) / LinearAlgebra.opnorm(Array(Gr), 2)
+                # get the block n-diagonal of M^-1 via inv(M)
+                MInvNdiag = bndiag_of_inv_direct(M, blockSizes, Dict("in" => 3, "out" => 3))
+                relErr = LinearAlgebra.opnorm(Array(MInvNdiag - Gr), 2) / LinearAlgebra.opnorm(Array(Gr), 2)
                 # making a rough assumption on backward stability. The additional
                 # 1.0E1 is because we see a loss in 1 digit in some cases
                 @test relErr < roundoffs[precx] * condNum * 1.0E1

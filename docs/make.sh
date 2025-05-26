@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# run as : ./test.sh HW
+# run as : ./make.sh HW
 # where HW is one of : cpu, amd, nvidia, intel, apple,
 # with all of these indicating that we run on GPUs, except
 # the first one (i.e. cpu)
@@ -30,22 +30,21 @@ HWs="cpu apple nvidia amd intel"
 
 if exists_in_list "$HWs" " " $1; then
     # get the manifest specific to the chosen HW
-    cp Manifest_$1.toml Manifest.toml
+    cp ../Manifest_$1.toml ../Manifest.toml
     # create usable copy of Project_common.toml
-    cp Project_common.toml Project.toml
-    export OPENBLAS_NUM_THREADS=6
+    cp ../Project_common.toml ../Project.toml
 
     # variables used to mimic C's ifdef
     export LIBNEGF_HW=$1
-    export LIBNEGF_FINER_TIMINGS=0
+    export LIBNEGF_FINER_TIMINGS=1
     # if we want to really mimic C's ifdef, we need to force recompilation,
     # which we do by removing the precompiled binaries
     JULIA_MAJOR_VERSION=$(julia --version | egrep -o '[0-9].[0-9][0-9]')
     BINS_JULIA=$(ls ~/.julia/compiled/v$JULIA_MAJOR_VERSION/LibNEGF/*.ji)
     rm $BINS_JULIA
 
-    # run the tests
-    julia test.jl $1
+    # create the documentation
+    julia --color=yes --project make.jl $1
 else
     echo "The hardware $1 is not in the list, not running the tests"
 fi
