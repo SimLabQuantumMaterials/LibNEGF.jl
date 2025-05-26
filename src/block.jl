@@ -393,3 +393,71 @@ function get_blockSizes(A::Matrix, npl::Int=size(A,1))::Vector{Int}
 	end
 	return b
 end
+
+"""
+Generate elements
+"""
+
+"""
+	full(A::Matrix, rind::Vector{Int}, cind::Vector{Int})::Array
+
+Convert a block matrix of type `Matrix` to full matrix.
+
+**Warning : Working only if the diagonal is no empty.**
+
+# Arguments
+- `A::Matrix` : A block matrix.
+- `rind::Vector{Int}` : row indeces vector.
+- `cind::Vector{Int}` : column indeces vector.
+"""
+function full(A::Matrix, rind::Vector{Int}, cind::Vector{Int})::Array
+	npl = size(A,1)
+	b = get_blockSizes(A)
+	m = sum(b)
+	B = zeros(Float64,m,m)
+
+	for j in 1:length(rind)
+		idx = 1 + sum(b[1:rind[j]-1]) : sum(b[1:rind[j]])
+		idy = 1 + sum(b[1:cind[j]-1]) : sum(b[1:cind[j]])
+		if typeof(A[rind[j],cind[j]].Full) <: LU
+			B[idx,idy] = A[rind[j],cind[j]].Full.factors
+		else
+			B[idx,idy] = A[rind[j],cind[j]].Full
+		end
+	end
+
+	return B
+end
+
+"""
+	full(A::Matrix)::Array
+
+Convert a block matrix of type `Matrix` to full matrix.
+
+**Warning : Working only if the diagonal is no empty.**
+	
+# Arguments
+- `A::Matrix`: A block matrix.
+"""
+function full(A::Matrix)::Array
+	npl = size(A,1)
+	b = get_blockSizes(A)
+	m = sum(b)
+	B = zeros(Float64,m,m)
+
+	for i = 1:npl
+		for j = 1:npl
+			idx = 1 + sum(b[1:i-1]) : sum(b[1:i])
+			idy = 1 + sum(b[1:j-1]) : sum(b[1:j])
+			if isassigned(A,i,j)
+				if typeof(A[i,j].Factors) <: LU
+					B[idx,idy] = A[i,j].Factors.factors
+				else
+					B[idx,idy] = A[i,j].Full
+				end
+			end
+		end
+	end
+
+	return B
+end

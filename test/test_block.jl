@@ -123,6 +123,20 @@ import LinearAlgebra
 		# Think about a critical case
 		@test bl == 0 broken=true
 	end
+	@testset "full" begin
+		origin = rand(5,5)
+		t2 = rand(4,4)
+		M = Matrix(undef,3,3)
+		M[1,1] = M[2,2] = Block(origin)
+		M[3,3] = Block(t2)
+		@test typeof(origin) <: Matrix
+		@test typeof(M) <: Matrix
+		@test typeof(M[2,2]) <: Block
+		M = full(M)
+		for elem in M
+			@test typeof(elem) <: Number
+		end
+	end
 end
 
 end
