@@ -11,7 +11,7 @@ function exists_in_list() {
     LIST=$1
     DELIMITER=$2
     VALUE=$3
-    LIST_WHITESPACES=`echo $LIST | tr "$DELIMITER" " "`
+    LIST_WHITESPACES=$(echo $LIST | tr "$DELIMITER" ' ')
     for x in $LIST_WHITESPACES; do
         if [ "$x" = "$VALUE" ]; then
             return 0
@@ -41,8 +41,8 @@ if exists_in_list "$HWs" " " $1; then
     export LIBNEGF_TEST_OR_BENCH=test
     # if we want to really mimic C's ifdef, we need to force recompilation,
     # which we do by removing the precompiled binaries
-    JULIA_MAJOR_VERSION=`julia --version | egrep -o '[0-9].[0-9][0-9]'`
-    BINS_JULIA=`ls ~/.julia/compiled/v$JULIA_MAJOR_VERSION/LibNEGF/*.ji`
+    JULIA_MAJOR_VERSION=$(julia --version | egrep -o '[0-9].[0-9][0-9]')
+    BINS_JULIA=$(ls ~/.julia/compiled/v$JULIA_MAJOR_VERSION/LibNEGF/*.ji)
     rm $BINS_JULIA
 
     # run the tests

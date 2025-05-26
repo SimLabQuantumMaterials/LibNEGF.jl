@@ -19,6 +19,13 @@ for systemx in systemNames
                 exit()
             end
 
+            # create array of timers
+            timers = Vector{TimerOutput}()
+            for ix = 1:Threads.nthreads()
+                push!(timers, TimerOutput())
+            end
+            timerTagGlobal = "bndiag_of_inv_direct_" * string(precx)
+
             @timeit to timerTagGlobal begin
                 # loading blockSizes only
                 listMatsToLoad = Vector{String}()
