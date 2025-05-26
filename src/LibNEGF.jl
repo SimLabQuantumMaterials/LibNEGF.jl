@@ -21,6 +21,10 @@ export bm_equal
 export bm_copy
 export sum_BlockMatrix
 export prod_BlockMatrix
+export bm_similar
+export get_rcIndex
+export get_rcIndexAt
+export get_blockSizes
 
 include("matloader.jl")
 include("matinverter.jl")

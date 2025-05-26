@@ -256,6 +256,15 @@ function bm_copy(A::Matrix)::Matrix
 end
 
 """
+	bm_similar(A::Matrix)::Matrix
+
+Copy a matrix that contains `Block` with undef fields.
+"""
+function bm_similar(A::Matrix)::Matrix
+	return Matrix(undef, size(A,1), size(A,2))
+end
+
+"""
 	sum_BlockMatrix(A::Array, B::Array)::Array
 
 Do the addition of two `Matrix` that contains `Block` type.
@@ -306,4 +315,81 @@ function prod_BlockMatrix(A::Array, B::Array)::Array
 		end
 	end
 	return C
+end
+
+"""
+Get elements of a `Block` matrix.
+"""
+
+"""
+	get_rcIndex(M::Array, nrows::Int = size(M,1), ncols::Int = size(M,2))::Tuple{Vector{Int}, Vector{Int}}
+
+Get the rows and columns index where the matrix `M` is not `undef`.
+
+# Arguments
+- `M::Array` : the matrix we want to analyze.
+- `nrows::Int` : the number of row we analyze.
+- `ncols::Int` : the number of column we analyze.
+"""
+function get_rcIndex(M::Array, nrows::Int = size(M,1), ncols::Int = size(M,2))::Tuple{Vector{Int}, Vector{Int}}
+
+	rowInd = Vector{Int}()
+	colInd = Vector{Int}()
+
+	for i in 1:nrows
+		for j in 1:ncols
+			if isassigned(M,i,j)
+				push!(rowInd,i)
+				push!(colInd,j)
+			end
+		end
+	end
+
+	return rowInd, colInd
+end
+
+"""
+	get_rcIndexAt(M::Matrix[, rowB::Int=1, rowE::Int=size(M,1), colB::Int=1, colE::Int=size(M,2)])::Tuple{Vector{Int}, Vector{Int}}
+
+Get the rows and columns index where the matrix `M` is not `undef` for specific index.
+
+# Arguments
+- `M::Matrix` : the matrix we want to analyze.
+- `rowB::Int` : the starting index of row we analyze.
+- `rowE::Int` : the ending index of row we analyze.
+- `colB::Int` : the starting index of column we analyze.
+- `colE::Int` : the ending index of column we analyze.
+"""
+function get_rcIndexAt(M::Matrix, rowB::Int=1, rowE::Int=size(M,1), colB::Int=1, colE::Int=size(M,2))::Tuple{Vector{Int}, Vector{Int}}
+
+	rowInd = Vector{Int}()
+	colInd = Vector{Int}()
+
+	for i in rowB:rowE
+		for j in colB:colE
+			if isassigned(M, i, j)
+				push!(rowInd,i)
+				push!(colInd,j)
+			end
+		end
+	end
+
+	return rowInd, colInd
+end
+
+"""
+	get_blockSizes(A::Matrix[, npl::Int=size(A,1)])::Vector{Int}
+
+Get the size of each block along the diagonal from matrix `A`.
+
+# Arguments
+- `A::Matrix` : the target block matrix.
+- `npl::Int` : the number of block along the diagonal.
+"""
+function get_blockSizes(A::Matrix, npl::Int=size(A,1))::Vector{Int}
+	b::Vector{Int} = Vector{Int}(undef, npl)
+	for i = 1:npl
+		b[i] = A[i,i].row
+	end
+	return b
 end

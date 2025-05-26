@@ -80,6 +80,49 @@ import LinearAlgebra
 	    N = bm_copy(M)
 	    @test bm_equal(N, M)
     end
+	@testset "get_rcIndex" begin
+		M = Matrix(undef,5,5)
+		idx, idy = get_rcIndex(M)
+		@test isempty(idx)
+		@test isempty(idy)
+		idx = [1,2,3]
+		idy = [1,3]
+		M[idx, idy] .= 1
+		@test get_rcIndex(M) == ([1, 1, 2, 2, 3, 3], [1, 3, 1, 3, 1, 3])
+	end
+	@testset "get_rcIndexAt" begin
+		M = Matrix(undef,5,5)
+		idx, idy = get_rcIndexAt(M)
+		@test isempty(idx)
+		@test isempty(idy)
+		idx = [1,2,3]
+		idy = [1,3]
+		M[idx, idy] .= 1
+		@test get_rcIndexAt(M, 1, 1) == ([1, 1, 2, 2, 3, 3], [1, 3, 1, 3, 1, 3]) broken=true
+		@test get_rcIndexAt(M, 1, 1) == ([1, 1], [1, 3])
+	end
+	@testset "bm_similar" begin
+		M = Matrix(undef,5,5)
+		M[1,1] = Block(rand(5,5))
+		M[2,3] = Block()
+		N = bm_similar(M)
+		@test bm_equal(N, M) broken=true
+		O = Matrix(undef,5,5)
+		@test bm_equal(N, O)
+	end
+	@testset "get_blockSizes" begin
+		npl = 5
+		M = Matrix(undef,npl,npl)
+		verif = []
+		for i in 1:5
+			M[i,i] = Block(rand(i,2))
+			push!(verif,i)
+		end
+		bl = get_blockSizes(M)
+		@test bl == verif
+		# Think about a critical case
+		@test bl == 0 broken=true
+	end
 end
 
 end
