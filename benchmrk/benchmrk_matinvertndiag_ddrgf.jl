@@ -1,33 +1,30 @@
 Printf.@printf("Benchmarking bndiag_of_inv_ddrgf!(...)\n")
 
+nrEPoints = size(Epoints)[1]
+
+# first, check if the number of threads divides the number of energy points,
+# exit if it doesn't
+if mod(nrEPoints, Threads.nthreads()) != 0
+    Printf.@printf("ERROR: the number of Julia threads (%d) does not divide the number \
+                    of energy points (%d)\n", Threads.nthreads(), nrEPoints)
+    exit()
+end
+
 for systemx in systemNames
     for precx in precs
-        # create a flops and mems counter for each precision
-        cd = CountingData(0, 0, 0)
+        # create a flops and mems counter for each precision and thread
+        counters = Vector{CountingData}()
+        for ix = 1:Threads.nthreads()
+            push!(counters, CountingData(0, 0, 0))
+        end
+        # create array of timers
+        timers = Vector{TimerOutput}()
+        for ix = 1:Threads.nthreads()
+            push!(timers, TimerOutput())
+        end
+        timerTagGlobal = "bndiag_of_inv_ddrgf_" * string(precx)
+
         for k in kpoints
-            # create array of timers
-            timers = Vector{TimerOutput}()
-            for ix = 1:Threads.nthreads()
-                push!(timers, TimerOutput())
-            end
-            timerTagGlobal = "bndiag_of_inv_ddrgf_" * string(precx)
-
-            # first, check if the number of threads divides the number of energy points,
-            # exit if it doesn't
-            # maybe put this check earlier ?
-            if mod(size(Epoints)[1], Threads.nthreads()) != 0
-                Printf.@printf("ERROR: the number of Julia threads (%d) does not divide the number \
-                               of energy points (%d)\n", Threads.nthreads(), size(Epoints)[1])
-                exit()
-            end
-
-            # create array of timers
-            timers = Vector{TimerOutput}()
-            for ix = 1:Threads.nthreads()
-                push!(timers, TimerOutput())
-            end
-            timerTagGlobal = "bndiag_of_inv_direct_" * string(precx)
-
             @timeit to timerTagGlobal begin
                 # loading blockSizes only
                 listMatsToLoad = Vector{String}()
@@ -62,40 +59,50 @@ for systemx in systemNames
                     # (?) force the garbage collector before doing the core computations
                     GC.gc()
 
-                    tx(tid) = begin
+                    tx(tId) = begin
                         ninvs = 10
                         # multiple inversions per energy point, for statistics purposes
                         for ix = 1:ninvs
+                            # do a clear separation when timing the first inversion vs the others
                             if ix == 1
-                                timerTagLocal = "thread" * string(Threads.threadid()) * "_first"
+                                timerTagLocal = "thread" * string(tId) * "_first"
                             else
-                                timerTagLocal = "thread" * string(Threads.threadid()) * "_wo_first"
+                                timerTagLocal = "thread" * string(tId) * "_wo_first"
+                            end
+                            # don't include the first inversion in the flops and mems counting
+                            if ix == 1
+                                cd = CountingData(0, 0, 0)
+                            else
+                                cd = counters[tId]
+                                cd.nrCalls += 1
                             end
                             Printf.@printf(".")
                             if Int(parse(Float64, ARGS[2])) == 1
-                                td = TimingData(timers[tid], timerTagLocal)
+                                td = TimingData(timers[tId], timerTagLocal)
                             else
                                 td = TimingData()
                             end
-                            @timeit timers[tid] timerTagLocal * "_total" bndiag_of_inv_ddrgf!(Mouts[tid], Mins[tid], auxs[tid], td, cd)
-                            cd.nrCalls += 1
+                            timerTagLocalTotal = timerTagLocal * "_total"
+                            # println(timerTagLocalTotal)
+                            @timeit timers[tId] timerTagLocalTotal bndiag_of_inv_ddrgf!(Mouts[tId], Mins[tId], auxs[tId], td, cd)
                         end
-
                     end
 
-                    Threads.@threads for ix in 1:length(Epoints)
+                    Threads.@threads for ix in 1:Threads.nthreads()
                         tx(ix)
-                    end
-
-                    for ix = 1:Threads.nthreads()
-                        merge!(to, timers[ix], tree_point=[timerTagGlobal])
                     end
 
                     Printf.@printf("\n")
                 end
             end
         end
-    print_flops_and_mems(cd, to, precx)
+
+        for ix = 1:Threads.nthreads()
+            merge!(to, timers[ix], tree_point=[timerTagGlobal])
+        end
+
+        # print flops and mems counts for thread1 only
+        print_flops_and_mems(counters[1], to, precx)
     end
 end
 
