@@ -33,16 +33,16 @@ end
 
 @ifdef "LIBNEGF_HW" begin
     if ENV["LIBNEGF_HW"] == "cpu"
-        function flops_and_mems(whichKernel::String, cd::CountingData, sizes::Vector{Tuple{Int, Int}})
+        function flops_and_mems(whichKernel::String, cd::CountingData, sizes::Vector{Tuple{Int,Int}})
             if whichKernel == "_gemm"
                 m = sizes[3][1]
                 n = sizes[3][2]
                 k = sizes[1][2]
                 # fused multiply add not taken into account (should we multiply by 3 instead?)
-                cd.gemmFlops += 6*m*n*k
-                cd.totalFlops += 6*m*n*k
-                cd.gemmMems += ( k*(m+n) + 2*m*n )
-                cd.totalMems += ( k*(m+n) + 2*m*n )
+                cd.gemmFlops += 6 * m * n * k
+                cd.totalFlops += 6 * m * n * k
+                cd.gemmMems += (k * (m + n) + 2 * m * n)
+                cd.totalMems += (k * (m + n) + 2 * m * n)
             elseif whichKernel == "_mldivide"
                 cd.mldivideFlops += 0
                 cd.totalFlops += 0
@@ -73,7 +73,8 @@ the backend kernel calls are wrapped with it.
 """
 macro timewrap(tdx, cdx, suffx, sizesx, codex)
     return quote
-        flops_and_mems($(esc(suffx)), $(esc(cdx)), $(esc(sizesx))); @timeit ($(esc(tdx))).to ($(esc(tdx))).label * ($(esc(suffx))) $(esc(codex))
+        flops_and_mems($(esc(suffx)), $(esc(cdx)), $(esc(sizesx)))
+        @timeit ($(esc(tdx))).to ($(esc(tdx))).label * ($(esc(suffx))) $(esc(codex))
     end
 end
 
@@ -81,44 +82,43 @@ function print_flops_and_mems_(cd::CountingData, to::TimerOutput, prec::DataType
     nrCalls = cd.nrCalls
     if suffx == "gemm"
         # in gigaflops
-        flopsAvg = (cd.gemmFlops*1.0E-9)/nrCalls
+        flopsAvg = (cd.gemmFlops * 1.0E-9) / nrCalls
         # data in GB
-        memsAvg = ((sizeof(prec)*cd.gemmMems)/nrCalls)/(1024*1024*1024)
+        memsAvg = ((sizeof(prec) * cd.gemmMems) / nrCalls) / (1024 * 1024 * 1024)
     elseif suffx == "lu"
         # in gigaflops
-        flopsAvg = (cd.luFlops*1.0E-9)/nrCalls
+        flopsAvg = (cd.luFlops * 1.0E-9) / nrCalls
         # data in GB
-        memsAvg = ((sizeof(prec)*cd.luMems)/nrCalls)/(1024*1024*1024)
+        memsAvg = ((sizeof(prec) * cd.luMems) / nrCalls) / (1024 * 1024 * 1024)
     elseif suffx == "mldivide"
         # in gigaflops
-        flopsAvg = (cd.mldivideFlops*1.0E-9)/nrCalls
+        flopsAvg = (cd.mldivideFlops * 1.0E-9) / nrCalls
         # data in GB
-        memsAvg = ((sizeof(prec)*cd.mldivideMems)/nrCalls)/(1024*1024*1024)
+        memsAvg = ((sizeof(prec) * cd.mldivideMems) / nrCalls) / (1024 * 1024 * 1024)
     elseif suffx == "mrdivide"
         # in gigaflops
-        flopsAvg = (cd.mrdivideFlops*1.0E-9)/nrCalls
+        flopsAvg = (cd.mrdivideFlops * 1.0E-9) / nrCalls
         # data in GB
-        memsAvg = ((sizeof(prec)*cd.mrdivideMems)/nrCalls)/(1024*1024*1024)
+        memsAvg = ((sizeof(prec) * cd.mrdivideMems) / nrCalls) / (1024 * 1024 * 1024)
     elseif suffx == "total"
         # in gigaflops
-        flopsAvg = (cd.totalFlops*1.0E-9)/nrCalls
+        flopsAvg = (cd.totalFlops * 1.0E-9) / nrCalls
         # data in GB
-        memsAvg = ((sizeof(prec)*cd.totalMems)/nrCalls)/(1024*1024*1024)
+        memsAvg = ((sizeof(prec) * cd.totalMems) / nrCalls) / (1024 * 1024 * 1024)
     end
 
     if suffx == "total"
-        totTimeAvg = ( TimerOutputs.time(to["bndiag_of_inv_ddrgf_"*string(prec)]["thread1_wo_first_total"]) * 1.0E-9 ) / nrCalls
+        totTimeAvg = (TimerOutputs.time(to["bndiag_of_inv_ddrgf_"*string(prec)]["thread1_wo_first_total"]) * 1.0E-9) / nrCalls
     else
-        totTimeAvg = ( TimerOutputs.time(to["bndiag_of_inv_ddrgf_"*string(prec)]["thread1_wo_first_total"]["thread1_wo_first_"*suffx]) * 1.0E-9 ) / nrCalls
+        totTimeAvg = (TimerOutputs.time(to["bndiag_of_inv_ddrgf_"*string(prec)]["thread1_wo_first_total"]["thread1_wo_first_"*suffx]) * 1.0E-9) / nrCalls
     end
-
 
     println("\t -- kernel : " * suffx)
     println("\t\t -- flops (avg) (megaflops) : " * string(flopsAvg))
     println("\t\t -- mems (avg) (GB) : " * string(memsAvg))
     println("\t\t -- time (avg) : " * string(totTimeAvg))
-    println("\t\t -- flops/sec (avg) (GFLOPS) : " * string(flopsAvg/totTimeAvg))
-    println("\t\t -- mems/sec (avg) (GB/s) : " * string(memsAvg/totTimeAvg))
+    println("\t\t -- flops/sec (avg) (GFLOPS) : " * string(flopsAvg / totTimeAvg))
+    println("\t\t -- mems/sec (avg) (GB/s) : " * string(memsAvg / totTimeAvg))
 end
 
 function print_flops_and_mems(cd::CountingData, to::TimerOutput, prec::DataType)
