@@ -74,6 +74,14 @@ function be_ctranspose!(Mout::Metal.MtlArray, Min::Metal.MtlArray)
     be_copy_to_hw!(Mout, Moutcpu)
 end
 
+function be_random_array(nrsType::DataType, dimsOfArr::Tuple{Int,Int})::Metal.MtlArray
+    return be_copy_to_hw(rand(nrsType, dimsOfArr))
+end
+
+function be_fill!(M::Metal.MtlArray, x::Number)
+    fill!(M, x)
+end
+
 # # ----------------------------------------------------
 # # then composite types e.g. LU and MtlLU
 # # TODO : check : is Julia inlining these? Or use macros instead?

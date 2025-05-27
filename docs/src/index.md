@@ -24,4 +24,5 @@ similar_bm_but_zero(M::BlockMatrix)
 AuxDataDDRGF
 allocate_aux_data_DDRGF(M::BlockMatrix)
 bndiag_of_inv_ddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxDataDDRGF, td::TimingData)
+bm_gemm!(tA::Char, tB::Char, alpha::Number, A::BlockMatrix, B::BlockMatrix, beta::Number, C::BlockMatrix)
 ```

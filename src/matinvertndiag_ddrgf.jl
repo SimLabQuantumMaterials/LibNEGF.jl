@@ -26,11 +26,11 @@ function allocate_aux_data_DDRGF(M::BlockMatrix)::AuxDataDDRGF
     # Array-like object and not LU-like, as specified by the last param
     buffM = BlockMatrix(M.blockSizes, ArrayOrLU_(undef, npl, npl),
         M.ndiag, M.nrsType, 1)
-    set_blocks_to_zero!(buffM)
+    bm_blocks_define!(buffM, 1)
 
     bIdM = BlockMatrix(M.blockSizes, ArrayOrLU_(undef, npl, npl),
         Dict("in" => 1, "out" => 1), M.nrsType, 0)
-    set_blocks_to_identity!(bIdM)
+    bm_blocks_define_identity!(bIdM)
 
     # the final struct with the buffers
     auxData = AuxDataDDRGF(buffM, bIdM)

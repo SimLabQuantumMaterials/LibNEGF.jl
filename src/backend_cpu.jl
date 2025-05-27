@@ -57,6 +57,14 @@ function be_ctranspose!(Mout::Array, Min::Array)
     adjoint!(Mout, Min)
 end
 
+function be_random_array(nrsType::DataType, dimsOfArr::Tuple{Int,Int})::Array
+    return rand(nrsType, dimsOfArr)
+end
+
+function be_fill!(M::Array, x::Number)
+    fill!(M, x)
+end
+
 # # ----------------------------------------------------
 # # then composite types e.g. LU and MtlLU
 # # TODO : check : is Julia inlining these? Or use macros instead?
