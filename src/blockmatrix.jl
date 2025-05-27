@@ -344,6 +344,17 @@ function bm_local_gemm!(tA::Char, tB::Char, alpha::Number, A_::BlockMatrix, B_::
     end
 end
 
+"""
+	bm_local_gemm!(tA::Char, tB::Char, alpha::Number, A_::BlockMatrix, B_::BlockMatrix, beta::Number, C_::BlockMatrix, ix::Int, jx::Int)
+
+GEMM for BlockMatrix type matrices. The signature of the function
+follows closely that being used in BLAS. This function does
+C = beta*C + alpha*A*B.
+
+# Arguments
+- `tA::Char`: whether we take the adjoint of A ('C') or not ('N').
+- `tB::Char`: whether we take the adjoint of B ('C') or not ('N').
+"""
 function bm_gemm!(tA::Char, tB::Char, alpha::Number, A::BlockMatrix, B::BlockMatrix, beta::Number, C::BlockMatrix)
     ndiag = C.ndiag
     npl = size(B.blockSizes)[1]

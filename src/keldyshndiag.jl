@@ -1,3 +1,9 @@
+"""
+	AuxDataKeldysh
+
+Buffers used by Keldysh. The data in `auxDataRGF` are used for supporting
+RGF operations, and `bmLargeBuff` to do the further GEMM.
+"""
 struct AuxDataKeldysh
     auxDataRGF::AuxDataDDRGF
     bmLargeBuff::BlockMatrix
@@ -20,7 +26,16 @@ function allocate_aux_data_Keldysh(M::BlockMatrix, auxDataRGF::AuxDataDDRGF)::Au
     return auxDataKeldysh
 end
 
-# computes C = A bndiag(B^{-1}) A^{H}
+"""
+    keldyshndiag!(C::BlockMatrix, Binv::BlockMatrix, B::BlockMatrix, A::BlockMatrix, auxData::AuxDataKeldysh, td::TimingData, vsn::String)
+
+Computes C = A * Binv * A^{H}, where Binv is the block tridiagonal of
+
+# Arguments
+- `td::TimingData`: it allows us refined data measurements, i.e. not only at the benchmarks
+level but further within Keldysh and RGF.
+- `vsn:String`: the version of the implementation, currently available "v1" and "v2".
+"""
 function keldyshndiag!(C::BlockMatrix, Binv::BlockMatrix, B::BlockMatrix, A::BlockMatrix, auxData::AuxDataKeldysh, td::TimingData, vsn::String)
     if vsn == "v1"
         keldyshndiag_v1!(C, Binv, B, A, auxData, td)
