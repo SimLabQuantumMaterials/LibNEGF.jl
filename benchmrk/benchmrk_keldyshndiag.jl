@@ -5,6 +5,7 @@ keldyshVersion = "v2"
 
 for systemx in systemNames
     for precx in precs
+        cd = CountingData(0, 0, 0)
         for k in kpoints
             # create array of timers
             timers = Vector{TimerOutput}()
@@ -82,7 +83,7 @@ for systemx in systemNames
                                 td = TimingData()
                             end
                             @timeit timers[tid] timerTagLocal * "_total" keldyshndiag!(MoutsKeldysh[tid],
-                                MoutsRGF[tid], Mins[tid], Mrands[tid], auxs[tid], td, keldyshVersion)
+                                MoutsRGF[tid], Mins[tid], Mrands[tid], auxs[tid], td, cd, keldyshVersion)
                         end
                     end
 

@@ -2,6 +2,8 @@ Printf.@printf("Benchmarking bndiag_of_inv_ddrgf!(...)\n")
 
 for systemx in systemNames
     for precx in precs
+        # create a flops and mems counter for each precision
+        cd = CountingData(0, 0, 0)
         for k in kpoints
             # create array of timers
             timers = Vector{TimerOutput}()
@@ -61,7 +63,7 @@ for systemx in systemNames
                     GC.gc()
 
                     tx(tid) = begin
-                        ninvs = 10
+                        ninvs = 2
                         # multiple inversions per energy point, for statistics purposes
                         for ix = 1:ninvs
                             if ix == 1
@@ -75,8 +77,10 @@ for systemx in systemNames
                             else
                                 td = TimingData()
                             end
-                            @timeit timers[tid] timerTagLocal * "_total" bndiag_of_inv_ddrgf!(Mouts[tid], Mins[tid], auxs[tid], td)
+                            @timeit timers[tid] timerTagLocal * "_total" bndiag_of_inv_ddrgf!(Mouts[tid], Mins[tid], auxs[tid], td, cd)
+                            cd.nrCalls += 1
                         end
+
                     end
 
                     Threads.@threads for ix in 1:length(Epoints)
@@ -91,6 +95,7 @@ for systemx in systemNames
                 end
             end
         end
+    print_flops_and_mems(cd, to, precx)
     end
 end
 
