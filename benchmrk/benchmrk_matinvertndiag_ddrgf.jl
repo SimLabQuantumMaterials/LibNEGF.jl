@@ -15,7 +15,11 @@ for systemx in systemNames
         # create a flops and mems counter for each precision and thread
         counters = Vector{CountingData}()
         for ix = 1:Threads.nthreads()
-            push!(counters, CountingData(0, 0, 0))
+            if Int(parse(Float64, ARGS[2])) == 1
+                push!(counters, CountingData(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
+            else
+                push!(counters, CountingData())
+            end
         end
         # create array of timers
         timers = Vector{TimerOutput}()
@@ -70,12 +74,17 @@ for systemx in systemNames
                                 timerTagLocal = "thread" * string(tId) * "_wo_first"
                             end
                             # don't include the first inversion in the flops and mems counting
-                            if ix == 1
-                                cd = CountingData(0, 0, 0)
+                            if Int(parse(Float64, ARGS[2])) == 1
+                                if ix == 1
+                                    cd = CountingData(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+                                else
+                                    cd = counters[tId]
+                                    cd.nrCalls += 1
+                                end
                             else
-                                cd = counters[tId]
-                                cd.nrCalls += 1
+                                cd = CountingData()
                             end
+
                             Printf.@printf(".")
                             if Int(parse(Float64, ARGS[2])) == 1
                                 td = TimingData(timers[tId], timerTagLocal)
@@ -102,7 +111,9 @@ for systemx in systemNames
         end
 
         # print flops and mems counts for thread1 only
-        print_flops_and_mems(counters[1], to, precx)
+        if Int(parse(Float64, ARGS[2])) == 1
+            print_flops_and_mems(counters[1], to, precx)
+        end
     end
 end
 

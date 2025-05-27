@@ -1,4 +1,5 @@
 export TimingData
+export CountingData
 
 """
 	TimingData
@@ -18,7 +19,7 @@ end
 
 The non-timing version of `timewrap(tdx, suffx, codex)` in `full_timings.jl`.
 """
-macro timewrap(tdx, cdx, suffx, codex)
+macro timewrap(tdx, cdx, suffx, sizesx, codex)
     return quote
         # just run the code itself, no timings
         $(esc(codex))

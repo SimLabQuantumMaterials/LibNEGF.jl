@@ -18,8 +18,16 @@ end
 
 # counters for floating point operations and memory accesses
 mutable struct CountingData
-    flops::Int
-    mems::Int
+    gemmFlops::Int
+    gemmMems::Int
+    mldivideFlops::Int
+    mldivideMems::Int
+    mrdivideFlops::Int
+    mrdivideMems::Int
+    luFlops::Int
+    luMems::Int
+    totalFlops::Int
+    totalMems::Int
     nrCalls::Int
 end
 
@@ -30,18 +38,26 @@ end
                 m = sizes[3][1]
                 n = sizes[3][2]
                 k = sizes[1][2]
-                # fused multiply add not taken into account
-                cd.flops += 6*m*n*k
-                cd.mems += ( k*(m+n) + 2*m*n )
+                # fused multiply add not taken into account (should we multiply by 3 instead?)
+                cd.gemmFlops += 6*m*n*k
+                cd.totalFlops += 6*m*n*k
+                cd.gemmMems += ( k*(m+n) + 2*m*n )
+                cd.totalMems += ( k*(m+n) + 2*m*n )
             elseif whichKernel == "_mldivide"
-                cd.flops += 0
-                cd.mems += 0
+                cd.mldivideFlops += 0
+                cd.totalFlops += 0
+                cd.mldivideMems += 0
+                cd.totalMems += 0
             elseif whichKernel == "_mrdivide"
-                cd.flops += 0
-                cd.mems += 0
+                cd.mrdivideFlops += 0
+                cd.totalFlops += 0
+                cd.mrdivideMems += 0
+                cd.totalMems += 0
             elseif whichKernel == "_lu"
-                cd.flops += 0
-                cd.mems += 0
+                cd.luFlops += 0
+                cd.totalFlops += 0
+                cd.luMems += 0
+                cd.totalMems += 0
             end
         end
     elseif ENV["LIBNEGF_HW"] == "apple"
@@ -61,21 +77,60 @@ macro timewrap(tdx, cdx, suffx, sizesx, codex)
     end
 end
 
+function print_flops_and_mems_(cd::CountingData, to::TimerOutput, prec::DataType, suffx::String)
+    nrCalls = cd.nrCalls
+    if suffx == "gemm"
+        # in gigaflops
+        flopsAvg = (cd.gemmFlops*1.0E-9)/nrCalls
+        # data in GB
+        memsAvg = ((sizeof(prec)*cd.gemmMems)/nrCalls)/(1024*1024*1024)
+    elseif suffx == "lu"
+        # in gigaflops
+        flopsAvg = (cd.luFlops*1.0E-9)/nrCalls
+        # data in GB
+        memsAvg = ((sizeof(prec)*cd.luMems)/nrCalls)/(1024*1024*1024)
+    elseif suffx == "mldivide"
+        # in gigaflops
+        flopsAvg = (cd.mldivideFlops*1.0E-9)/nrCalls
+        # data in GB
+        memsAvg = ((sizeof(prec)*cd.mldivideMems)/nrCalls)/(1024*1024*1024)
+    elseif suffx == "mrdivide"
+        # in gigaflops
+        flopsAvg = (cd.mrdivideFlops*1.0E-9)/nrCalls
+        # data in GB
+        memsAvg = ((sizeof(prec)*cd.mrdivideMems)/nrCalls)/(1024*1024*1024)
+    elseif suffx == "total"
+        # in gigaflops
+        flopsAvg = (cd.totalFlops*1.0E-9)/nrCalls
+        # data in GB
+        memsAvg = ((sizeof(prec)*cd.totalMems)/nrCalls)/(1024*1024*1024)
+    end
+
+    if suffx == "total"
+        totTimeAvg = ( TimerOutputs.time(to["bndiag_of_inv_ddrgf_"*string(prec)]["thread1_wo_first_total"]) * 1.0E-9 ) / nrCalls
+    else
+        totTimeAvg = ( TimerOutputs.time(to["bndiag_of_inv_ddrgf_"*string(prec)]["thread1_wo_first_total"]["thread1_wo_first_"*suffx]) * 1.0E-9 ) / nrCalls
+    end
+
+
+    println("\t -- kernel : " * suffx)
+    println("\t\t -- flops (avg) (megaflops) : " * string(flopsAvg))
+    println("\t\t -- mems (avg) (GB) : " * string(memsAvg))
+    println("\t\t -- time (avg) : " * string(totTimeAvg))
+    println("\t\t -- flops/sec (avg) (GFLOPS) : " * string(flopsAvg/totTimeAvg))
+    println("\t\t -- mems/sec (avg) (GB/s) : " * string(memsAvg/totTimeAvg))
+end
+
 function print_flops_and_mems(cd::CountingData, to::TimerOutput, prec::DataType)
     nrCalls = cd.nrCalls
-    # in gigaflops
-    flopsAvg = (cd.flops*1.0E-9)/nrCalls
-    # data in GB
-    memsAvg = ((sizeof(prec)*cd.mems)/nrCalls)/(1024*1024*1024)
-    totTimeAvg = ( TimerOutputs.time(to["bndiag_of_inv_ddrgf_"*string(prec)]["thread1_wo_first_total"]["thread1_wo_first_gemm"]) * 1.0E-9 ) / nrCalls
 
     println("\nFlops and mems (" * string(prec) * "):")
     println("\t -- nr calls : " * string(nrCalls))
-    println("\t -- flops (avg) (megaflops) : " * string(flopsAvg))
-    println("\t -- mems (avg) (GB) : " * string(memsAvg))
-    println("\t -- time (avg) : " * string(totTimeAvg))
-    println("\t -- flops/sec (avg) (GFLOPS) : " * string(flopsAvg/totTimeAvg))
-    println("\t -- mems/sec (avg) (GB/s) : " * string(memsAvg/totTimeAvg))
+    print_flops_and_mems_(cd, to, prec, "gemm")
+    print_flops_and_mems_(cd, to, prec, "lu")
+    print_flops_and_mems_(cd, to, prec, "mldivide")
+    print_flops_and_mems_(cd, to, prec, "mrdivide")
+    print_flops_and_mems_(cd, to, prec, "total")
 end
 
 """
