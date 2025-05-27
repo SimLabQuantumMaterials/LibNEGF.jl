@@ -52,7 +52,7 @@ of `M`. This function uses the RGF method (soon to be extended to DD-RGF).
 - `td`: struct for fine-level (i.e. of the backend kernels) timing. The user can choose no timing,
 in which case `td` is an empty `TimingData` struct.
 """
-function bndiag_of_inv_ddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxDataDDRGF, td::TimingData)
+function bndiag_of_inv_ddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxDataDDRGF, td::TimingData, cd::CountingData)
     # TODO : extend this code to n-diagonal, otherwise rename this function
     #        to keep it as the simple traditional RGF
 
@@ -75,25 +75,25 @@ function bndiag_of_inv_ddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxD
     # FIRST, upward pass
 
     # bottom element
-    @timewrap td "_lu" be_lu!(buffM1.M[npl, npl], Min.M[npl, npl])
+    @timewrap td cd "_lu" [0] be_lu!(buffM1.M[npl, npl], Min.M[npl, npl])
 
     # middle elements
     for ix = npl-1:-1:1
         # first run mrdivide, to make use of the mldivide data as a buffer for mrdivide
 
         # this is how we implement be_mrdivide!(..) via be_mldivide!(..)
-        @timewrap td "_mrdivide" begin
+        @timewrap td cd "_mrdivide" [0] begin
             be_ctranspose!(buffM1.M[ix+1, ix], Min.M[ix, ix+1])
             be_mldivide!('C', buffM2.M[ix+1, ix], buffM1.M[ix+1, ix], buffM1.M[ix+1, ix+1])
             be_ctranspose!(buffM1.M[ix, ix+1], buffM2.M[ix+1, ix])
         end
 
-        @timewrap td "_mldivide" be_mldivide!('N', buffM1.M[ix+1, ix], Min.M[ix+1, ix], buffM1.M[ix+1, ix+1])
+        @timewrap td cd "_mldivide" [0] be_mldivide!('N', buffM1.M[ix+1, ix], Min.M[ix+1, ix], buffM1.M[ix+1, ix+1])
 
         be_copy_in_hw!(buffM2.M[ix, ix], Min.M[ix, ix])
-        @timewrap td "_gemm" be_gemm!('N', 'N', convert(Min.nrsType, -1.0), Min.M[ix, ix+1], buffM1.M[ix+1, ix],
-            convert(Min.nrsType, 1.0), buffM2.M[ix, ix])
-        @timewrap td "_lu" be_lu!(buffM1.M[ix, ix], buffM2.M[ix, ix])
+        @timewrap td cd "_gemm" [size(Min.M[ix, ix+1]),size(buffM1.M[ix+1, ix]),size(buffM2.M[ix, ix])] be_gemm!('N', 'N',
+            convert(Min.nrsType, -1.0), Min.M[ix, ix+1], buffM1.M[ix+1, ix], convert(Min.nrsType, 1.0), buffM2.M[ix, ix])
+        @timewrap td cd "_lu" [0] be_lu!(buffM1.M[ix, ix], buffM2.M[ix, ix])
     end
 
     # THEN, downward pass
@@ -101,21 +101,21 @@ function bndiag_of_inv_ddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxD
     # top element
     # using be_mldivide!(..) instead of be_inv_from_lu!(..) because we want
     # to preallocate everything ourselves and avoid LAPACK from doing it on the fly
-    @timewrap td "_mldivide" be_mldivide!('N', Mout.M[1, 1], buffId.M[1, 1], buffM1.M[1, 1])
+    @timewrap td cd "_mldivide" [0] be_mldivide!('N', Mout.M[1, 1], buffId.M[1, 1], buffM1.M[1, 1])
 
     # # middle elements
     for ix = 2:npl
         # upper diagonal of Mout
-        @timewrap td "_gemm" be_gemm!('N', 'N', convert(Min.nrsType, -1.0), Mout.M[ix-1, ix-1], buffM1.M[ix-1, ix],
-            convert(Min.nrsType, 0.0), Mout.M[ix-1, ix])
+        @timewrap td cd "_gemm" [size(Mout.M[ix-1, ix-1]),size(buffM1.M[ix-1, ix]),size(Mout.M[ix-1, ix])] be_gemm!('N', 'N',
+            convert(Min.nrsType, -1.0), Mout.M[ix-1, ix-1], buffM1.M[ix-1, ix], convert(Min.nrsType, 0.0), Mout.M[ix-1, ix])
 
         # lower diagonal of Mout
-        @timewrap td "_gemm" be_gemm!('N', 'N', convert(Min.nrsType, -1.0), buffM1.M[ix, ix-1], Mout.M[ix-1, ix-1],
-            convert(Min.nrsType, 0.0), Mout.M[ix, ix-1])
+        @timewrap td cd "_gemm" [size(buffM1.M[ix, ix-1]),size(Mout.M[ix-1, ix-1]),size(Mout.M[ix, ix-1])] be_gemm!('N', 'N',
+            convert(Min.nrsType, -1.0), buffM1.M[ix, ix-1], Mout.M[ix-1, ix-1], convert(Min.nrsType, 0.0), Mout.M[ix, ix-1])
 
         # diagonal of Mout
-        @timewrap td "_mldivide" be_mldivide!('N', Mout.M[ix, ix], buffId.M[ix, ix], buffM1.M[ix, ix])
-        @timewrap td "_gemm" be_gemm!('N', 'N', convert(Min.nrsType, -1.0), buffM1.M[ix, ix-1], Mout.M[ix-1, ix],
-            convert(Min.nrsType, 1.0), Mout.M[ix, ix])
+        @timewrap td cd "_mldivide" [0] be_mldivide!('N', Mout.M[ix, ix], buffId.M[ix, ix], buffM1.M[ix, ix])
+        @timewrap td cd "_gemm" [size(buffM1.M[ix, ix-1]),size(Mout.M[ix-1, ix]),size(Mout.M[ix, ix])] be_gemm!('N', 'N',
+            convert(Min.nrsType, -1.0), buffM1.M[ix, ix-1], Mout.M[ix-1, ix], convert(Min.nrsType, 1.0), Mout.M[ix, ix])
     end
 end

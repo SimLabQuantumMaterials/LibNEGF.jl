@@ -36,7 +36,7 @@ Computes C = A * Binv * A^{H}, where Binv is the block tridiagonal of
 level but further within Keldysh and RGF.
 - `vsn:String`: the version of the implementation, currently available "v1" and "v2".
 """
-function keldyshndiag!(C::BlockMatrix, Binv::BlockMatrix, B::BlockMatrix, A::BlockMatrix, auxData::AuxDataKeldysh, td::TimingData, vsn::String)
+function keldyshndiag!(C::BlockMatrix, Binv::BlockMatrix, B::BlockMatrix, A::BlockMatrix, auxData::AuxDataKeldysh, td::TimingData, cd::CountingData, vsn::String)
     if vsn == "v1"
         keldyshndiag_v1!(C, Binv, B, A, auxData, td)
     elseif vsn == "v2"
@@ -47,18 +47,18 @@ function keldyshndiag!(C::BlockMatrix, Binv::BlockMatrix, B::BlockMatrix, A::Blo
 end
 
 # first version, naive, inefficient
-function keldyshndiag_v1!(C::BlockMatrix, Binv::BlockMatrix, B::BlockMatrix, A::BlockMatrix, auxData::AuxDataKeldysh, td::TimingData)
+function keldyshndiag_v1!(C::BlockMatrix, Binv::BlockMatrix, B::BlockMatrix, A::BlockMatrix, auxData::AuxDataKeldysh, td::TimingData, cd::CountingData)
     bndiag_of_inv_ddrgf!(Binv, B, auxData.auxDataRGF, td)
 
     Binvsp = bm_convert(Binv)
     Asp = bm_convert(A)
-    @timewrap td "_sp_symm_gemm" Csp = Binvsp * (Asp * Binvsp')
+    @timewrap td cd "_sp_symm_gemm" [0] Csp = Binvsp * (Asp * Binvsp')
     Cbm = bm_convert(Csp, B.blockSizes, B.ndiag)
     bm_copy!(C, Cbm)
 end
 
 # a more efficient version
-function keldyshndiag_v2!(C::BlockMatrix, Binv::BlockMatrix, B::BlockMatrix, A::BlockMatrix, auxData::AuxDataKeldysh, td::TimingData)
+function keldyshndiag_v2!(C::BlockMatrix, Binv::BlockMatrix, B::BlockMatrix, A::BlockMatrix, auxData::AuxDataKeldysh, td::TimingData, cd::CountingData)
     bndiag_of_inv_ddrgf!(Binv, B, auxData.auxDataRGF, td)
 
     # the (block) indices ix and jx are running over auxData.bmLargeBuff

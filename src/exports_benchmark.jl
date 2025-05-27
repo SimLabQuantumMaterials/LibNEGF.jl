@@ -19,3 +19,6 @@ export BlockMatrix
 export bm_convert
 export bm_copy
 export bm_similar
+
+# from utils
+export print_flops_and_mems
