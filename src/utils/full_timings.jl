@@ -63,7 +63,7 @@ end
 function print_flops_and_mems(cd::CountingData, to::TimerOutput, prec::DataType)
     nrCalls = cd.nrCalls
     flopsAvg = cd.flops/nrCalls
-    memsAvg = cd.mems/nrCalls/1024/1024
+    memsAvg = cd.mems/nrCalls/1024/1024*sizeof(prec)
     totTimeAvg = ( TimerOutputs.time(to["bndiag_of_inv_direct_"*string(prec)]) * 1.0E-9 ) / nrCalls
 
     println("\nFlops and mems (" * string(prec) * "):")
