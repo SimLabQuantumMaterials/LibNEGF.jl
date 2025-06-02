@@ -135,7 +135,6 @@ function print_flops_and_mems(cd::CountingData, to::TimerOutput, prec::DataType,
     print_flops_and_mems_(cd, to, prec, "gemm", method)
     print_flops_and_mems_(cd, to, prec, "lu", method)
     print_flops_and_mems_(cd, to, prec, "mldivide", method)
-    print_flops_and_mems_(cd, to, prec, "mrdivide", method)
     print_flops_and_mems_(cd, to, prec, "total", method)
 end
 
