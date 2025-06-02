@@ -46,7 +46,7 @@ import LinearAlgebra
                     # pre-allocate the output matrix
                     MbmInvNdiag = bm_similar(Mbm, 1)
                     # get the block n-diagonal of M^-1 via RGF
-                    bndiag_of_inv_ddrgf!(MbmInvNdiag, Mbm, auxDataRGF, TimingData())
+                    bndiag_of_inv_ddrgf!(MbmInvNdiag, Mbm, auxDataRGF, TimingData(), CountingData())
                     # convert back to sparse
                     MinvSp = bm_convert(MbmInvNdiag)
                     Arandbm = bm_similar(Mbm, 2)
@@ -68,7 +68,7 @@ import LinearAlgebra
 
                     C2bm = bm_similar(Mbm, 1)
                     auxDataKeldysh = allocate_aux_data_Keldysh(Mbm, auxDataRGF)
-                    keldyshndiag!(C2bm, MbmInvNdiag, Mbm, Arandbm, auxDataKeldysh, TimingData(), "v2")
+                    keldyshndiag!(C2bm, MbmInvNdiag, Mbm, Arandbm, auxDataKeldysh, TimingData(), CountingData(), "v2")
                     C2sp = bm_convert(C2bm)
 
                     relErr = LinearAlgebra.norm(Array(C1sp - C2sp), 2) / LinearAlgebra.norm(Array(C1sp), 2)

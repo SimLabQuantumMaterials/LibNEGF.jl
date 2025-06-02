@@ -49,7 +49,7 @@ for systemx in systemNames
                 # pre-allocate the output matrix
                 MbmInvNdiag = bm_similar(Mbm, 1)
                 # get the block n-diagonal of M^-1 via RGF
-                bndiag_of_inv_ddrgf!(MbmInvNdiag, Mbm, auxData, TimingData())
+                bndiag_of_inv_ddrgf!(MbmInvNdiag, Mbm, auxData, TimingData(), CountingData())
 
                 # convert back to sparse
                 MinvSp = bm_convert(MbmInvNdiag)

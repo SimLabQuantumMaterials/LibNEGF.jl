@@ -88,7 +88,7 @@ for systemx in systemNames
                             if keldyshVersion == "v1"
                                 ninvs = 1
                             else
-                                ninvs = 2
+                                ninvs = 10
                             end
                             # multiple inversions per energy point, for statistics purposes
                             for ix = 1:ninvs
