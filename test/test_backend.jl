@@ -47,6 +47,9 @@ end
                         # collector after each test to make sure there are no memory issues
                         # being missed
 
+                        td = TimingData()
+                        cd = CountingData()
+
                         Bz = be_zero_array(precx, size(Abm.M[1, 1]))
                         be_copy_in_hw!(Bz, Abm.M[1, 1])
                         check_if_equal(Bz, Abm.M[1, 1], roundoffs[precx], 1.0E0)
@@ -75,14 +78,14 @@ end
                         GC.gc()
 
                         Bzlu = be_zero_lu(precx, size(Abm.M[1, 1])[1])
-                        be_lu!(Bzlu, Abm.M[1, 1])
+                        be_lu!(Bzlu, Abm.M[1, 1], td, cd)
                         Aflu = be_A_from_LU(Bzlu)
                         check_if_equal(Aflu, Abm.M[1, 1], roundoffs[precx], 1.0E1)
                         Bzlu = 0
                         Aflu = 0
                         GC.gc()
 
-                        Bzlu = be_lu(Abm.M[1, 1])
+                        Bzlu = be_lu(Abm.M[1, 1], td, cd)
                         Aflu = be_A_from_LU(Bzlu)
                         check_if_equal(Aflu, Abm.M[1, 1], roundoffs[precx], 1.0E1)
                         Bzlu = 0
@@ -108,8 +111,8 @@ end
 
                         B = be_copy_in_hw(Abm.M[1, 2])
                         Bz = be_zero_array(precx, size(Abm.M[1, 2]))
-                        Blu = be_lu(Abm.M[1, 1])
-                        be_mldivide!('N', Bz, B, Blu)
+                        Blu = be_lu(Abm.M[1, 1], td, cd)
+                        be_mldivide!('N', Bz, B, Blu, td, cd)
                         Bout = be_mul(Abm.M[1, 1], Bz)
                         check_if_equal(Bout, B, roundoffs[precx], 1.0E3)
                         B = 0
@@ -125,7 +128,7 @@ end
                         Bcpu = be_copy_from_hw(B)
                         Ccpu = be_copy_from_hw(C)
                         Ccpu = Ccpu - Acpu * Bcpu
-                        be_gemm!('N', 'N', convert(precx, -1.0), A, B, convert(precx, 1.0), C)
+                        be_gemm!('N', 'N', convert(precx, -1.0), A, B, convert(precx, 1.0), C, td, cd)
                         Cx = be_copy_to_hw(Ccpu)
                         check_if_equal(C, Cx, roundoffs[precx], 1.0E0)
                         A = 0
@@ -137,7 +140,7 @@ end
                         Cx = 0
                         GC.gc()
 
-                        Alu = be_lu(Abm.M[1, 1])
+                        Alu = be_lu(Abm.M[1, 1], td, cd)
                         Ainv = be_copy_in_hw(Abm.M[1, 1])
                         be_inv_from_lu!(Ainv, Alu)
                         idM = be_identity(precx, size(Abm.M[1, 1])[1])

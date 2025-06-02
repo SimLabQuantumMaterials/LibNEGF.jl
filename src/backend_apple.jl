@@ -67,11 +67,15 @@ function be_identity(nrsType::DataType, n::Int)::Metal.MtlArray
     return be_copy_to_hw(Array(LinearAlgebra.Diagonal(ones(nrsType, (n, n)))))
 end
 
-function be_ctranspose!(Mout::Metal.MtlArray, Min::Metal.MtlArray)
-    Mincpu = be_copy_from_hw(Min)
-    Moutcpu = be_copy_from_hw(Mout)
-    adjoint!(Moutcpu, Mincpu)
-    be_copy_to_hw!(Mout, Moutcpu)
+function be_ctranspose!(Mout::Metal.MtlArray, Min::Metal.MtlArray, td::TimingData, cd::CountingData)
+    @timewrap td "_ctranspose" begin
+        @countwrap cd "_ctranspose" [(0,0)] begin
+            Mincpu = be_copy_from_hw(Min)
+            Moutcpu = be_copy_from_hw(Mout)
+            adjoint!(Moutcpu, Mincpu)
+            be_copy_to_hw!(Mout, Moutcpu)
+        end
+    end
 end
 
 function be_random_array(nrsType::DataType, dimsOfArr::Tuple{Int,Int})::Metal.MtlArray
@@ -148,32 +152,40 @@ end
 # # all of the input and output matrices are assumed to be in the
 # # desired hardware i.e. apple GPUs
 
-function be_lu!(Mout::MtlLU, Min::Metal.MtlArray)
-    Mincpu = be_copy_from_hw(Min)
+function be_lu!(Mout::MtlLU, Min::Metal.MtlArray, td::TimingData, cd::CountingData)
+    @timewrap td "_lu" begin
+        @countwrap cd "_lu" [(0,0)] begin
+            Mincpu = be_copy_from_hw(Min)
 
-    n = size(Mincpu)[1]
-    precx = typeof(Mincpu[1, 1])
-    Moutcpu = CpuLU(zeros(precx, (n, n)), Vector{Int}(undef, n))
+            n = size(Mincpu)[1]
+            precx = typeof(Mincpu[1, 1])
+            Moutcpu = CpuLU(zeros(precx, (n, n)), Vector{Int}(undef, n))
 
-    copy!(Moutcpu.A, Mincpu)
-    Moutcpu.A, Moutcpu.piv, info = LinearAlgebra.LAPACK.getrf!(Moutcpu.A, Moutcpu.piv)
-    if info != 0
-        println("ERROR: LAPACK lu returned an error info")
-        @code_location
-        exit()
+            copy!(Moutcpu.A, Mincpu)
+            Moutcpu.A, Moutcpu.piv, info = LinearAlgebra.LAPACK.getrf!(Moutcpu.A, Moutcpu.piv)
+            if info != 0
+                println("ERROR: LAPACK lu returned an error info")
+                @code_location
+                exit()
+            end
+
+            be_copy_to_hw!(Mout, Moutcpu)
+        end
     end
-
-    be_copy_to_hw!(Mout, Moutcpu)
 end
 
-function be_lu(M::Metal.MtlArray)::MtlLU
-    n = size(M)[1]
-    Metal.@allowscalar precx = typeof(M[1, 1])
-    Mout = be_zero_lu(precx, n)
+function be_lu(M::Metal.MtlArray, td::TimingData, cd::CountingData)::MtlLU
+    @timewrap td "_lu" begin
+        @countwrap cd "_lu" [(0,0)] begin
+            n = size(M)[1]
+            Metal.@allowscalar precx = typeof(M[1, 1])
+            Mout = be_zero_lu(precx, n)
 
-    be_lu!(Mout, M)
+            be_lu!(Mout, M)
 
-    return Mout
+            return Mout
+        end
+    end
 end
 
 function be_inv_from_lu!(Mout::Metal.MtlArray, Min::MtlLU)
@@ -185,26 +197,35 @@ function be_inv_from_lu!(Mout::Metal.MtlArray, Min::MtlLU)
 end
 
 # this corresponds to mldivide, but using a precomputed LU
-function be_mldivide!(trans::Char, Mout::Metal.MtlArray, Min::Metal.MtlArray, Mlu::MtlLU)
-    Moutcpu = be_copy_from_hw(Mout)
-    Mincpu = be_copy_from_hw(Min)
-    Mlucpu = be_copy_from_hw(Mlu)
+function be_mldivide!(trans::Char, Mout::Metal.MtlArray, Min::Metal.MtlArray, Mlu::MtlLU,
+    td::TimingData, cd::CountingData)
+    @timewrap td "_mldivide" begin
+        @countwrap cd "_mldivide" [(0,0)] begin
+            Moutcpu = be_copy_from_hw(Mout)
+            Mincpu = be_copy_from_hw(Min)
+            Mlucpu = be_copy_from_hw(Mlu)
 
-    copy!(Moutcpu, Mincpu)
-    LinearAlgebra.LAPACK.getrs!(trans, Mlucpu.A, Mlucpu.piv, Moutcpu)
+            copy!(Moutcpu, Mincpu)
+            LinearAlgebra.LAPACK.getrs!(trans, Mlucpu.A, Mlucpu.piv, Moutcpu)
 
-    be_copy_to_hw!(Mout, Moutcpu)
+            be_copy_to_hw!(Mout, Moutcpu)
+        end
+    end
 end
 
 function be_gemm!(tA::Char, tB::Char, alpha::Number, A::Metal.MtlArray,
-    B::Metal.MtlArray, beta::Number, C::Metal.MtlArray)
-    Acpu = be_copy_from_hw(A)
-    Bcpu = be_copy_from_hw(B)
-    Ccpu = be_copy_from_hw(C)
+    B::Metal.MtlArray, beta::Number, C::Metal.MtlArray, td::TimingData, cd::CountingData)
+    @timewrap td "_gemm" begin
+        @countwrap cd "_gemm" [size(A), size(B), size(C)] begin
+            Acpu = be_copy_from_hw(A)
+            Bcpu = be_copy_from_hw(B)
+            Ccpu = be_copy_from_hw(C)
 
-    LinearAlgebra.BLAS.gemm!(tA, tB, alpha, Acpu, Bcpu, beta, Ccpu)
+            LinearAlgebra.BLAS.gemm!(tA, tB, alpha, Acpu, Bcpu, beta, Ccpu)
 
-    be_copy_to_hw!(C, Ccpu)
+            be_copy_to_hw!(C, Ccpu)
+        end
+    end
 end
 
 function be_mul!(Mout::Metal.MtlArray, M1::Metal.MtlArray, M2::Metal.MtlArray)

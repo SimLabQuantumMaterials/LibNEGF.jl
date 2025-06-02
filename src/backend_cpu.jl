@@ -53,8 +53,12 @@ function be_identity(nrsType::DataType, n::Int)::Array
     return Array(LinearAlgebra.Diagonal(ones(nrsType, (n, n))))
 end
 
-function be_ctranspose!(Mout::Array, Min::Array)
-    adjoint!(Mout, Min)
+function be_ctranspose!(Mout::Array, Min::Array, td::TimingData, cd::CountingData)
+    @timewrap td "_ctranspose" begin
+        @countwrap cd "_ctranspose" [(0,0)] begin
+            adjoint!(Mout, Min)
+        end
+    end
 end
 
 function be_random_array(nrsType::DataType, dimsOfArr::Tuple{Int,Int})::Array
@@ -122,20 +126,28 @@ function be_inv(M::Array)::Array
     return inv(M)
 end
 
-function be_lu!(Mout::CpuLU, Min::Array)
-    copy!(Mout.A, Min)
-    Mout.A, Mout.piv, info = LinearAlgebra.LAPACK.getrf!(Mout.A, Mout.piv)
-    if info != 0
-        println("ERROR: LAPACK lu returned an error info")
-        @code_location
-        exit()
+function be_lu!(Mout::CpuLU, Min::Array, td::TimingData, cd::CountingData)
+    @timewrap td "_lu" begin
+        @countwrap cd "_lu" [(0,0)] begin
+            copy!(Mout.A, Min)
+            Mout.A, Mout.piv, info = LinearAlgebra.LAPACK.getrf!(Mout.A, Mout.piv)
+            if info != 0
+                println("ERROR: LAPACK lu returned an error info")
+                @code_location
+                exit()
+            end
+        end
     end
 end
 
-function be_lu(M::Array)::CpuLU
-    Mlu = be_zero_lu(typeof(M[1, 1]), size(M)[1])
-    be_lu!(Mlu, M)
-    return Mlu
+function be_lu(M::Array, td::TimingData, cd::CountingData)::CpuLU
+    @timewrap td "_lu" begin
+        @countwrap cd "_lu" [(0,0)] begin
+            Mlu = be_zero_lu(typeof(M[1, 1]), size(M)[1])
+            be_lu!(Mlu, M, td, cd)
+            return Mlu
+        end
+    end
 end
 
 function be_inv_from_lu!(Mout::Array, Min::CpuLU)
@@ -144,14 +156,23 @@ function be_inv_from_lu!(Mout::Array, Min::CpuLU)
 end
 
 # this corresponds to mldivide, but using a precomputed LU
-function be_mldivide!(trans::Char, Mout::Array, Min::Array, Mlu::CpuLU)
-    copy!(Mout, Min)
-    LinearAlgebra.LAPACK.getrs!(trans, Mlu.A, Mlu.piv, Mout)
+function be_mldivide!(trans::Char, Mout::Array, Min::Array, Mlu::CpuLU,
+    td::TimingData, cd::CountingData)
+    @timewrap td "_mldivide" begin
+        @countwrap cd "_mldivide" [(0,0)] begin
+            copy!(Mout, Min)
+            LinearAlgebra.LAPACK.getrs!(trans, Mlu.A, Mlu.piv, Mout)
+        end
+    end
 end
 
 function be_gemm!(tA::Char, tB::Char, alpha::Number, A::Array,
-    B::Array, beta::Number, C::Array)
-    LinearAlgebra.BLAS.gemm!(tA, tB, alpha, A, B, beta, C)
+    B::Array, beta::Number, C::Array, td::TimingData, cd::CountingData)
+    @timewrap td "_gemm" begin
+        @countwrap cd "_gemm" [size(A), size(B), size(C)] begin
+            LinearAlgebra.BLAS.gemm!(tA, tB, alpha, A, B, beta, C)
+        end
+    end
 end
 
 function be_mul(M1::Array, M2::Array)::Array

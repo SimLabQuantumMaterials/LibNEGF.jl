@@ -314,7 +314,8 @@ function bm_blocks_define_identity!(M::BlockMatrix)
 end
 
 # tB can be either 'C' (for adjoint) or 'N' for no adjoint
-function bm_local_gemm!(tA::Char, tB::Char, alpha::Number, A_::BlockMatrix, B_::BlockMatrix, beta::Number, C_::BlockMatrix, ix::Int, jx::Int)
+function bm_local_gemm!(tA::Char, tB::Char, alpha::Number, A_::BlockMatrix, B_::BlockMatrix, beta::Number,
+    C_::BlockMatrix, ix::Int, jx::Int, td::TimingData, cd::CountingData)
     npl = size(A_.blockSizes)[1]
     nUpDiagA = Int((A_.ndiag["in"] - 1) / 2)
     nUpDiagB = Int((B_.ndiag["in"] - 1) / 2)
@@ -336,9 +337,9 @@ function bm_local_gemm!(tA::Char, tB::Char, alpha::Number, A_::BlockMatrix, B_::
         if cond1 && cond2
             # do the transposition by hand
             if tB == 'C'
-                be_gemm!('N', 'C', alpha, A[ix, kx], B[jx, kx], convert(nrsType, 1.0), C[ix, jx])
+                be_gemm!('N', 'C', alpha, A[ix, kx], B[jx, kx], convert(nrsType, 1.0), C[ix, jx], td, cd)
             else
-                be_gemm!('N', 'N', alpha, A[ix, kx], B[kx, jx], convert(nrsType, 1.0), C[ix, jx])
+                be_gemm!('N', 'N', alpha, A[ix, kx], B[kx, jx], convert(nrsType, 1.0), C[ix, jx], td, cd)
             end
         end
     end
@@ -355,7 +356,8 @@ C = beta*C + alpha*A*B.
 - `tA::Char`: whether we take the adjoint of A ('C') or not ('N').
 - `tB::Char`: whether we take the adjoint of B ('C') or not ('N').
 """
-function bm_gemm!(tA::Char, tB::Char, alpha::Number, A::BlockMatrix, B::BlockMatrix, beta::Number, C::BlockMatrix)
+function bm_gemm!(tA::Char, tB::Char, alpha::Number, A::BlockMatrix, B::BlockMatrix, beta::Number, C::BlockMatrix,
+    td::TimingData, cd::CountingData)
     ndiag = C.ndiag
     npl = size(B.blockSizes)[1]
 
@@ -365,15 +367,15 @@ function bm_gemm!(tA::Char, tB::Char, alpha::Number, A::BlockMatrix, B::BlockMat
         # left
         if ix > 1
             for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
-                bm_local_gemm!(tA, tB, alpha, A, B, beta, C, ix, jx)
+                bm_local_gemm!(tA, tB, alpha, A, B, beta, C, ix, jx, td, cd)
             end
         end
         # center
-        bm_local_gemm!(tA, tB, alpha, A, B, beta, C, ix, ix)
+        bm_local_gemm!(tA, tB, alpha, A, B, beta, C, ix, ix, td, cd)
         # right
         if ix < npl
             for jx = (ix+1):1:min(npl, ix + Int((ndiag["out"] - 1) / 2))
-                bm_local_gemm!(tA, tB, alpha, A, B, beta, C, ix, jx)
+                bm_local_gemm!(tA, tB, alpha, A, B, beta, C, ix, jx, td, cd)
             end
         end
     end

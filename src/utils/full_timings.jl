@@ -71,10 +71,16 @@ end
 This macro allows us to enable or disable finer-level timings, where
 the backend kernel calls are wrapped with it.
 """
-macro timewrap(tdx, cdx, suffx, sizesx, codex)
+macro timewrap(tdx, suffx, codex)
+    return quote
+        @timeit ($(esc(tdx))).to ($(esc(tdx))).label * ($(esc(suffx))) $(esc(codex))
+    end
+end
+
+macro countwrap(cdx, suffx, sizesx, codex)
     return quote
         flops_and_mems($(esc(suffx)), $(esc(cdx)), $(esc(sizesx)))
-        @timeit ($(esc(tdx))).to ($(esc(tdx))).label * ($(esc(suffx))) $(esc(codex))
+        $(esc(codex))
     end
 end
 

@@ -52,7 +52,11 @@ function keldyshndiag_v1!(C::BlockMatrix, Binv::BlockMatrix, B::BlockMatrix, A::
 
     Binvsp = bm_convert(Binv)
     Asp = bm_convert(A)
-    @timewrap td cd "_sp_symm_gemm" [0] Csp = Binvsp * (Asp * Binvsp')
+    @timewrap td "_sp_symm_gemm" begin
+        @countwrap cd "_sp_symm_gemm" [(0,0)] begin
+            Csp = Binvsp * (Asp * Binvsp')
+        end
+    end
     Cbm = bm_convert(Csp, B.blockSizes, B.ndiag)
     bm_copy!(C, Cbm)
 end
@@ -64,8 +68,8 @@ function keldyshndiag_v2!(C::BlockMatrix, Binv::BlockMatrix, B::BlockMatrix, A::
     # the (block) indices ix and jx are running over auxData.bmLargeBuff
 
     # do auxData.bmLargeBuff = A * Binv'
-    bm_gemm!('N', 'C', convert(Binv.nrsType, 1.0), A, Binv, convert(Binv.nrsType, 0.0), auxData.bmLargeBuff)
+    bm_gemm!('N', 'C', convert(Binv.nrsType, 1.0), A, Binv, convert(Binv.nrsType, 0.0), auxData.bmLargeBuff, td, cd)
 
     # do C = Binv * auxData.bmLargeBuff
-    bm_gemm!('N', 'N', convert(A.nrsType, 1.0), Binv, auxData.bmLargeBuff, convert(Binv.nrsType, 0.0), C)
+    bm_gemm!('N', 'N', convert(A.nrsType, 1.0), Binv, auxData.bmLargeBuff, convert(Binv.nrsType, 0.0), C, td, cd)
 end
