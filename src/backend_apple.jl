@@ -69,7 +69,7 @@ end
 
 function be_ctranspose!(Mout::Metal.MtlArray, Min::Metal.MtlArray, td::TimingData, cd::CountingData)
     @timewrap td "_ctranspose" begin
-        @countwrap cd "_ctranspose" [(0,0)] begin
+        @countwrap cd "_ctranspose" Min Min Min begin
             Mincpu = be_copy_from_hw(Min)
             Moutcpu = be_copy_from_hw(Mout)
             adjoint!(Moutcpu, Mincpu)
@@ -154,7 +154,7 @@ end
 
 function be_lu!(Mout::MtlLU, Min::Metal.MtlArray, td::TimingData, cd::CountingData)
     @timewrap td "_lu" begin
-        @countwrap cd "_lu" [(0,0)] begin
+        @countwrap cd "_lu" Min Min Min begin
             Mincpu = be_copy_from_hw(Min)
 
             n = size(Mincpu)[1]
@@ -176,7 +176,7 @@ end
 
 function be_lu(M::Metal.MtlArray, td::TimingData, cd::CountingData)::MtlLU
     @timewrap td "_lu" begin
-        @countwrap cd "_lu" [(0,0)] begin
+        @countwrap cd "_lu" M M M begin
             n = size(M)[1]
             Metal.@allowscalar precx = typeof(M[1, 1])
             Mout = be_zero_lu(precx, n)
@@ -200,7 +200,7 @@ end
 function be_mldivide!(trans::Char, Mout::Metal.MtlArray, Min::Metal.MtlArray, Mlu::MtlLU,
     td::TimingData, cd::CountingData)
     @timewrap td "_mldivide" begin
-        @countwrap cd "_mldivide" [(0,0)] begin
+        @countwrap cd "_mldivide" Min Min Min begin
             Moutcpu = be_copy_from_hw(Mout)
             Mincpu = be_copy_from_hw(Min)
             Mlucpu = be_copy_from_hw(Mlu)
@@ -216,7 +216,7 @@ end
 function be_gemm!(tA::Char, tB::Char, alpha::Number, A::Metal.MtlArray,
     B::Metal.MtlArray, beta::Number, C::Metal.MtlArray, td::TimingData, cd::CountingData)
     @timewrap td "_gemm" begin
-        @countwrap cd "_gemm" [size(A), size(B), size(C)] begin
+        @countwrap cd "_gemm" A B C begin
             Acpu = be_copy_from_hw(A)
             Bcpu = be_copy_from_hw(B)
             Ccpu = be_copy_from_hw(C)

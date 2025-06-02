@@ -55,7 +55,7 @@ end
 
 function be_ctranspose!(Mout::Array, Min::Array, td::TimingData, cd::CountingData)
     @timewrap td "_ctranspose" begin
-        @countwrap cd "_ctranspose" [(0,0)] begin
+        @countwrap cd "_ctranspose" Min Min Min begin
             adjoint!(Mout, Min)
         end
     end
@@ -128,7 +128,7 @@ end
 
 function be_lu!(Mout::CpuLU, Min::Array, td::TimingData, cd::CountingData)
     @timewrap td "_lu" begin
-        @countwrap cd "_lu" [(0,0)] begin
+        @countwrap cd "_lu" Min Min Min begin
             copy!(Mout.A, Min)
             Mout.A, Mout.piv, info = LinearAlgebra.LAPACK.getrf!(Mout.A, Mout.piv)
             if info != 0
@@ -142,7 +142,7 @@ end
 
 function be_lu(M::Array, td::TimingData, cd::CountingData)::CpuLU
     @timewrap td "_lu" begin
-        @countwrap cd "_lu" [(0,0)] begin
+        @countwrap cd "_lu" M M M begin
             Mlu = be_zero_lu(typeof(M[1, 1]), size(M)[1])
             be_lu!(Mlu, M, td, cd)
             return Mlu
@@ -159,7 +159,7 @@ end
 function be_mldivide!(trans::Char, Mout::Array, Min::Array, Mlu::CpuLU,
     td::TimingData, cd::CountingData)
     @timewrap td "_mldivide" begin
-        @countwrap cd "_mldivide" [(0,0)] begin
+        @countwrap cd "_mldivide" Min Min Min begin
             copy!(Mout, Min)
             LinearAlgebra.LAPACK.getrs!(trans, Mlu.A, Mlu.piv, Mout)
         end
@@ -169,7 +169,7 @@ end
 function be_gemm!(tA::Char, tB::Char, alpha::Number, A::Array,
     B::Array, beta::Number, C::Array, td::TimingData, cd::CountingData)
     @timewrap td "_gemm" begin
-        @countwrap cd "_gemm" [size(A), size(B), size(C)] begin
+        @countwrap cd "_gemm" A B C begin
             LinearAlgebra.BLAS.gemm!(tA, tB, alpha, A, B, beta, C)
         end
     end

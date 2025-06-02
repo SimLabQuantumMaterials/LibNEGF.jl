@@ -29,15 +29,16 @@ mutable struct CountingData
     totalFlops::Int
     totalMems::Int
     nrCalls::Int
+    # sizes::Vector{Int}
 end
 
 @ifdef "LIBNEGF_HW" begin
     if ENV["LIBNEGF_HW"] == "cpu"
-        function flops_and_mems(whichKernel::String, cd::CountingData, sizes::Vector{Tuple{Int,Int}})
+        function flops_and_mems(whichKernel::String, cd::CountingData, A, B, C)
             if whichKernel == "_gemm"
-                m = sizes[3][1]
-                n = sizes[3][2]
-                k = sizes[1][2]
+                m = size(C)[1]
+                n = size(C)[2]
+                k = size(A)[2]
                 # fused multiply add not taken into account (should we fix that?)
                 cd.gemmFlops += 6 * m * n * k
                 cd.totalFlops += 6 * m * n * k
@@ -54,8 +55,9 @@ end
                 cd.mrdivideMems += 0
                 cd.totalMems += 0
             elseif whichKernel == "_lu"
-                cd.luFlops += 0
-                cd.totalFlops += 0
+                n = size(A)
+                cd.luFlops += (2/3)*n*n*n
+                cd.totalFlops += (2/3)*n*n*n
                 cd.luMems += 0
                 cd.totalMems += 0
             end
@@ -77,9 +79,9 @@ macro timewrap(tdx, suffx, codex)
     end
 end
 
-macro countwrap(cdx, suffx, sizesx, codex)
+macro countwrap(cdx, suffx, A, B, C, codex)
     return quote
-        flops_and_mems($(esc(suffx)), $(esc(cdx)), $(esc(sizesx)))
+        flops_and_mems($(esc(suffx)), $(esc(cdx)), $(esc(A)), $(esc(B)), $(esc(C)))
         $(esc(codex))
     end
 end

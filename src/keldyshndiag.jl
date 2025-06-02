@@ -53,7 +53,7 @@ function keldyshndiag_v1!(C::BlockMatrix, Binv::BlockMatrix, B::BlockMatrix, A::
     Binvsp = bm_convert(Binv)
     Asp = bm_convert(A)
     @timewrap td "_sp_symm_gemm" begin
-        @countwrap cd "_sp_symm_gemm" [(0,0)] begin
+        @countwrap cd "_sp_symm_gemm" Asp Binvsp Binvsp begin
             Csp = Binvsp * (Asp * Binvsp')
         end
     end

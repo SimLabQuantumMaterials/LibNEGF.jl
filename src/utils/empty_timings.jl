@@ -26,7 +26,7 @@ macro timewrap(tdx, suffx, codex)
     end
 end
 
-macro countwrap(cdx, suffx, sizesx, codex)
+macro countwrap(cdx, suffx, A, B, C, codex)
     return quote
         # just run the code itself, no timings
         $(esc(codex))
