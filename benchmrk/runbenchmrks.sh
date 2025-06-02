@@ -39,8 +39,8 @@ if exists_in_list "$HWs" " " $1; then
     cp ../Manifest_$1.toml ../Manifest.toml
     # create usable copy of Project_common.toml
     cp ../Project_common.toml ../Project.toml
-    export OPENBLAS_NUM_THREADS=1
-    export JULIA_NUM_THREADS=1
+    export OPENBLAS_NUM_THREADS=2
+    export JULIA_NUM_THREADS=3
     # variables used to mimic C's ifdef
     export LIBNEGF_HW=$1
     export LIBNEGF_FINER_TIMINGS=$2

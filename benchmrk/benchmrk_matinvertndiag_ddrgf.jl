@@ -112,7 +112,7 @@ for systemx in systemNames
 
         # print flops and mems counts for thread1 only
         if Int(parse(Float64, ARGS[2])) == 1
-            print_flops_and_mems(counters[1], to, precx)
+            print_flops_and_mems(counters[1], to, precx, "bndiag_of_inv_ddrgf")
         end
     end
 end

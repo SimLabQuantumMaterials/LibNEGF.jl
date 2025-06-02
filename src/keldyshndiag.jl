@@ -38,9 +38,9 @@ level but further within Keldysh and RGF.
 """
 function keldyshndiag!(C::BlockMatrix, Binv::BlockMatrix, B::BlockMatrix, A::BlockMatrix, auxData::AuxDataKeldysh, td::TimingData, cd::CountingData, vsn::String)
     if vsn == "v1"
-        keldyshndiag_v1!(C, Binv, B, A, auxData, td)
+        keldyshndiag_v1!(C, Binv, B, A, auxData, td, cd)
     elseif vsn == "v2"
-        keldyshndiag_v2!(C, Binv, B, A, auxData, td)
+        keldyshndiag_v2!(C, Binv, B, A, auxData, td, cd)
     else
         println("ERROR: Keldysh implementation version not available")
     end
@@ -48,7 +48,7 @@ end
 
 # first version, naive, inefficient
 function keldyshndiag_v1!(C::BlockMatrix, Binv::BlockMatrix, B::BlockMatrix, A::BlockMatrix, auxData::AuxDataKeldysh, td::TimingData, cd::CountingData)
-    bndiag_of_inv_ddrgf!(Binv, B, auxData.auxDataRGF, td)
+    bndiag_of_inv_ddrgf!(Binv, B, auxData.auxDataRGF, td, cd)
 
     Binvsp = bm_convert(Binv)
     Asp = bm_convert(A)
@@ -59,7 +59,7 @@ end
 
 # a more efficient version
 function keldyshndiag_v2!(C::BlockMatrix, Binv::BlockMatrix, B::BlockMatrix, A::BlockMatrix, auxData::AuxDataKeldysh, td::TimingData, cd::CountingData)
-    bndiag_of_inv_ddrgf!(Binv, B, auxData.auxDataRGF, td)
+    bndiag_of_inv_ddrgf!(Binv, B, auxData.auxDataRGF, td, cd)
 
     # the (block) indices ix and jx are running over auxData.bmLargeBuff
 

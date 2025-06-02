@@ -30,7 +30,7 @@ Printf.@printf("  -- nr of energy points: %d\n\n", size(Epoints)[1])
 
 # benchmarks common to all of the supported hardwares
 # include("benchmrk_matinvertndiag_direct.jl")
-include("benchmrk_matinvertndiag_ddrgf.jl")
-# include("benchmrk_keldyshndiag.jl")
+# include("benchmrk_matinvertndiag_ddrgf.jl")
+include("benchmrk_keldyshndiag.jl")
 
 println(to)

@@ -38,7 +38,7 @@ end
                 m = sizes[3][1]
                 n = sizes[3][2]
                 k = sizes[1][2]
-                # fused multiply add not taken into account (should we multiply by 3 instead?)
+                # fused multiply add not taken into account (should we fix that?)
                 cd.gemmFlops += 6 * m * n * k
                 cd.totalFlops += 6 * m * n * k
                 cd.gemmMems += (k * (m + n) + 2 * m * n)
@@ -78,7 +78,7 @@ macro timewrap(tdx, cdx, suffx, sizesx, codex)
     end
 end
 
-function print_flops_and_mems_(cd::CountingData, to::TimerOutput, prec::DataType, suffx::String)
+function print_flops_and_mems_(cd::CountingData, to::TimerOutput, prec::DataType, suffx::String, method::String)
     nrCalls = cd.nrCalls
     if suffx == "gemm"
         # in gigaflops
@@ -108,9 +108,9 @@ function print_flops_and_mems_(cd::CountingData, to::TimerOutput, prec::DataType
     end
 
     if suffx == "total"
-        totTimeAvg = (TimerOutputs.time(to["bndiag_of_inv_ddrgf_"*string(prec)]["thread1_wo_first_total"]) * 1.0E-9) / nrCalls
+        totTimeAvg = (TimerOutputs.time(to[method*"_"*string(prec)]["thread1_wo_first_total"]) * 1.0E-9) / nrCalls
     else
-        totTimeAvg = (TimerOutputs.time(to["bndiag_of_inv_ddrgf_"*string(prec)]["thread1_wo_first_total"]["thread1_wo_first_"*suffx]) * 1.0E-9) / nrCalls
+        totTimeAvg = (TimerOutputs.time(to[method*"_"*string(prec)]["thread1_wo_first_total"]["thread1_wo_first_"*suffx]) * 1.0E-9) / nrCalls
     end
 
     println("\t -- kernel : " * suffx)
@@ -121,16 +121,16 @@ function print_flops_and_mems_(cd::CountingData, to::TimerOutput, prec::DataType
     println("\t\t -- mems/sec (avg) (GB/s) : " * string(memsAvg / totTimeAvg))
 end
 
-function print_flops_and_mems(cd::CountingData, to::TimerOutput, prec::DataType)
+function print_flops_and_mems(cd::CountingData, to::TimerOutput, prec::DataType, method::String)
     nrCalls = cd.nrCalls
 
     println("\nFlops and mems (" * string(prec) * "):")
     println("\t -- nr calls : " * string(nrCalls))
-    print_flops_and_mems_(cd, to, prec, "gemm")
-    print_flops_and_mems_(cd, to, prec, "lu")
-    print_flops_and_mems_(cd, to, prec, "mldivide")
-    print_flops_and_mems_(cd, to, prec, "mrdivide")
-    print_flops_and_mems_(cd, to, prec, "total")
+    print_flops_and_mems_(cd, to, prec, "gemm", method)
+    print_flops_and_mems_(cd, to, prec, "lu", method)
+    print_flops_and_mems_(cd, to, prec, "mldivide", method)
+    print_flops_and_mems_(cd, to, prec, "mrdivide", method)
+    print_flops_and_mems_(cd, to, prec, "total", method)
 end
 
 """
