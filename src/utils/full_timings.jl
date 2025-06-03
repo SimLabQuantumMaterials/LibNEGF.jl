@@ -143,7 +143,7 @@ end
 function print_flops_and_mems(cd::CountingData, to::TimerOutput, prec::DataType, method::String)
     nrCalls = cd.nrCalls
 
-    println("\nFlops and mems (" * string(prec) * "):")
+    println("\nFlops and mems (" * string(prec) * " - master thread only):")
     println("\t -- nr calls : " * string(nrCalls))
     print_flops_and_mems_(cd, to, prec, "gemm", method)
     print_flops_and_mems_(cd, to, prec, "lu", method)
