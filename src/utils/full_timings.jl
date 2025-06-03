@@ -150,21 +150,3 @@ function print_flops_and_mems(cd::CountingData, to::TimerOutput, prec::DataType,
     print_flops_and_mems_(cd, to, prec, "mldivide", method)
     print_flops_and_mems_(cd, to, prec, "total", method)
 end
-
-"""
-
-on a MacBook Air with M3 chip:
-
--- first, note that in our 3x3 runs the arithmetic intensity of GEMM is:
-
-   ( 6*648*648*648 ) / ( 8 * (648*(648+648)+2*648*648) ) = 121.5
-
-   with complex double
-
--- now, the CPUs in the M3 chip have the following properties:
-
-   * RAM bandwidth : 100 GB/s
-   * single core : 25.58 GFLOPS
-   * so, its arithmethic intensity : 25.58 / 100 = 0.26
-
-"""

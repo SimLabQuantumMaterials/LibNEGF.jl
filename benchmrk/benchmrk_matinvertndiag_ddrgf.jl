@@ -92,7 +92,6 @@ for systemx in systemNames
                                 td = TimingData()
                             end
                             timerTagLocalTotal = timerTagLocal * "_total"
-                            # println(timerTagLocalTotal)
                             @timeit timers[tId] timerTagLocalTotal bndiag_of_inv_ddrgf!(Mouts[tId], Mins[tId], auxs[tId], td, cd)
                         end
                     end

@@ -15,8 +15,6 @@ end
 
 for systemx in systemNames
     for precx in precs
-        # cd = CountingData(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-        # for k in kpoints
         # create a flops and mems counter for each precision and thread
         counters = Vector{CountingData}()
         for ix = 1:Threads.nthreads()
@@ -32,15 +30,6 @@ for systemx in systemNames
             push!(timers, TimerOutput())
         end
         timerTagGlobal = "keldyshndiag_" * string(precx)
-
-        # # first, check if the number of threads divides the number of energy points,
-        # # exit if it doesn't
-        # # maybe put this check earlier ?
-        # if mod(size(Epoints)[1], Threads.nthreads()) != 0
-        #     Printf.@printf("ERROR: the number of Julia threads (%d) does not divide the number \
-        #                    of energy points (%d)\n", Threads.nthreads(), size(Epoints)[1])
-        #     exit()
-        # end
 
         for k in kpoints
 

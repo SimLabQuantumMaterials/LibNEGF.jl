@@ -73,9 +73,6 @@ import LinearAlgebra
 
                     relErr = LinearAlgebra.norm(Array(C1sp - C2sp), 2) / LinearAlgebra.norm(Array(C1sp), 2)
                     @test relErr < roundoffs[precx] * 1.0E02
-
-                    # relHerm = LinearAlgebra.norm(Array(C2sp - C2sp'), 2) / LinearAlgebra.norm(Array(C2sp), 2)
-                    # println(relHerm)
                 end
             end
         end
