@@ -35,18 +35,28 @@ end
 @ifdef "LIBNEGF_HW" begin
     if ENV["LIBNEGF_HW"] == "cpu"
         function flops_and_mems(whichKernel::String, cd::CountingData, A, B, C)
+            n::Int = 0
+            m::Int = 0
+            k::Int = 0
             if whichKernel == "_gemm"
                 m = size(C)[1]
                 n = size(C)[2]
                 k = size(A)[2]
-                # fused multiply add not taken into account (should we fix that?)
-                cd.gemmFlops += 6 * m * n * k
-                cd.totalFlops += 6 * m * n * k
-                cd.gemmMems += (k * (m + n) + 2 * m * n)
-                cd.totalMems += (k * (m + n) + 2 * m * n)
+                # 2 for complex add and 6 for complex mult?
+                cd.gemmFlops += (2 + 6) * m * n * k
+                cd.totalFlops += (2 + 6) * m * n * k
+                cd.gemmMems += 2 * (k * (m + n) + 2 * m * n)
+                cd.totalMems += 2 * (k * (m + n) + 2 * m * n)
             elseif whichKernel == "_mldivide"
-                cd.mldivideFlops += 0
-                cd.totalFlops += 0
+                n = size(A)[1]
+                m = size(A)[2]
+                # 2 for complex add/sub and 6 for complex mult/div?
+                numAdds::Int = 2 * (n * n - n * (n + 1) / 2 - n)
+                numMuls::Int = 6 * (n * n - n * (n + 1) / 2)
+                numDivs::Int = 6 * n
+                numSubs::Int = 2 * n
+                cd.mldivideFlops += 2 * m * (numAdds + numMuls + numDivs + numSubs)
+                cd.totalFlops += 2 * m * (numAdds + numMuls + numDivs + numSubs)
                 cd.mldivideMems += 0
                 cd.totalMems += 0
             elseif whichKernel == "_mrdivide"
@@ -55,9 +65,10 @@ end
                 cd.mrdivideMems += 0
                 cd.totalMems += 0
             elseif whichKernel == "_lu"
-                n = size(A)
-                cd.luFlops += (2/3)*n*n*n
-                cd.totalFlops += (2/3)*n*n*n
+                n = size(A)[1]
+                # 2 for complex add and 6 for complex mult?
+                cd.luFlops += ((2 + 6) / 3) * n * n * n
+                cd.totalFlops += ((2 + 6) / 3) * n * n * n
                 cd.luMems += 0
                 cd.totalMems += 0
             end
