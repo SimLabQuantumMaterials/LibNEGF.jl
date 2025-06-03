@@ -52,7 +52,7 @@ import LinearAlgebra
                     Arandbm = bm_similar(Mbm, 2)
                     Arandsp = bm_convert(Arandbm)
                     # make Arandbm and Arandsp symmetric
-                    Arandsp = (Arandsp + Arandsp')/2
+                    Arandsp = (Arandsp + Arandsp') / 2
                     Arandbm = bm_convert(Arandsp, Arandbm.blockSizes, Arandbm.ndiag)
                     C1sp = MinvSp * (Arandsp * MinvSp')
                     # but, we need to extract the bndiag part of C1sp
