@@ -181,7 +181,7 @@ function be_lu(M::Metal.MtlArray, td::TimingData, cd::CountingData)::MtlLU
             Metal.@allowscalar precx = typeof(M[1, 1])
             Mout = be_zero_lu(precx, n)
 
-            be_lu!(Mout, M)
+            be_lu!(Mout, M, td, cd)
 
             return Mout
         end
@@ -217,13 +217,7 @@ function be_gemm!(tA::Char, tB::Char, alpha::Number, A::Metal.MtlArray,
     B::Metal.MtlArray, beta::Number, C::Metal.MtlArray, td::TimingData, cd::CountingData)
     @timewrap td "_gemm" begin
         @countwrap cd "_gemm" A B C begin
-            Acpu = be_copy_from_hw(A)
-            Bcpu = be_copy_from_hw(B)
-            Ccpu = be_copy_from_hw(C)
-
-            LinearAlgebra.BLAS.gemm!(tA, tB, alpha, Acpu, Bcpu, beta, Ccpu)
-
-            be_copy_to_hw!(C, Ccpu)
+            LinearAlgebra.generic_matmatmul!(C, tA, tB, A, B, alpha, beta)
         end
     end
 end

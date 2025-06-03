@@ -130,7 +130,8 @@ end
                         Ccpu = Ccpu - Acpu * Bcpu
                         be_gemm!('N', 'N', convert(precx, -1.0), A, B, convert(precx, 1.0), C, td, cd)
                         Cx = be_copy_to_hw(Ccpu)
-                        check_if_equal(C, Cx, roundoffs[precx], 1.0E0)
+                        # the 1.0E1 is for some roundings, mostly due to GPUs
+                        check_if_equal(C, Cx, roundoffs[precx], 1.0E1)
                         A = 0
                         B = 0
                         C = 0
