@@ -19,6 +19,9 @@ end
 	blockMatrix_factorization!(A::Matrix)::Matrix
 
 Do the LU factorization on the `A` matrix in place.
+
+# Arguments
+- `A::Matrix` : The target matrix in full form.
 """
 function blockMatrix_factorization!(A::Matrix)::Matrix
 	npl = size(A, 1)
@@ -70,7 +73,7 @@ The computation is done block by block along the diagonal starting from the firs
 **Warning** : `A` supposes to be symetric
 
 # Arguments
-- `A::MAtrix` : The target matrix
+- `A::Matrix` : The target matrix.
 """
 function blockMatrix_factorization(A::Matrix)::Matrix
 	B = bm_copy(A)
@@ -81,7 +84,11 @@ end
 """
 	blockMatrix_inverse!(A::Matrix, fillin::Bool=false)::Matrix
 
-Important : Right-looking version!!
+Do the selected inverse of the matrix factorize `A` in place.
+
+# Arguments
+- `A::Matrix` : The targeted matrix in factorize form.
+- `NoFillin::Bool` : Flag to know if we consider filled block during the computation.
 """
 function blockMatrix_inverse!(A::Matrix, NoFillin::Bool=false)::Matrix
 	npl = size(A,1)
