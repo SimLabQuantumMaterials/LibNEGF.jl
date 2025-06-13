@@ -377,6 +377,40 @@ function get_rcIndexAt(M::Matrix, rowB::Int=1, rowE::Int=size(M,1), colB::Int=1,
 end
 
 """
+	get_rowSizes(A::Matrix[, npl::Int=size(A,1)])::Vector{Int}
+
+Get the row sizes of each block along the diagonal from matrix `A`.
+
+# Arguments
+- `A::Matrix` : the target block matrix.
+- `npl::Int` : the number of block along the diagonal.
+"""
+function get_rowSizes(A::Matrix, npl::Int=size(A,1))::Vector{Int}
+	r = Vector{Int}(undef, npl)
+	for i = 1:npl
+		r[i] = A[i,i].row
+	end
+	return r
+end
+
+"""
+	get_colSizes(A::Matrix[, npl::Int=size(A,1)])::Vector{Int}
+
+Get the column sizes of each block along the diagonal from matrix `A`.
+
+# Arguments
+- `A::Matrix` : the target block matrix.
+- `npl::Int` : the number of block along the diagonal.
+"""
+function get_colSizes(A::Matrix, npl::Int=size(A,1))::Vector{Int}
+	c = Vector{Int}(undef, npl)
+	for i = 1:npl
+		c[i] = A[i,i].col
+	end
+	return c
+end
+
+"""
 	get_blockSizes(A::Matrix[, npl::Int=size(A,1)])::Vector{Int}
 
 Get the size of each block along the diagonal from matrix `A`.
@@ -385,12 +419,14 @@ Get the size of each block along the diagonal from matrix `A`.
 - `A::Matrix` : the target block matrix.
 - `npl::Int` : the number of block along the diagonal.
 """
-function get_blockSizes(A::Matrix, npl::Int=size(A,1))::Vector{Int}
-	b::Vector{Int} = Vector{Int}(undef, npl)
+function get_blockSizes(A::Matrix, npl::Int=size(A,1))::Tuple{Vector{Int}, Vector{Int}}
+	r = Vector{Int}(undef, npl)
+	c = Vector{Int}(undef, npl)
 	for i = 1:npl
-		b[i] = A[i,i].row
+		r[i] = A[i,i].row
+		c[i] = A[i,i].col
 	end
-	return b
+	return r,c
 end
 
 ###
@@ -411,7 +447,7 @@ Convert a block matrix of type `Matrix` to full matrix.
 """
 function full(A::Matrix, rind::Vector{Int}, cind::Vector{Int})::Array
 	npl = size(A,1)
-	b = get_blockSizes(A)
+	b = get_rowSizes(A)
 	m = sum(b)
 	B = zeros(Float64,m,m)
 
@@ -440,7 +476,7 @@ Convert a block matrix of type `Matrix` to full matrix.
 """
 function full(A::Matrix)::Array
 	npl = size(A,1)
-	b = get_blockSizes(A)
+	b = get_rowSizes(A)
 	m = sum(b)
 	B = zeros(Float64,m,m)
 
