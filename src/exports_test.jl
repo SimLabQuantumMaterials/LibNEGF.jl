@@ -7,7 +7,9 @@ export build_M_from_HS
 export bndiag_of_inv_direct
 export bndiag_of_inv_ddrgf!
 export allocate_aux_data_DDRGF
+export allocate_aux_data_PDDRGF
 export AuxDataDDRGF
+export bndiag_of_inv_pddrgf!
 
 # from keldyshndiag.jl
 export keldyshndiag!
@@ -18,8 +20,10 @@ export allocate_aux_data_Keldysh
 export BlockMatrix
 export bm_convert
 export bm_similar
+export bm_copy
 export set_blocks_to_zero!
 export set_blocks_to_identity!
+export bm_create_synthetic
 
 # from backend_*.jl
 export be_zero_array

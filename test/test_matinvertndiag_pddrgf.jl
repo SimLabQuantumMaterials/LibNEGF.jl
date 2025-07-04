@@ -3,9 +3,12 @@
 
 include("common_to_test.jl")
 
+# TODO : remove after some temporary dirty tests in here
+# import BenchmarkTools
+
 for systemx in systemNames
-    for E in Epoints
-        for k in kpoints
+    for E in [Epoints[1]]
+        for k in [kpoints[1]]
             # pre-compute the condition number in double precision
             # list of matrices to load
             listMatsToLoad = ["H", "S", "Sc"]
@@ -16,7 +19,7 @@ for systemx in systemNames
             Se = loadedMats[3]
             M = build_M_from_HS(H, S, Se, energVals[E])
 
-            for precx in precs
+            for precx in [precs[1]]
                 # load matrices and build M
                 listMatsToLoad = ["H", "S", "Sc"]
                 loadedMats, blockSizes = load_matrices(systemx, E, k,
@@ -39,14 +42,39 @@ for systemx in systemNames
                     listMatsToLoad, precx)
 
                 # convert to BlockMatrix
-                Mbm = bm_convert(M, blockSizes, Dict("in" => 3, "out" => 3))
+                MbmFromData = bm_convert(M, blockSizes, Dict("in" => 3, "out" => 3))
 
-                # # pre-allocate buffer data for DD-RGF
-                # auxData = allocate_aux_data_DDRGF(Mbm)
-                # # pre-allocate the output matrix
-                # MbmInvNdiag = bm_similar(Mbm, 1)
-                # # get the block n-diagonal of M^-1 via RGF
-                # bndiag_of_inv_ddrgf!(MbmInvNdiag, Mbm, auxData, TimingData(), CountingData())
+                # crate synthetic matrix with more principal layers and smaller block size
+                npl = 136
+                blockSize = 128
+                MbmSynth = bm_create_synthetic(MbmFromData, npl, blockSize)
+
+                # FIRST, sequential
+
+                # reference to the block matrix coming from data
+                MbmSeq = MbmSynth
+                # pre-allocate the output matrix
+                MbmInvNdiagSeq = bm_similar(MbmSeq, 1)
+                # pre-allocate buffer data for sequential RGF
+                auxDataSeq = allocate_aux_data_DDRGF(MbmSeq)
+                # call sequential RGF
+                bndiag_of_inv_ddrgf!(MbmInvNdiagSeq, MbmSeq, auxDataSeq, TimingData(), CountingData())
+
+                GC.gc()
+
+                # SECOND, parallel (use the data already allocated for the sequential case)
+
+                # reference to the block matrix coming from data
+                MbmPar = MbmSynth
+                # pre-allocate the output matrix
+                MbmInvNdiagPar = bm_similar(MbmPar, 1)
+                # pre-allocate buffer data for parallel RGF
+                nrBlocksInPivots = 8
+                splitType::Bool = 1
+                auxDataPar = allocate_aux_data_PDDRGF(MbmPar, nrBlocksInPivots, splitType, auxDataSeq)
+
+                # get the block n-diagonal of M^-1 via RGF
+                bndiag_of_inv_pddrgf!(MbmInvNdiagPar, MbmPar, auxDataPar, TimingData(), CountingData())
 
                 # # convert back to sparse
                 # MinvSp = bm_convert(MbmInvNdiag)
@@ -55,6 +83,12 @@ for systemx in systemNames
                 # # making a rough assumption on backward stability. The additional
                 # # 1.0E1 is because we see a loss in 1 digit in some cases
                 # @test relErr < roundoffs[precx] * 1.0E4
+
+                # MbmFromData = 0
+                # Mbm = 0
+                # auxData = 0
+                # MbmInvNdiag = 0
+                # GC.gc()
             end
         end
     end

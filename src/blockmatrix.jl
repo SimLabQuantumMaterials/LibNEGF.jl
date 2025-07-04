@@ -152,7 +152,6 @@ function bm_copy(M::BlockMatrix)::BlockMatrix
     end
 
     return A
-
 end
 
 """
@@ -379,4 +378,61 @@ function bm_gemm!(tA::Char, tB::Char, alpha::Number, A::BlockMatrix, B::BlockMat
             end
         end
     end
+end
+
+function bm_create_synthetic(A_::BlockMatrix, nrLayers::Int, blocksDim::Int)::BlockMatrix
+    # IMPORTANT : this function assumes that all of the principal layers are of
+    #             the same size
+
+    # the following two come from A_
+    npl = size(A_.blockSizes)[1]
+    ndiag = A_.ndiag
+
+    # this is for A
+    blockSizes = repeat([blocksDim], nrLayers)
+
+    lowLayers = Int(floor(nrLayers / npl))
+    restLayers = nrLayers - lowLayers*npl
+
+    A = BlockMatrix(blockSizes, ArrayOrLU_(undef, nrLayers, nrLayers), ndiag, A_.nrsType, 0)
+
+    # loop over those chunks of layers that are not the rest
+    for olx = 1:lowLayers+1
+        # loop over the block sizes within a chunk, conversely over the block rows
+        if olx < lowLayers+1
+            nrLoopLayers = npl
+        else
+            nrLoopLayers = restLayers
+        end
+        # ixL and jxL are local, and ixG and jxG global
+        offsetG = (olx-1)*npl
+        for ixL = 1:nrLoopLayers
+            ixG = ixL + offsetG
+            # now, copy the blocks within the ix-th row
+            if ixL > 1
+                # left
+                for jxL = (ixL-1):-1:max(1, ixL - Int((ndiag["out"] - 1) / 2))
+                    jxG = jxL + offsetG
+                    A.M[ixG, jxG] = be_copy_in_hw((A_.M[ixL, jxL])[1:blocksDim,1:blocksDim])
+                end
+            end
+            # center
+            A.M[ixG, ixG] = be_copy_in_hw((A_.M[ixL, ixL])[1:blocksDim,1:blocksDim])
+            if ixL < nrLoopLayers
+                # right
+                for jxL = (ixL+1):1:min(nrLoopLayers, ixL + Int((ndiag["out"] - 1) / 2))
+                    jxG = jxL + offsetG
+                    A.M[ixG, jxG] = be_copy_in_hw((A_.M[ixL, jxL])[1:blocksDim,1:blocksDim])
+                end
+            end
+
+            # do the joints between chunks of principal layers
+            if (ixL == npl) && (ixG < nrLayers)
+                A.M[ixG, ixG+1] = be_copy_in_hw((A_.M[ixL-1, ixL])[1:blocksDim,1:blocksDim])
+                A.M[ixG+1, ixG] = be_copy_in_hw((A_.M[ixL, ixL-1])[1:blocksDim,1:blocksDim])
+            end
+        end
+    end
+
+    return A
 end

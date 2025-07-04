@@ -33,7 +33,8 @@ if exists_in_list "$HWs" " " $1; then
     cp Manifest_$1.toml Manifest.toml
     # create usable copy of Project_common.toml
     cp Project_common.toml Project.toml
-    export OPENBLAS_NUM_THREADS=6
+    export OPENBLAS_NUM_THREADS=1
+    export JULIA_NUM_THREADS=8
 
     # variables used to mimic C's ifdef
     export LIBNEGF_HW=$1
@@ -46,7 +47,7 @@ if exists_in_list "$HWs" " " $1; then
     rm $BINS_JULIA
 
     # run the tests
-    julia test.jl $1
+    julia --threads=$JULIA_NUM_THREADS test.jl $1
 else
     echo "The hardware $1 is not in the list, not running the tests"
 fi
