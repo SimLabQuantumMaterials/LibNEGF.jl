@@ -343,92 +343,26 @@ of `M`. This function uses the paralle RGF method (soon to be extended to DD-RGF
 - `td`: struct for fine-level (i.e. of the backend kernels) timing. The user can choose no timing,
 in which case `td` is an empty `TimingData` struct.
 """
-function bndiag_of_inv_pddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxDataPDDRGF, td::TimingData, cd::CountingData)
+function bndiag_of_inv_pddrgf!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::AuxDataPDDRGF, td::TimingData, cd::CountingData)
     # TODO : extend this code to n-diagonal, otherwise rename this function
     #        to keep it as the simple traditional RGF
 
     # call sequential RGF if nrTasks = 1
     if auxData.nrTasks == 1
-        bndiag_of_inv_ddrgf!(Mout, Min, auxData.auxDataSeq, td, cd)
+        bndiag_of_inv_ddrgf!(Mout_, Min_, auxData.auxDataSeq, td, cd)
         return
     end
 
-    # tx = TimerOutput()
-    # @timeit tx "permute" Mhat = bndiag_of_inv_pddrgf_create_permuted_matrix(Min, permVec)
-    # println(tx)
+    # the blocks in the following matres are references to the blocks in Min
+    @time Min = bndiag_of_inv_pddrgf_create_permuted_matrix(Min_, auxData.permVec)
+    @time Mout = bndiag_of_inv_pddrgf_create_permuted_matrix(Mout_, auxData.permVec)
+    @time buffM = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.auxDataSeq.buffM, auxData.permVec)
+    @time bIdM = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.auxDataSeq.bIdM, auxData.permVec)
 
-    # println(Base.summarysize(Min))
-    # println(Base.summarysize(Mhat))
+    buffM1 = buffM
+    # Mout is used as a buffer in multiple places, this is just labeling for clarity of the implementation
+    buffM2 = Mout
+    buffId = bIdM
 
-    # the blocks in this matrix are references to the blocks in Min
-    @time MinPerm = bndiag_of_inv_pddrgf_create_permuted_matrix(Min, auxData.permVec)
-
-    # println(auxData.sizeDomains)
-    # println(auxData.permVec)
-    # println(auxData.permVecInv)
-
-    # first, create permutation vector
-
-    # minusOneCmplx = convert(Min.nrsType, -1.0)
-    # plusOneCmplx = convert(Min.nrsType, 1.0)
-    # zeroCmplx = convert(Min.nrsType, 0.0)
-
-    # # IMPORTANT : we assume here that all of the blocks in Min and Mout argument
-    # #             Array-like, and that those in the block-diagonal of auxData.rgfBuffs.buffM
-    # #             are LU-like
-
-    # npl = size(Mout.blockSizes)[1]
-    # buffM1 = auxData.buffM
-    # # Mout is used as a buffer in multiple places, this is just
-    # # labeling for clarity of the implementation
-    # buffM2 = Mout
-    # buffId = auxData.bIdM
-
-    # # TODO : we might not need a full block n-diagonal as a buffer. To see this,
-    # #        go again over the algorithm, first simple RGF, and note that there
-    # #        are more LAPACK in-place possibilities (namely, due to getrs! within
-    # #        be_mldivide(..))
-
-    # # FIRST, upward pass
-
-    # # bottom element
-    # be_lu!(buffM1.M[npl, npl], Min.M[npl, npl], td, cd)
-
-    # # middle elements
-    # for ix = npl-1:-1:1
-    #     # first run mrdivide, to make use of the mldivide data as a buffer for mrdivide
-
-    #     # this is how we implement be_mrdivide!(..) via be_mldivide!(..)
-    #     begin
-    #         be_ctranspose!(buffM1.M[ix+1, ix], Min.M[ix, ix+1], td, cd)
-    #         be_mldivide!('C', buffM2.M[ix+1, ix], buffM1.M[ix+1, ix], buffM1.M[ix+1, ix+1], td, cd)
-    #         be_ctranspose!(buffM1.M[ix, ix+1], buffM2.M[ix+1, ix], td, cd)
-    #     end
-
-    #     be_mldivide!('N', buffM1.M[ix+1, ix], Min.M[ix+1, ix], buffM1.M[ix+1, ix+1], td, cd)
-
-    #     be_copy_in_hw!(buffM2.M[ix, ix], Min.M[ix, ix])
-    #     be_gemm!('N', 'N', minusOneCmplx, Min.M[ix, ix+1], buffM1.M[ix+1, ix], plusOneCmplx, buffM2.M[ix, ix], td, cd)
-    #     be_lu!(buffM1.M[ix, ix], buffM2.M[ix, ix], td, cd)
-    # end
-
-    # # THEN, downward pass
-
-    # # top element
-    # # using be_mldivide!(..) instead of be_inv_from_lu!(..) because we want
-    # # to preallocate everything ourselves and avoid LAPACK from doing it on the fly
-    # be_mldivide!('N', Mout.M[1, 1], buffId.M[1, 1], buffM1.M[1, 1], td, cd)
-
-    # # # middle elements
-    # for ix = 2:npl
-    #     # upper diagonal of Mout
-    #     be_gemm!('N', 'N', minusOneCmplx, Mout.M[ix-1, ix-1], buffM1.M[ix-1, ix], zeroCmplx, Mout.M[ix-1, ix], td, cd)
-
-    #     # lower diagonal of Mout
-    #     be_gemm!('N', 'N', minusOneCmplx, buffM1.M[ix, ix-1], Mout.M[ix-1, ix-1], zeroCmplx, Mout.M[ix, ix-1], td, cd)
-
-    #     # diagonal of Mout
-    #     be_mldivide!('N', Mout.M[ix, ix], buffId.M[ix, ix], buffM1.M[ix, ix], td, cd)
-    #     be_gemm!('N', 'N', minusOneCmplx, buffM1.M[ix, ix-1], Mout.M[ix-1, ix], plusOneCmplx, Mout.M[ix, ix], td, cd)
-    # end
+    # TODO : the rest of the implementation
 end
