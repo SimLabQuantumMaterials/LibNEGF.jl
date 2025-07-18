@@ -118,6 +118,76 @@ function bm_convert(M::BlockMatrix)::SparseArrays.SparseMatrixCSC
     return A
 end
 
+# this allows us converting a permuted block matrix to sparse
+function bm_convert(M::BlockMatrix, permVec::Vector{Int})::SparseArrays.SparseMatrixCSC
+    n = sum(M.blockSizes)
+    ndiag = M.ndiag
+    nrsType = M.nrsType
+    pv = permVec
+
+    # create the empty sparse matrix to be the output, with the
+    # appropriate underlying data type in nrsType
+    A = SparseArrays.SparseMatrixCSC{nrsType,Int}(undef, n, n)
+
+    # loop over the block sizes, conversely over the block rows
+    for ix = 1:size(M.blockSizes)[1]
+        ixPerm = pv[ix]
+        # indices for the rows
+        ibeg = sum(M.blockSizes[1:ixPerm-1]) + 1
+        iend = sum(M.blockSizes[1:ixPerm])
+        # now, copy the blocks within the ix-th row
+        if ix > 1
+            # left
+            for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
+                jxPerm = pv[jx]
+                jbeg = sum(M.blockSizes[1:jxPerm-1]) + 1
+                jend = sum(M.blockSizes[1:jxPerm])
+                A[ibeg:iend, jbeg:jend] = sparse(be_copy_from_hw(M.M[ixPerm, jxPerm]))
+            end
+        end
+        # center
+        jbeg = ibeg
+        jend = iend
+        A[ibeg:iend, jbeg:jend] = sparse(be_copy_from_hw(M.M[ixPerm, ixPerm]))
+        if ix < size(M.blockSizes)[1]
+            # right
+            for jx = (ix+1):1:min(size(M.blockSizes)[1], ix + Int((ndiag["out"] - 1) / 2))
+                jxPerm = pv[jx]
+                jbeg = sum(M.blockSizes[1:jxPerm-1]) + 1
+                jend = sum(M.blockSizes[1:jxPerm])
+                A[ibeg:iend, jbeg:jend] = sparse(be_copy_from_hw(M.M[ixPerm, jxPerm]))
+            end
+        end
+    end
+
+    return A
+end
+
+# create sparse matrix that implements permutations from the permVec vector
+function bndiag_of_inv_pddrgf_create_sparse_permutator(permVec::Vector{Int}, blockSizes::Vector{Int},
+    nrsType::DataType)::SparseArrays.SparseMatrixCSC
+    n = sum(blockSizes)
+    # ndiag = M.ndiag
+    # nrsType = M.nrsType
+    pv = permVec
+    npl = size(blockSizes)[1]
+
+    # create the empty sparse matrix to be the output, with the
+    # appropriate underlying data type in nrsType
+    A = SparseArrays.SparseMatrixCSC{nrsType,Int}(undef, n, n)
+
+    for jx = 1:npl
+        ix = pv[jx]
+        iStart = 1 + sum(blockSizes[1:ix-1])
+        iEnd   = sum(blockSizes[1:ix])
+        jStart = 1 + sum(blockSizes[1:jx-1])
+        jEnd   = sum(blockSizes[1:jx])
+        A[iStart:iEnd,jStart:jEnd] = sparse(I,jEnd-jStart+1,iEnd-iStart+1)
+    end
+
+    return A
+end
+
 """
 	copy_BM(M::BlockMatrix)
 

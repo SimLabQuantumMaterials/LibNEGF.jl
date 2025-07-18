@@ -10,6 +10,7 @@ export allocate_aux_data_DDRGF
 export allocate_aux_data_PDDRGF
 export AuxDataDDRGF
 export bndiag_of_inv_pddrgf!
+export bndiag_of_inv_pddrgf_create_permuted_matrix
 
 # from keldyshndiag.jl
 export keldyshndiag!
@@ -24,6 +25,7 @@ export bm_copy
 export set_blocks_to_zero!
 export set_blocks_to_identity!
 export bm_create_synthetic
+export bndiag_of_inv_pddrgf_create_sparse_permutator
 
 # from backend_*.jl
 export be_zero_array

@@ -46,49 +46,93 @@ for systemx in systemNames
 
                 # crate synthetic matrix with more principal layers and smaller block size
                 npl = 136
-                blockSize = 128
+                blockSize = 32
                 MbmSynth = bm_create_synthetic(MbmFromData, npl, blockSize)
 
-                # FIRST, sequential
+                # -----------------------------
+
+                # first, some minor checks
 
                 # reference to the block matrix coming from data
                 MbmSeq = MbmSynth
-                # pre-allocate the output matrix
-                MbmInvNdiagSeq = bm_similar(MbmSeq, 1)
                 # pre-allocate buffer data for sequential RGF
                 auxDataSeq = allocate_aux_data_DDRGF(MbmSeq)
-                # call sequential RGF
-                bndiag_of_inv_ddrgf!(MbmInvNdiagSeq, MbmSeq, auxDataSeq, TimingData(), CountingData())
-
-                GC.gc()
-
-                # SECOND, parallel (use the data already allocated for the sequential case)
-
-                # reference to the block matrix coming from data
-                MbmPar = MbmSynth
-                # pre-allocate the output matrix
-                MbmInvNdiagPar = bm_similar(MbmPar, 1)
                 # pre-allocate buffer data for parallel RGF
                 nrBlocksInPivots = 8
-                splitType::Bool = 1
-                auxDataPar = allocate_aux_data_PDDRGF(MbmPar, nrBlocksInPivots, splitType, auxDataSeq)
+                # TODO : move the following param inside the check_nr_tasks function,
+                #        and with this decide based on the criteria explained in the paper
+                #        (throw an error in the code if the last else is not being caught)
+                # 0 is open-end, 1 is closed-end
+                splitType::Bool = 0
+                auxDataPar = allocate_aux_data_PDDRGF(MbmSeq, nrBlocksInPivots, splitType, auxDataSeq)
 
-                # get the block n-diagonal of M^-1 via RGF
-                bndiag_of_inv_pddrgf!(MbmInvNdiagPar, MbmPar, auxDataPar, TimingData(), CountingData())
+                # the blocks in the following matrices are references to the blocks in Min
+                MbmSeqPerm = bndiag_of_inv_pddrgf_create_permuted_matrix(MbmSeq, auxDataPar.permVec)
 
-                # # convert back to sparse
-                # MinvSp = bm_convert(MbmInvNdiag)
+                # covert MbmSeq to sparse
+                MbmSeqSp = bm_convert(MbmSeq)
+                # permute that sparse matrix
+                PermMat = bndiag_of_inv_pddrgf_create_sparse_permutator(auxDataPar.permVec, MbmSeq.blockSizes, MbmSeq.nrsType)
+                MbmSeqSpPerm = PermMat * (MbmSeqSp * PermMat')
+                # convert MbmSeqPerm to sparse
+                MbmSeqPermSp = bm_convert(MbmSeqPerm, auxDataPar.permVec)
+                # compare both
+                relErr = LinearAlgebra.norm(Array(MbmSeqSpPerm - MbmSeqPermSp), 2) / LinearAlgebra.norm(Array(MbmSeqSpPerm), 2)
+                @test relErr < roundoffs[precx]
 
-                # relErr = LinearAlgebra.norm(Array(MinvSp - Gr), 2) / LinearAlgebra.norm(Array(Gr), 2)
-                # # making a rough assumption on backward stability. The additional
-                # # 1.0E1 is because we see a loss in 1 digit in some cases
-                # @test relErr < roundoffs[precx] * 1.0E4
+                # freeing some data
+                auxDataSeq = 0
+                auxDataPar = 0
+                GC.gc()
 
-                # MbmFromData = 0
-                # Mbm = 0
-                # auxData = 0
-                # MbmInvNdiag = 0
+                # # -----------------------------
+
+                # # then, the main operations:
+
+                # # FIRST, sequential
+
+                # # reference to the block matrix coming from data
+                # MbmSeq = MbmSynth
+                # # pre-allocate the output matrix
+                # MbmInvNdiagSeq = bm_similar(MbmSeq, 1)
+                # # pre-allocate buffer data for sequential RGF
+                # auxDataSeq = allocate_aux_data_DDRGF(MbmSeq)
+                # # call sequential RGF
+                # bndiag_of_inv_ddrgf!(MbmInvNdiagSeq, MbmSeq, auxDataSeq, TimingData(), CountingData())
+
                 # GC.gc()
+
+                # # SECOND, parallel (use the data already allocated for the sequential case)
+
+                # # reference to the block matrix coming from data
+                # MbmPar = MbmSynth
+                # # pre-allocate the output matrix
+                # MbmInvNdiagPar = bm_similar(MbmPar, 1)
+                # # pre-allocate buffer data for parallel RGF
+                # nrBlocksInPivots = 1
+                # # TODO : move the following param inside the check_nr_tasks function,
+                # #        and with this decide based on the criteria explained in the paper
+                # #        (throw an error in the code if the last else is not being caught)
+                # # 0 is open-end, 1 is closed-end
+                # splitType = 0
+                # auxDataPar = allocate_aux_data_PDDRGF(MbmPar, nrBlocksInPivots, splitType, auxDataSeq)
+
+                # # get the block n-diagonal of M^-1 via RGF
+                # bndiag_of_inv_pddrgf!(MbmInvNdiagPar, MbmPar, auxDataPar, TimingData(), CountingData())
+
+                # # # convert back to sparse
+                # # MinvSp = bm_convert(MbmInvNdiag)
+
+                # # relErr = LinearAlgebra.norm(Array(MinvSp - Gr), 2) / LinearAlgebra.norm(Array(Gr), 2)
+                # # # making a rough assumption on backward stability. The additional
+                # # # 1.0E1 is because we see a loss in 1 digit in some cases
+                # # @test relErr < roundoffs[precx] * 1.0E4
+
+                # # MbmFromData = 0
+                # # Mbm = 0
+                # # auxData = 0
+                # # MbmInvNdiag = 0
+                # # GC.gc()
             end
         end
     end

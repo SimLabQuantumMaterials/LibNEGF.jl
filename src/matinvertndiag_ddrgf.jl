@@ -67,12 +67,18 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInPivots::Int, splitTy
 
     # this might change the number of threads to be used
     nrTasks, blockSizeD1, blockSizeD2 = bndiag_of_inv_pddrgf_check_nr_tasks(M, nrTasks, nrBlocksInPivots, splitType)
+    println("")
+    println(nrTasks)
+    println(blockSizeD1)
+    println(blockSizeD2)
     if nrTasks == 1
         println("WARNING: nrTasks = 1, then calling sequential RGF.")
         return AuxDataPDDRGF(auxDataSeq, nrTasks, Vector{Int}(), Vector{Int}(), Vector{Int}(), 0, 0)
     end
 
     permVec, sizeDomains = bndiag_of_inv_pddrgf_create_permutation_vector(M, nrTasks, nrBlocksInPivots, splitType)
+    println(sizeDomains)
+    # exit()
 
     permVecInv = bndiag_of_inv_pddrgf_transpose_permutation_vector(permVec)
 
@@ -181,6 +187,8 @@ do sequential RGF).
 """
 function bndiag_of_inv_pddrgf_check_nr_tasks(M::BlockMatrix, nrTasks::Int, nrBlocksInPivots::Int,
     splitType::Bool)::Tuple{Int, Int, Int}
+
+    println(nrTasks)
 
     if nrTasks == 1
         # if nrTasks = 1, the other two values are irrelevant
@@ -353,11 +361,11 @@ function bndiag_of_inv_pddrgf!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::A
         return
     end
 
-    # the blocks in the following matres are references to the blocks in Min
-    @time Min = bndiag_of_inv_pddrgf_create_permuted_matrix(Min_, auxData.permVec)
-    @time Mout = bndiag_of_inv_pddrgf_create_permuted_matrix(Mout_, auxData.permVec)
+    # the blocks in the following matrices are references to the blocks in Min
+    @time Min   = bndiag_of_inv_pddrgf_create_permuted_matrix(Min_, auxData.permVec)
+    @time Mout  = bndiag_of_inv_pddrgf_create_permuted_matrix(Mout_, auxData.permVec)
     @time buffM = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.auxDataSeq.buffM, auxData.permVec)
-    @time bIdM = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.auxDataSeq.bIdM, auxData.permVec)
+    @time bIdM  = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.auxDataSeq.bIdM, auxData.permVec)
 
     buffM1 = buffM
     # Mout is used as a buffer in multiple places, this is just labeling for clarity of the implementation
