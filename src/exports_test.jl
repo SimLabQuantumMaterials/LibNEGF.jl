@@ -26,6 +26,7 @@ export set_blocks_to_zero!
 export set_blocks_to_identity!
 export bm_create_synthetic
 export bndiag_of_inv_pddrgf_create_sparse_permutator
+export bm_reference!
 
 # from backend_*.jl
 export be_zero_array

@@ -15,7 +15,9 @@ end
 Contains a CPU `Array`, CPU `LU factor` and/or `undef`, with blocks stored
 in the (CPU) device. This is at the base of BlockMatrix.
 """
-ArrayOrLU_ = Matrix{Union{Array,CpuLU,Nothing}}
+ArrayOrLUUnder_ = Union{Array,CpuLU,Nothing}
+ArrayOrLU_ = Matrix{ArrayOrLUUnder_}
+ArrayOrLUView_ = SubArray{ArrayOrLUUnder_, 2, ArrayOrLU_, Tuple{UnitRange{Int}, UnitRange{Int}}, false}
 
 # ----------------------------------------------------
 # 'base' types first e.g. Array and Metal.MtlArray
