@@ -375,10 +375,6 @@ function bndiag_of_inv_pddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataPDD
     buffM3 = buffTHat
     buffId = bIdM
 
-    # PART (1,1)
-
-    # first, compute the inverse of \widehat{T}_{11}
-
     # first, ensure pre-allocations
     i1 = auxData.nrTasks + 1
     jxStart = sum(auxData.sizeDomains[1:i1-1]) + 1
@@ -458,25 +454,16 @@ function bndiag_of_inv_pddrgf!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::A
         return
     end
 
-    # the inverse of \widetilde{T}_{11} is stored in the D1 part
-    # of auxData.buffTHat
+    # PART (1,1)
+
+    # first, compute the inverse of \widehat{T}_{11}
+
+    # the inverse of \widetilde{T}_{11} is stored in the D1 part of auxData.buffTHat
     bndiag_of_inv_pddrgf_inv_of_T11!(Min_, auxData)
 
     # # Mout is used as a buffer in multiple places, this is just labeling for clarity of the implementation
     # Mout = bndiag_of_inv_pddrgf_create_permuted_matrix(Mout_, auxData.permVec)
     # buffM2 = Mout
-
-    # offsetM = (auxData.nrTasks-1) * auxData.blockSizeD2 + auxData.lastSizeD2
-    # smallMView = view(Min.M, 1:auxData.blockSizeD1, 1:auxData.blockSizeD1)
-    # Mbfx = BlockMatrix(Min.blockSizes[1:auxData.blockSizeD1], MViewx, Dict("in" => 3, "out" => 3), Min.nrsType, 0)
-
-    # MViewx = view(Min.M, 1:2, 1:2)
-    # # Mbfx = BlockMatrix([32,32], ArrayOrLU_(undef, 2, 2),
-    # #     Dict("in" => 3, "out" => 3), Min.nrsType, 0)
-
-    # # Mview = view(Min.M, 1, 1)
-    # # println(typeof(Mview[1,1]))
-    # # println(typeof(Min.M[1,1]))
 
     # TODO
 
