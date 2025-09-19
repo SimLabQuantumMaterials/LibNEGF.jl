@@ -73,7 +73,7 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
         exit()
     end
 
-    if nrBlocksInNonPivots > 3
+    if nrBlocksInNonPivots > 4
         println("ERROR: the number of blocks in the 1-1 subdomains is restricted to <= 3 for now.")
         @code_location
         exit()
@@ -360,6 +360,78 @@ function bndiag_of_inv_pddrgf_create_permuted_matrix(M::BlockMatrix, permVec::Ve
     return Mhat
 end
 
+function bndiag_of_inv_pddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataPDDRGF)
+    # the blocks in the following matrices contain references to blocks
+    # from sequential buffers
+    buffM = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.auxDataSeq.buffM, auxData.permVec)
+    bIdM = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.auxDataSeq.bIdM, auxData.permVec)
+    # from parallel buffers
+    Min = bndiag_of_inv_pddrgf_create_permuted_matrix(Min_, auxData.permVec)
+    buffTHat = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.buffTHat, auxData.permVec)
+
+    # some relabelings, for clarity and general consistency
+    buffM1 = buffM
+    # buffM3 will store the inverse of \widehat{T}_{11}
+    buffM3 = buffTHat
+    buffId = bIdM
+
+    # PART (1,1)
+
+    # first, compute the inverse of \widehat{T}_{11}
+
+    # first, ensure pre-allocations
+    i1 = auxData.nrTasks + 1
+    jxStart = sum(auxData.sizeDomains[1:i1-1]) + 1
+    jxEnd = sum(auxData.sizeDomains[1:i1])
+
+    smallMViewIn = view(Min.M, jxStart:jxEnd, jxStart:jxEnd)
+    smallMViewOut = view(buffM3.M, jxStart:jxEnd, jxStart:jxEnd)
+    smallMViewBuffM1 = view(buffM1.M, jxStart:jxEnd, jxStart:jxEnd)
+    smallMViewBuffId = view(buffId.M, jxStart:jxEnd, jxStart:jxEnd)
+
+    smallBlockSizes = Min.blockSizes[jxStart:jxEnd]
+
+    smallMbmIn = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
+        Min.ndiag, Min.nrsType, 0)
+    bm_reference!(smallMbmIn, smallMViewIn)
+    smallMbmOut = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
+        buffM3.ndiag, buffM3.nrsType, 0)
+    bm_reference!(smallMbmOut, smallMViewOut)
+
+    smallAuxDataSeq = AuxDataDDRGF(BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
+            buffM1.ndiag, buffM1.nrsType, 0), BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
+            buffId.ndiag, buffId.nrsType, 0))
+
+    bm_reference!(smallAuxDataSeq.buffM, smallMViewBuffM1)
+    bm_reference!(smallAuxDataSeq.bIdM, smallMViewBuffId)
+
+    # then, loop over the sub-domains in the D1 domain
+    for ix = auxData.nrTasks+1:2*auxData.nrTasks
+        jxStart = sum(auxData.sizeDomains[1:ix-1]) + 1
+        jxEnd = sum(auxData.sizeDomains[1:ix])
+
+        smallMViewIn = view(Min.M, jxStart:jxEnd, jxStart:jxEnd)
+        smallMViewOut = view(buffM3.M, jxStart:jxEnd, jxStart:jxEnd)
+        smallMViewBuffM1 = view(buffM1.M, jxStart:jxEnd, jxStart:jxEnd)
+        smallMViewBuffId = view(buffId.M, jxStart:jxEnd, jxStart:jxEnd)
+        smallBlockSizes = Min.blockSizes[jxStart:jxEnd]
+
+        copy!(smallMbmIn.blockSizes, smallBlockSizes)
+        copy!(smallMbmOut.blockSizes, smallBlockSizes)
+        copy!(smallAuxDataSeq.buffM.blockSizes, smallBlockSizes)
+        copy!(smallAuxDataSeq.bIdM.blockSizes, smallBlockSizes)
+
+        bm_reference!(smallMbmIn, smallMViewIn)
+        bm_reference!(smallMbmOut, smallMViewOut)
+        bm_reference!(smallAuxDataSeq.buffM, smallMViewBuffM1)
+        bm_reference!(smallAuxDataSeq.bIdM, smallMViewBuffId)
+
+        # TODO : modify sequential RGF to give us the little extra blocks in the 3x3 and 4x4 cases
+        #        (for the number of layers within each sub-domain in D1)
+        bndiag_of_inv_ddrgf!(smallMbmOut, smallMbmIn, smallAuxDataSeq, TimingData(), CountingData())
+    end
+end
+
 """
     bndiag_of_inv_pddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxDataPDDRGF, td::TimingData,
     cd::CountingData)
@@ -386,82 +458,13 @@ function bndiag_of_inv_pddrgf!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::A
         return
     end
 
-    # the blocks in the following matrices contain references to blocks
-    # from sequential buffers
-    buffM = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.auxDataSeq.buffM, auxData.permVec)
-    bIdM = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.auxDataSeq.bIdM, auxData.permVec)
-    # from parallel buffers
-    Min = bndiag_of_inv_pddrgf_create_permuted_matrix(Min_, auxData.permVec)
-    Mout = bndiag_of_inv_pddrgf_create_permuted_matrix(Mout_, auxData.permVec)
-    buffTHat = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.buffTHat, auxData.permVec)
+    # the inverse of \widetilde{T}_{11} is stored in the D1 part
+    # of auxData.buffTHat
+    bndiag_of_inv_pddrgf_inv_of_T11!(Min_, auxData)
 
-    # some relabelings, for clarity and general consistency
-    buffM1 = buffM
-    # Mout is used as a buffer in multiple places, this is just labeling for clarity of the implementation
-    buffM2 = Mout
-    # buffM3 will store the inverse of \widehat{T}_{11}
-    buffM3 = buffTHat
-    buffId = bIdM
-
-    # PART (1,1)
-
-    # first, compute the inverse of \widehat{T}_{11}
-    begin
-        # first, ensure pre-allocations
-        i1 = auxData.nrTasks + 1
-        jxStart = sum(auxData.sizeDomains[1:i1-1]) + 1
-        jxEnd = sum(auxData.sizeDomains[1:i1])
-
-        smallMViewIn = view(Min.M, jxStart:jxEnd, jxStart:jxEnd)
-        smallMViewOut = view(buffM3.M, jxStart:jxEnd, jxStart:jxEnd)
-        smallMViewBuffM1 = view(buffM1.M, jxStart:jxEnd, jxStart:jxEnd)
-        smallMViewBuffId = view(buffId.M, jxStart:jxEnd, jxStart:jxEnd)
-
-        smallBlockSizes = Min.blockSizes[jxStart:jxEnd]
-
-        smallMbmIn = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
-            Min.ndiag, Min.nrsType, 0)
-        bm_reference!(smallMbmIn, smallMViewIn)
-        smallMbmOut = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
-            buffM3.ndiag, buffM3.nrsType, 0)
-        bm_reference!(smallMbmOut, smallMViewOut)
-
-        smallAuxDataSeq = AuxDataDDRGF(BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
-                buffM1.ndiag, buffM1.nrsType, 0), BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
-                buffId.ndiag, buffId.nrsType, 0))
-
-        bm_reference!(smallAuxDataSeq.buffM, smallMViewBuffM1)
-        bm_reference!(smallAuxDataSeq.bIdM, smallMViewBuffId)
-
-        # then, loop over the sub-domains in the D1 domain
-        for ix = auxData.nrTasks+1:2*auxData.nrTasks
-            jxStart = sum(auxData.sizeDomains[1:ix-1]) + 1
-            jxEnd = sum(auxData.sizeDomains[1:ix])
-
-            smallMViewIn = view(Min.M, jxStart:jxEnd, jxStart:jxEnd)
-            smallMViewOut = view(buffM3.M, jxStart:jxEnd, jxStart:jxEnd)
-            smallMViewBuffM1 = view(buffM1.M, jxStart:jxEnd, jxStart:jxEnd)
-            smallMViewBuffId = view(buffId.M, jxStart:jxEnd, jxStart:jxEnd)
-            smallBlockSizes = Min.blockSizes[jxStart:jxEnd]
-
-            copy!(smallMbmIn.blockSizes, smallBlockSizes)
-            copy!(smallMbmOut.blockSizes, smallBlockSizes)
-            copy!(smallAuxDataSeq.buffM.blockSizes, smallBlockSizes)
-            copy!(smallAuxDataSeq.bIdM.blockSizes, smallBlockSizes)
-
-            bm_reference!(smallMbmIn, smallMViewIn)
-            bm_reference!(smallMbmOut, smallMViewOut)
-            bm_reference!(smallAuxDataSeq.buffM, smallMViewBuffM1)
-            bm_reference!(smallAuxDataSeq.bIdM, smallMViewBuffId)
-
-            # smallMbmIn = BlockMatrix(smallBlockSizes, smallMViewIn, Min.ndiag, Min.nrsType, 0)
-            # smallMbmOut = BlockMatrix(smallBlockSizes, smallMViewOut, Min.ndiag, Min.nrsType, 0)
-            # # TODO : modify sequential RGF to give us the two little extra blocks in case of 3x3
-            # # TODO : create (and pass) a reference to auxDataSeq that contains buffers as views of
-            # #        small slices of the large buffer matrices
-            bndiag_of_inv_ddrgf!(smallMbmOut, smallMbmIn, smallAuxDataSeq, TimingData(), CountingData())
-        end
-    end
+    # # Mout is used as a buffer in multiple places, this is just labeling for clarity of the implementation
+    # Mout = bndiag_of_inv_pddrgf_create_permuted_matrix(Mout_, auxData.permVec)
+    # buffM2 = Mout
 
     # offsetM = (auxData.nrTasks-1) * auxData.blockSizeD2 + auxData.lastSizeD2
     # smallMView = view(Min.M, 1:auxData.blockSizeD1, 1:auxData.blockSizeD1)

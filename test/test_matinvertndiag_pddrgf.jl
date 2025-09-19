@@ -61,7 +61,7 @@ for systemx in systemNames
                     println("Measurements for allocating DDRGF things")
                     @time auxDataSeq = allocate_aux_data_DDRGF(MbmSeq)
                     # pre-allocate buffer data for parallel RGF
-                    nrBlocksInNonPivots = 3
+                    nrBlocksInNonPivots = 4
                     # TODO : move the following param inside the check_nr_tasks function,
                     #        and with this decide based on the criteria explained in the paper
                     #        (throw an error in the code if the last else is not being caught)
@@ -122,7 +122,7 @@ for systemx in systemNames
                     # pre-allocate the output matrix
                     MbmInvNdiagPar = bm_similar(MbmPar, 1)
                     # pre-allocate buffer data for parallel RGF
-                    nrBlocksInNonPivots = 3
+                    nrBlocksInNonPivots = 4
                     # TODO : move the following param inside the check_nr_tasks function,
                     #        and with this decide based on the criteria explained in the paper
                     #        (throw an error in the code if the last else is not being caught)
