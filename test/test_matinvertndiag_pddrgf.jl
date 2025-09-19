@@ -43,7 +43,6 @@ for systemx in systemNames
 
                 # convert to BlockMatrix
                 MbmFromData = bm_convert(M, blockSizes, Dict("in" => 3, "out" => 3))
-                # println(blockSizes)
 
                 # crate synthetic matrix with more principal layers and smaller block size
                 npl = 135

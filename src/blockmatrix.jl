@@ -511,26 +511,21 @@ end
 function bm_reference!(M::BlockMatrix, B::ArrayOrLUView_)
     npl = size(M.blockSizes)[1]
     ndiag = M.ndiag
-    # println("--")
 
     # loop over the block sizes, conversely over the block rows
     for ix = 1:npl
-        # println("ix="*string(ix))
         # now, copy the blocks within the ix-th row
         if ix > 1
             # left
             for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
-                # println(jx)
                 M.M[ix,jx] = B[ix,jx]
             end
         end
         # center
-        # println(ix)
         M.M[ix,ix] = B[ix,ix]
         if ix < npl
             # right
             for jx = (ix+1):1:min(npl, ix + Int((ndiag["out"] - 1) / 2))
-                # println(jx)
                 M.M[ix,jx] = B[ix,jx]
             end
         end

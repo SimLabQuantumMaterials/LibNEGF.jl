@@ -82,32 +82,17 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
     # this might change the number of threads to be used
     nrTasks, blockSizeD1, blockSizeD2, lastSizeD2 = bndiag_of_inv_pddrgf_check_nr_tasks(M, nrBlocksInNonPivots, 
         nrTasks, splitType)
-    # println("")
-    # println(nrTasks)
-    # println(blockSizeD1)
-    # println(blockSizeD2)
     if nrTasks == 1
         println("WARNING: nrTasks = 1, then calling sequential RGF.")
         return AuxDataPDDRGF(auxDataSeq, nrTasks, Vector{Int}(), Vector{Int}(), Vector{Int}(), 0, 0, 0, 0)
     end
 
     permVecInv, sizeDomains = bndiag_of_inv_pddrgf_create_permutation_vector(M, nrTasks, nrBlocksInNonPivots, splitType)
-    # println(permVec)
-    # println(sizeDomains)
 
     permVec = bndiag_of_inv_pddrgf_transpose_permutation_vector(permVecInv)
 
     # pre-allocate the data for the inverse of \widehat{T}_{11}
     buffTHat = bm_copy(M)
-
-    # # FIRST : create a reference
-    # T11buff = bndiag_of_inv_pddrgf_create_permuted_matrix(M, permVec)
-    # # SECOND : slice that reference, and allocate actual 'large' new data
-    # T11Inv = bndiag_of_inv_pddrgf_slice_matrix(T11buff, sizeDomains, nrTasks+1, 2*nrTasks, nrTasks+1, 2*nrTasks, Bool(1))
-    # for ix = 1:nrTasks
-    #     nx = 1
-    #     push!(T11Inv, Array{M.nrsType}(nx,nx))
-    # end
 
     # the final struct with the buffers
     auxDataPar = AuxDataPDDRGF(auxDataSeq, nrTasks, permVec, permVecInv, sizeDomains, blockSizeD1,
@@ -284,7 +269,6 @@ function bndiag_of_inv_pddrgf_create_permutation_vector(M::BlockMatrix, nrTasks:
     totalSizeD2 = npl - totalSizeD1
     blockSizeD2 = ceil(totalSizeD2 / nrTasks)
     lastSizeD2  = totalSizeD2 - blockSizeD2 * (nrTasks - 1)
-    # println(lastSizeD2)
 
     permVecInv = Vector{Int}(undef, npl)
 
@@ -306,11 +290,6 @@ function bndiag_of_inv_pddrgf_create_permutation_vector(M::BlockMatrix, nrTasks:
         sizeDomains[idSubdomain] = bs
 
         ixOld += blockSizeD1
-        # if ix == nrTasks
-        #     ixOld += lastSizeD1
-        # else
-        #     ixOld += blockSizeD1
-        # end
     end
 
     # then, gather all the indices of region 1
@@ -322,11 +301,6 @@ function bndiag_of_inv_pddrgf_create_permutation_vector(M::BlockMatrix, nrTasks:
             ixOld += blockSizeD2
         end
         bs = blockSizeD1
-        # if ix == nrTasks
-        #     bs = lastSizeD1
-        # else
-        #     bs = blockSizeD1
-        # end
         for jx = 1:bs
             ixNew += 1
             ixOld += 1
@@ -335,8 +309,6 @@ function bndiag_of_inv_pddrgf_create_permutation_vector(M::BlockMatrix, nrTasks:
         idSubdomain += 1
         sizeDomains[idSubdomain] = bs
     end
-
-    # println(permVec)
 
     return permVecInv, sizeDomains
 end
@@ -356,34 +328,25 @@ end
 # this function applies the permutation, specified via permVec, on the input matrix M, but
 # returning a matrix whose blocks are references to the blocks in M
 function bndiag_of_inv_pddrgf_create_permuted_matrix(M::BlockMatrix, permVec::Vector{Int})::BlockMatrix
-    # println("permuting")
     npl = size(M.blockSizes)[1]
     ndiag = M.ndiag
     Mhat = BlockMatrix(M.blockSizes, ArrayOrLU_(undef, npl, npl), M.ndiag, M.nrsType, 0)
     pv = permVec
-    # println("--")
 
     # loop over the block sizes, conversely over the block rows
     for ix = 1:npl
-        # println("ix="*string(ix)*" - "*string(pv[ix]))
         # now, copy the blocks within the ix-th row
         if ix > 1
             # left
             for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
-                # println(string(jx)*" - "*string(pv[jx]))
-                # be_copy_in_hw!(Mout.M[ix, jx], Min.M[ix, jx])
                 Mhat.M[pv[ix],pv[jx]] = M.M[ix,jx]
             end
         end
         # center
-        # be_copy_in_hw!(Mout.M[ix, ix], Min.M[ix, ix])
-        # println(string(ix)*" - "*string(pv[ix]))
         Mhat.M[pv[ix],pv[ix]] = M.M[ix,ix]
         if ix < npl
             # right
             for jx = (ix+1):1:min(npl, ix + Int((ndiag["out"] - 1) / 2))
-                # println(string(jx)*" - "*string(pv[jx]))
-                # be_copy_in_hw!(Mout.M[ix, jx], Min.M[ix, jx])
                 Mhat.M[pv[ix],pv[jx]] = M.M[ix,jx]
             end
         end
@@ -396,77 +359,6 @@ function bndiag_of_inv_pddrgf_create_permuted_matrix(M::BlockMatrix, permVec::Ve
 
     return Mhat
 end
-
-# function bndiag_of_inv_pddrgf_slice_matrix(M::BlockMatrix, sizeDomains::Vector{Int},
-#     iStart::Int, iEnd::Int, jStart::Int, jEnd::Int, deepCpy::Bool)::BlockMatrix
-#     if iStart==1 && jStart==1
-#         println("ERROR: slicing this section is still not implemented.")
-#         @code_location
-#         exit()
-#     elseif iStart==1
-#         println("ERROR: slicing this section is still not implemented.")
-#         @code_location
-#         exit()
-#     elseif jStart==1
-#         println("ERROR: slicing this section is still not implemented.")
-#         @code_location
-#         exit()
-#     else
-#         ixStart = sum(sizeDomains[1:iStart-1])+1
-#         ixEnd = sum(sizeDomains[1:iEnd])
-#         jxStart = sum(sizeDomains[1:jStart-1])+1
-#         jxEnd = sum(sizeDomains[1:jEnd])
-#         # a view of the \widehat{T}_{11} part of M
-#         MMview = view(M.M, ixStart:ixEnd, jxStart:jxEnd)
-#         # the block matrix where we will copy that \widehat{T}_{11} view
-#         MMcpy = BlockMatrix(M.blockSizes[ixStart:ixEnd], ArrayOrLU_(undef, iEnd-iStart+1, jEnd-jStart+1),
-#             Dict("in" => 3, "out" => 3), M.nrsType, 0)
-        
-#         println(typeof(MMview))
-#         println(typeof(MMcpy.M))
-
-#         # # loop over the non-pivot sub-domains, copying from MMview -> MMcpy
-#         # for ix=1:iEnd-iStart+1
-
-#         #     ndiag = M.ndiag
-#         #     npl = size(M.blockSizes)[1]
-
-#         #     A = BlockMatrix(M.blockSizes, ArrayOrLU_(undef, npl, npl), ndiag, M.nrsType, M.isArrayOrLU)
-
-#         #     # loop over the block sizes, conversely over the block rows
-#         #     for ix = 1:size(M.blockSizes)[1]
-#         #         # now, copy the blocks within the ix-th row
-#         #         if ix > 1
-#         #             # left
-#         #             for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
-#         #                 A.M[ix, jx] = be_copy_in_hw(M.M[ix, jx])
-#         #             end
-#         #         end
-#         #         # center
-#         #         A.M[ix, ix] = be_copy_in_hw(M.M[ix, ix])
-#         #         if ix < size(M.blockSizes)[1]
-#         #             # right
-#         #             for jx = (ix+1):1:min(size(M.blockSizes)[1], ix + Int((ndiag["out"] - 1) / 2))
-#         #                 A.M[ix, jx] = be_copy_in_hw(M.M[ix, jx])
-#         #             end
-#         #         end
-#         #     end
-
-#         # end
-
-#         # # println(typeof(M.blockSizes[ixStart:ixEnd]))
-#         # # println(typeof(MMview))
-#         # # Mout = BlockMatrix(M.blockSizes[ixStart:ixEnd], MMview, M.ndiag, M.nrsType, 0)
-
-#         if deepCpy==0
-#             println("ERROR: only deep copies supported when slicing a BlockMatrix.")
-#             @code_location
-#             exit()
-#         else
-#             return MMcpy
-#         end
-#     end
-# end
 
 """
     bndiag_of_inv_pddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxDataPDDRGF, td::TimingData,
@@ -568,7 +460,6 @@ function bndiag_of_inv_pddrgf!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::A
             # # TODO : create (and pass) a reference to auxDataSeq that contains buffers as views of
             # #        small slices of the large buffer matrices
             bndiag_of_inv_ddrgf!(smallMbmOut, smallMbmIn, smallAuxDataSeq, TimingData(), CountingData())
-            # # println("blah")
         end
     end
 
