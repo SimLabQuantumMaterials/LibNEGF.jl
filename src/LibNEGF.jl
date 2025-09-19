@@ -78,11 +78,19 @@ export blockMatrix_inverse
 export blockMatrix_factorization!
 export blockMatrix_inverse!
 
+# from nested_dissection.jl
+export bm_reorder
+export bm_get_reorder
+export bm_get_reorder_recTer
+export nd_factorization!
+export nd_factorization
+
 include("matloader.jl")
 include("blockmatrix.jl")
 include("matinvertndiag_direct.jl")
 include("matinvertndiag_ddrgf.jl")
 include("block.jl")
 include("selected_inverse.jl")
+include("nested_dissection.jl")
 
 end
