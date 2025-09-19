@@ -179,10 +179,10 @@ function bndiag_of_inv_pddrgf_create_sparse_permutator(permVec::Vector{Int}, blo
     for jx = 1:npl
         ix = pv[jx]
         iStart = 1 + sum(blockSizes[1:ix-1])
-        iEnd   = sum(blockSizes[1:ix])
+        iEnd = sum(blockSizes[1:ix])
         jStart = 1 + sum(blockSizes[1:jx-1])
-        jEnd   = sum(blockSizes[1:jx])
-        A[iStart:iEnd,jStart:jEnd] = sparse(I,jEnd-jStart+1,iEnd-iStart+1)
+        jEnd = sum(blockSizes[1:jx])
+        A[iStart:iEnd, jStart:jEnd] = sparse(I, jEnd - jStart + 1, iEnd - iStart + 1)
     end
 
     return A
@@ -462,20 +462,20 @@ function bm_create_synthetic(A_::BlockMatrix, nrLayers::Int, blocksDim::Int)::Bl
     blockSizes = repeat([blocksDim], nrLayers)
 
     lowLayers = Int(floor(nrLayers / npl))
-    restLayers = nrLayers - lowLayers*npl
+    restLayers = nrLayers - lowLayers * npl
 
     A = BlockMatrix(blockSizes, ArrayOrLU_(undef, nrLayers, nrLayers), ndiag, A_.nrsType, 0)
 
     # loop over those chunks of layers that are not the rest
     for olx = 1:lowLayers+1
         # loop over the block sizes within a chunk, conversely over the block rows
-        if olx < lowLayers+1
+        if olx < lowLayers + 1
             nrLoopLayers = npl
         else
             nrLoopLayers = restLayers
         end
         # ixL and jxL are local, and ixG and jxG global
-        offsetG = (olx-1)*npl
+        offsetG = (olx - 1) * npl
         for ixL = 1:nrLoopLayers
             ixG = ixL + offsetG
             # now, copy the blocks within the ix-th row
@@ -483,23 +483,23 @@ function bm_create_synthetic(A_::BlockMatrix, nrLayers::Int, blocksDim::Int)::Bl
                 # left
                 for jxL = (ixL-1):-1:max(1, ixL - Int((ndiag["out"] - 1) / 2))
                     jxG = jxL + offsetG
-                    A.M[ixG, jxG] = be_copy_in_hw((A_.M[ixL, jxL])[1:blocksDim,1:blocksDim])
+                    A.M[ixG, jxG] = be_copy_in_hw((A_.M[ixL, jxL])[1:blocksDim, 1:blocksDim])
                 end
             end
             # center
-            A.M[ixG, ixG] = be_copy_in_hw((A_.M[ixL, ixL])[1:blocksDim,1:blocksDim])
+            A.M[ixG, ixG] = be_copy_in_hw((A_.M[ixL, ixL])[1:blocksDim, 1:blocksDim])
             if ixL < nrLoopLayers
                 # right
                 for jxL = (ixL+1):1:min(nrLoopLayers, ixL + Int((ndiag["out"] - 1) / 2))
                     jxG = jxL + offsetG
-                    A.M[ixG, jxG] = be_copy_in_hw((A_.M[ixL, jxL])[1:blocksDim,1:blocksDim])
+                    A.M[ixG, jxG] = be_copy_in_hw((A_.M[ixL, jxL])[1:blocksDim, 1:blocksDim])
                 end
             end
 
             # do the joints between chunks of principal layers
             if (ixL == npl) && (ixG < nrLayers)
-                A.M[ixG, ixG+1] = be_copy_in_hw((A_.M[ixL-1, ixL])[1:blocksDim,1:blocksDim])
-                A.M[ixG+1, ixG] = be_copy_in_hw((A_.M[ixL, ixL-1])[1:blocksDim,1:blocksDim])
+                A.M[ixG, ixG+1] = be_copy_in_hw((A_.M[ixL-1, ixL])[1:blocksDim, 1:blocksDim])
+                A.M[ixG+1, ixG] = be_copy_in_hw((A_.M[ixL, ixL-1])[1:blocksDim, 1:blocksDim])
             end
         end
     end
@@ -518,15 +518,15 @@ function bm_reference!(M::BlockMatrix, B::ArrayOrLUView_)
         if ix > 1
             # left
             for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
-                M.M[ix,jx] = B[ix,jx]
+                M.M[ix, jx] = B[ix, jx]
             end
         end
         # center
-        M.M[ix,ix] = B[ix,ix]
+        M.M[ix, ix] = B[ix, ix]
         if ix < npl
             # right
             for jx = (ix+1):1:min(npl, ix + Int((ndiag["out"] - 1) / 2))
-                M.M[ix,jx] = B[ix,jx]
+                M.M[ix, jx] = B[ix, jx]
             end
         end
     end

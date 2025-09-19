@@ -17,7 +17,7 @@ in the (CPU) device. This is at the base of BlockMatrix.
 """
 ArrayOrLUUnder_ = Union{Array,CpuLU,Nothing}
 ArrayOrLU_ = Matrix{ArrayOrLUUnder_}
-ArrayOrLUView_ = SubArray{ArrayOrLUUnder_, 2, ArrayOrLU_, Tuple{UnitRange{Int}, UnitRange{Int}}, false}
+ArrayOrLUView_ = SubArray{ArrayOrLUUnder_,2,ArrayOrLU_,Tuple{UnitRange{Int},UnitRange{Int}},false}
 
 # ----------------------------------------------------
 # 'base' types first e.g. Array and Metal.MtlArray

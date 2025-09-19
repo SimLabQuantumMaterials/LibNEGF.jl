@@ -80,7 +80,7 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
     end
 
     # this might change the number of threads to be used
-    nrTasks, blockSizeD1, blockSizeD2, lastSizeD2 = bndiag_of_inv_pddrgf_check_nr_tasks(M, nrBlocksInNonPivots, 
+    nrTasks, blockSizeD1, blockSizeD2, lastSizeD2 = bndiag_of_inv_pddrgf_check_nr_tasks(M, nrBlocksInNonPivots,
         nrTasks, splitType)
     if nrTasks == 1
         println("WARNING: nrTasks = 1, then calling sequential RGF.")
@@ -200,7 +200,7 @@ do sequential RGF).
 - `splitType::Int`: whether we add an extra pivot at the very end or not.
 """
 function bndiag_of_inv_pddrgf_check_nr_tasks(M::BlockMatrix, nrBlocksInNonPivots::Int, nrTasks::Int,
-    splitType::Bool)::Tuple{Int, Int, Int, Int}
+    splitType::Bool)::Tuple{Int,Int,Int,Int}
 
     # println(nrTasks)
 
@@ -228,7 +228,7 @@ function bndiag_of_inv_pddrgf_check_nr_tasks(M::BlockMatrix, nrBlocksInNonPivots
 
     if restOfTotalSizeD2 <= 0
         nrTasks, blockSizeD1, blockSizeD2 = bndiag_of_inv_pddrgf_check_nr_tasks(M, nrBlocksInNonPivots,
-            nrTasks-1, splitType)
+            nrTasks - 1, splitType)
     end
 
     return nrTasks, blockSizeD1, blockSizeD2, restOfTotalSizeD2
@@ -247,7 +247,7 @@ Creates the permutation vector for later parallel RGF computations.
 - `splitType::Int`: whether we add an extra pivot at the very end or not.
 """
 function bndiag_of_inv_pddrgf_create_permutation_vector(M::BlockMatrix, nrTasks::Int,
-    nrBlocksInNonPivots::Int, splitType::Bool)::Tuple{Vector{Int}, Vector{Int}}
+    nrBlocksInNonPivots::Int, splitType::Bool)::Tuple{Vector{Int},Vector{Int}}
     npl = size(M.blockSizes)[1]
     nrSubdomains::Int = 0
     idSubdomain::Int = 0
@@ -268,7 +268,7 @@ function bndiag_of_inv_pddrgf_create_permutation_vector(M::BlockMatrix, nrTasks:
     totalSizeD1 = blockSizeD1 * nrNonPivots
     totalSizeD2 = npl - totalSizeD1
     blockSizeD2 = ceil(totalSizeD2 / nrTasks)
-    lastSizeD2  = totalSizeD2 - blockSizeD2 * (nrTasks - 1)
+    lastSizeD2 = totalSizeD2 - blockSizeD2 * (nrTasks - 1)
 
     permVecInv = Vector{Int}(undef, npl)
 
@@ -339,15 +339,15 @@ function bndiag_of_inv_pddrgf_create_permuted_matrix(M::BlockMatrix, permVec::Ve
         if ix > 1
             # left
             for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
-                Mhat.M[pv[ix],pv[jx]] = M.M[ix,jx]
+                Mhat.M[pv[ix], pv[jx]] = M.M[ix, jx]
             end
         end
         # center
-        Mhat.M[pv[ix],pv[ix]] = M.M[ix,ix]
+        Mhat.M[pv[ix], pv[ix]] = M.M[ix, ix]
         if ix < npl
             # right
             for jx = (ix+1):1:min(npl, ix + Int((ndiag["out"] - 1) / 2))
-                Mhat.M[pv[ix],pv[jx]] = M.M[ix,jx]
+                Mhat.M[pv[ix], pv[jx]] = M.M[ix, jx]
             end
         end
     end
@@ -389,10 +389,10 @@ function bndiag_of_inv_pddrgf!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::A
     # the blocks in the following matrices contain references to blocks
     # from sequential buffers
     buffM = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.auxDataSeq.buffM, auxData.permVec)
-    bIdM  = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.auxDataSeq.bIdM, auxData.permVec)
+    bIdM = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.auxDataSeq.bIdM, auxData.permVec)
     # from parallel buffers
-    Min   = bndiag_of_inv_pddrgf_create_permuted_matrix(Min_, auxData.permVec)
-    Mout  = bndiag_of_inv_pddrgf_create_permuted_matrix(Mout_, auxData.permVec)
+    Min = bndiag_of_inv_pddrgf_create_permuted_matrix(Min_, auxData.permVec)
+    Mout = bndiag_of_inv_pddrgf_create_permuted_matrix(Mout_, auxData.permVec)
     buffTHat = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.buffTHat, auxData.permVec)
 
     # some relabelings, for clarity and general consistency
@@ -408,8 +408,8 @@ function bndiag_of_inv_pddrgf!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::A
     # first, compute the inverse of \widehat{T}_{11}
     begin
         # first, ensure pre-allocations
-        i1 = auxData.nrTasks+1
-        jxStart = sum(auxData.sizeDomains[1:i1-1])+1
+        i1 = auxData.nrTasks + 1
+        jxStart = sum(auxData.sizeDomains[1:i1-1]) + 1
         jxEnd = sum(auxData.sizeDomains[1:i1])
 
         smallMViewIn = view(Min.M, jxStart:jxEnd, jxStart:jxEnd)
@@ -419,23 +419,23 @@ function bndiag_of_inv_pddrgf!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::A
 
         smallBlockSizes = Min.blockSizes[jxStart:jxEnd]
 
-        smallMbmIn = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd-jxStart+1, jxEnd-jxStart+1),
+        smallMbmIn = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
             Min.ndiag, Min.nrsType, 0)
         bm_reference!(smallMbmIn, smallMViewIn)
-        smallMbmOut = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd-jxStart+1, jxEnd-jxStart+1),
+        smallMbmOut = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
             buffM3.ndiag, buffM3.nrsType, 0)
         bm_reference!(smallMbmOut, smallMViewOut)
 
-        smallAuxDataSeq = AuxDataDDRGF(BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd-jxStart+1, jxEnd-jxStart+1),
-            buffM1.ndiag, buffM1.nrsType, 0), BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd-jxStart+1, jxEnd-jxStart+1),
-            buffId.ndiag, buffId.nrsType, 0))
+        smallAuxDataSeq = AuxDataDDRGF(BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
+                buffM1.ndiag, buffM1.nrsType, 0), BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
+                buffId.ndiag, buffId.nrsType, 0))
 
         bm_reference!(smallAuxDataSeq.buffM, smallMViewBuffM1)
         bm_reference!(smallAuxDataSeq.bIdM, smallMViewBuffId)
 
         # then, loop over the sub-domains in the D1 domain
         for ix = auxData.nrTasks+1:2*auxData.nrTasks
-            jxStart = sum(auxData.sizeDomains[1:ix-1])+1
+            jxStart = sum(auxData.sizeDomains[1:ix-1]) + 1
             jxEnd = sum(auxData.sizeDomains[1:ix])
 
             smallMViewIn = view(Min.M, jxStart:jxEnd, jxStart:jxEnd)
