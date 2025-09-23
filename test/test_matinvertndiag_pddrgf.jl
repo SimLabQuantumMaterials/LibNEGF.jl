@@ -19,7 +19,8 @@ for systemx in systemNames
             Se = loadedMats[3]
             M = build_M_from_HS(H, S, Se, energVals[E])
 
-            for precx in [precs[1]]
+            for precx in [precs[2]]
+                # println(precs[1])
                 # load matrices and build M
                 listMatsToLoad = ["H", "S", "Sc"]
                 loadedMats, blockSizes = load_matrices(systemx, E, k,
@@ -138,6 +139,11 @@ for systemx in systemNames
                     # get the block n-diagonal of M^-1 via RGF
                     println("Measurements for running parallel RGF")
                     @time bndiag_of_inv_pddrgf!(MbmInvNdiagPar, MbmPar, auxDataPar, TimingData(), CountingData())
+
+                    # check the correctness of those dense inverse blocks in auxData.buffTHat
+                    bndiag_of_inv_pddrgf_inv_of_T11!(MbmPar, auxDataPar)
+                    relErr::Float64 = bndiag_of_inv_pddrgf_error_inv_of_T11(MbmPar, MbmInvNdiagPar, auxDataPar, TimingData(), CountingData())
+                    @test relErr < roundoffs[precx] * 1.0E4
 
                     # # convert back to sparse
                     # MinvSp = bm_convert(MbmInvNdiag)

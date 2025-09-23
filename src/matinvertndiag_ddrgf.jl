@@ -402,15 +402,7 @@ function bndiag_of_inv_pddrgf_create_permuted_matrix(M::BlockMatrix, permVec::Ve
     return Mhat
 end
 
-function bndiag_of_inv_pddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataPDDRGF)
-    # the blocks in the following matrices contain references to blocks
-    # from sequential buffers
-    buffM = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.auxDataSeq.buffM, auxData.permVec)
-    bIdM = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.auxDataSeq.bIdM, auxData.permVec)
-    # from parallel buffers
-    Min = bndiag_of_inv_pddrgf_create_permuted_matrix(Min_, auxData.permVec)
-    buffTHat = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.buffTHat, auxData.permVec)
-    # add block references, in buffTHat, for the D1 regions
+function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix!(M::BlockMatrix, auxData::AuxDataPDDRGF)
     if auxData.blockSizeD1 > 2
         jx1::Int = (auxData.nrTasks - 1) * auxData.blockSizeD2 + auxData.lastSizeD2
         jx2::Int = 0
@@ -425,16 +417,28 @@ function bndiag_of_inv_pddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataPDD
 
             for ix_ = 1:auxData.blockSizeD1
                 for jx_ = (ix_-2):-1:1
-                    buffTHat.M[jx1+ix_, jx1+jx_] = auxData.buffTHat.M[jx2+ix_, jx2+jx_]
+                    M.M[jx1+ix_, jx1+jx_] = auxData.buffTHat.M[jx2+ix_, jx2+jx_]
                 end
                 for jx_ = (ix_+2):1:auxData.blockSizeD1
-                    buffTHat.M[jx1+ix_, jx1+jx_] = auxData.buffTHat.M[jx2+ix_, jx2+jx_]
+                    M.M[jx1+ix_, jx1+jx_] = auxData.buffTHat.M[jx2+ix_, jx2+jx_]
                 end
             end
 
             jx1 += auxData.blockSizeD1
         end
     end
+end
+
+function bndiag_of_inv_pddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataPDDRGF)
+    # the blocks in the following matrices contain references to blocks
+    # from sequential buffers
+    buffM = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.auxDataSeq.buffM, auxData.permVec)
+    bIdM = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.auxDataSeq.bIdM, auxData.permVec)
+    # from parallel buffers
+    Min = bndiag_of_inv_pddrgf_create_permuted_matrix(Min_, auxData.permVec)
+    buffTHat = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.buffTHat, auxData.permVec)
+    # add block references, in buffTHat, for the D1 regions
+    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix!(buffTHat, auxData)
 
     # some relabelings, for clarity and general consistency
     buffM1 = buffM
@@ -495,6 +499,54 @@ function bndiag_of_inv_pddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataPDD
     end
 end
 
+function bndiag_of_inv_pddrgf_error_inv_of_T11(Min_::BlockMatrix, Mout_::BlockMatrix,
+    auxData::AuxDataPDDRGF, td::TimingData, cd::CountingData)::Float64
+    plusOneCmplx = convert(Min_.nrsType, 1.0)
+    zeroCmplx = convert(Min_.nrsType, 0.0)
+    # 'multiply' the D1 part of Min_ and auxData.buffTHat
+    # IMPORTANT : this section of rough code assumes all the layers have
+    # the same size
+    accBlk = Mout_.M[1,1]
+    Min = bndiag_of_inv_pddrgf_create_permuted_matrix(Min_, auxData.permVec)
+    buffTHat = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.buffTHat, auxData.permVec)
+    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix!(buffTHat, auxData)
+    jx::Int = (auxData.nrTasks-1) * auxData.blockSizeD2 + auxData.lastSizeD2
+    numErr::Float64 = 0.0
+    denErr::Float64 = 0.0
+    for ix = 1:auxData.nrTasks
+        for ix_ = 1:auxData.blockSizeD1
+            for jx_ = 1:auxData.blockSizeD1
+                be_fill!(accBlk, 0)
+                # left
+                if ix_ > 1
+                    kx_ = ix_ - 1
+                    be_gemm!('N', 'N', plusOneCmplx, Min.M[jx+ix_, jx+kx_], buffTHat.M[jx+kx_, jx+jx_], zeroCmplx, accBlk, td, cd)
+                end
+                # center
+                kx_ = ix_
+                be_gemm!('N', 'N', plusOneCmplx, Min.M[jx+ix_, jx+kx_], buffTHat.M[jx+kx_, jx+jx_], plusOneCmplx, accBlk, td, cd)
+                # right
+                if ix_ < auxData.blockSizeD1
+                    kx_ = ix_ + 1
+                    be_gemm!('N', 'N', plusOneCmplx, Min.M[jx+ix_, jx+kx_], buffTHat.M[jx+kx_, jx+jx_], plusOneCmplx, accBlk, td, cd)
+                end
+
+                if ix_ == jx_
+                    # subtract the identity
+                    blkId = be_identity(Min.nrsType, size(accBlk)[1])
+                    accBlk -= blkId
+                    denErr += convert(Float64, size(accBlk)[1])
+                end
+                locFrobNorm = LinearAlgebra.norm(accBlk, 2)
+                numErr += locFrobNorm * locFrobNorm
+            end
+        end
+        jx += auxData.blockSizeD1
+    end
+
+    return sqrt(numErr/denErr)
+end
+
 """
     bndiag_of_inv_pddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxDataPDDRGF, td::TimingData,
     cd::CountingData)
@@ -527,9 +579,6 @@ function bndiag_of_inv_pddrgf!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::A
 
     # the inverse of \widetilde{T}_{11} is stored in the D1 part of auxData.buffTHat
     bndiag_of_inv_pddrgf_inv_of_T11!(Min_, auxData)
-
-    # TODO : how can we add a check here for the correctness of those dense inverse
-    #        blocks in auxData.buffTHat ?
 
     # # Mout is used as a buffer in multiple places, this is just labeling for clarity of the implementation
     # Mout = bndiag_of_inv_pddrgf_create_permuted_matrix(Mout_, auxData.permVec)
