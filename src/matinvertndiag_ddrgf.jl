@@ -506,11 +506,11 @@ function bndiag_of_inv_pddrgf_error_inv_of_T11(Min_::BlockMatrix, Mout_::BlockMa
     # 'multiply' the D1 part of Min_ and auxData.buffTHat
     # IMPORTANT : this section of rough code assumes all the layers have
     # the same size
-    accBlk = Mout_.M[1,1]
+    accBlk = Mout_.M[1, 1]
     Min = bndiag_of_inv_pddrgf_create_permuted_matrix(Min_, auxData.permVec)
     buffTHat = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.buffTHat, auxData.permVec)
     bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix!(buffTHat, auxData)
-    jx::Int = (auxData.nrTasks-1) * auxData.blockSizeD2 + auxData.lastSizeD2
+    jx::Int = (auxData.nrTasks - 1) * auxData.blockSizeD2 + auxData.lastSizeD2
     numErr::Float64 = 0.0
     denErr::Float64 = 0.0
     for ix = 1:auxData.nrTasks
@@ -544,7 +544,7 @@ function bndiag_of_inv_pddrgf_error_inv_of_T11(Min_::BlockMatrix, Mout_::BlockMa
         jx += auxData.blockSizeD1
     end
 
-    return sqrt(numErr/denErr)
+    return sqrt(numErr / denErr)
 end
 
 """
