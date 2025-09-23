@@ -10,6 +10,7 @@ for explicit inversions via `getrs!(..)`.
 struct AuxDataDDRGF
     buffM::BlockMatrix
     bIdM::BlockMatrix
+    buildFullInv::Bool
 end
 
 struct AuxDataPDDRGF
@@ -49,7 +50,7 @@ function allocate_aux_data_DDRGF(M::BlockMatrix)::AuxDataDDRGF
     bm_blocks_define_identity!(bIdM)
 
     # the final struct with the buffers
-    auxData = AuxDataDDRGF(buffM, bIdM)
+    auxData = AuxDataDDRGF(buffM, bIdM, 0)
 
     return auxData
 end
@@ -73,11 +74,11 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
         exit()
     end
 
-    if nrBlocksInNonPivots > 4
-        println("ERROR: the number of blocks in the 1-1 subdomains is restricted to <= 3 for now.")
-        @code_location
-        exit()
-    end
+    # if nrBlocksInNonPivots > 5
+    #     println("ERROR: the number of blocks in the 1-1 subdomains is restricted to <= 4 for now.")
+    #     @code_location
+    #     exit()
+    # end
 
     # this might change the number of threads to be used
     nrTasks, blockSizeD1, blockSizeD2, lastSizeD2 = bndiag_of_inv_pddrgf_check_nr_tasks(M, nrBlocksInNonPivots,
@@ -93,6 +94,32 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
 
     # pre-allocate the data for the inverse of \widehat{T}_{11}
     buffTHat = bm_copy(M)
+
+    # pre-allocate full sub-domains for D1 in buffTHat, because it will contain
+    # the inverse of \widehat{T}_{11}
+    if blockSizeD1 > 2
+        jx::Int = 0
+        for ix = 1:nrTasks
+            if ix == 1
+                jx += blockSizeD2 + 1
+            elseif ix < nrTasks
+                jx += blockSizeD1 + blockSizeD2
+            else
+                jx += blockSizeD1 + lastSizeD2
+            end
+            # start and end local indices
+            jxStart = jx
+            jxEnd = jx + blockSizeD1 - 1
+            # slice the sub-matrix with views
+            smallMViewBuffTHat = view(buffTHat.M, jxStart:jxEnd, jxStart:jxEnd)
+            # build a small BlockMatrix to pass to the defining function
+            smallBlockSizes = buffTHat.blockSizes[jxStart:jxEnd]
+            nrDiags::Int = blockSizeD1 + (blockSizeD1 - 1)
+            smallMbmBuffTHat = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
+                Dict("in" => 3, "out" => nrDiags), buffTHat.nrsType, 0)
+            bm_blocks_define_complement!(smallMbmBuffTHat, smallMViewBuffTHat, 2)
+        end
+    end
 
     # the final struct with the buffers
     auxDataPar = AuxDataPDDRGF(auxDataSeq, nrTasks, permVec, permVecInv, sizeDomains, blockSizeD1,
@@ -167,10 +194,10 @@ function bndiag_of_inv_ddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxD
 
     # top element
     # using be_mldivide!(..) instead of be_inv_from_lu!(..) because we want
-    # to preallocate everything ourselves and avoid LAPACK from doing it on the fly
+    # to preallocate everything ourselves and prevent LAPACK from doing it on the fly
     be_mldivide!('N', Mout.M[1, 1], buffId.M[1, 1], buffM1.M[1, 1], td, cd)
 
-    # # middle elements
+    # middle elements
     for ix = 2:npl
         # upper diagonal of Mout
         be_gemm!('N', 'N', minusOneCmplx, Mout.M[ix-1, ix-1], buffM1.M[ix-1, ix], zeroCmplx, Mout.M[ix-1, ix], td, cd)
@@ -181,6 +208,21 @@ function bndiag_of_inv_ddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxD
         # diagonal of Mout
         be_mldivide!('N', Mout.M[ix, ix], buffId.M[ix, ix], buffM1.M[ix, ix], td, cd)
         be_gemm!('N', 'N', minusOneCmplx, buffM1.M[ix, ix-1], Mout.M[ix-1, ix], plusOneCmplx, Mout.M[ix, ix], td, cd)
+    end
+
+    # TODO : if auxData.buildFullInv = 1, then compute all the other missing blocks of the inverse
+    if auxData.buildFullInv == 1
+        for ix = 1:npl
+            kx::Int = 1
+            for jx = (ix+2):npl
+                # first, do the upper triangular part
+                be_gemm!('N', 'N', minusOneCmplx, Mout.M[ix, jx-1], buffM1.M[ix+kx, jx], zeroCmplx, Mout.M[ix, jx], td, cd)
+                # then, do the lower triangular
+                be_gemm!('N', 'N', minusOneCmplx, buffM1.M[jx, ix+kx], Mout.M[jx-1, ix], zeroCmplx, Mout.M[jx, ix], td, cd)
+
+                kx += 1
+            end
+        end
     end
 end
 
@@ -368,6 +410,31 @@ function bndiag_of_inv_pddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataPDD
     # from parallel buffers
     Min = bndiag_of_inv_pddrgf_create_permuted_matrix(Min_, auxData.permVec)
     buffTHat = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.buffTHat, auxData.permVec)
+    # add block references, in buffTHat, for the D1 regions
+    if auxData.blockSizeD1 > 2
+        jx1::Int = (auxData.nrTasks - 1) * auxData.blockSizeD2 + auxData.lastSizeD2
+        jx2::Int = 0
+        for ix = 1:auxData.nrTasks
+            if ix == 1
+                jx2 += auxData.blockSizeD2
+            elseif ix < auxData.nrTasks
+                jx2 += auxData.blockSizeD1 + auxData.blockSizeD2
+            else
+                jx2 += auxData.blockSizeD1 + auxData.lastSizeD2
+            end
+
+            for ix_ = 1:auxData.blockSizeD1
+                for jx_ = (ix_-2):-1:1
+                    buffTHat.M[jx1+ix_, jx1+jx_] = auxData.buffTHat.M[jx2+ix_, jx2+jx_]
+                end
+                for jx_ = (ix_+2):1:auxData.blockSizeD1
+                    buffTHat.M[jx1+ix_, jx1+jx_] = auxData.buffTHat.M[jx2+ix_, jx2+jx_]
+                end
+            end
+
+            jx1 += auxData.blockSizeD1
+        end
+    end
 
     # some relabelings, for clarity and general consistency
     buffM1 = buffM
@@ -392,11 +459,11 @@ function bndiag_of_inv_pddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataPDD
     bm_reference!(smallMbmIn, smallMViewIn)
     smallMbmOut = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
         buffM3.ndiag, buffM3.nrsType, 0)
-    bm_reference!(smallMbmOut, smallMViewOut)
+    bm_reference_full!(smallMbmOut, smallMViewOut)
 
     smallAuxDataSeq = AuxDataDDRGF(BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
             buffM1.ndiag, buffM1.nrsType, 0), BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
-            buffId.ndiag, buffId.nrsType, 0))
+            buffId.ndiag, buffId.nrsType, 0), 1)
 
     bm_reference!(smallAuxDataSeq.buffM, smallMViewBuffM1)
     bm_reference!(smallAuxDataSeq.bIdM, smallMViewBuffId)
@@ -418,12 +485,12 @@ function bndiag_of_inv_pddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataPDD
         copy!(smallAuxDataSeq.bIdM.blockSizes, smallBlockSizes)
 
         bm_reference!(smallMbmIn, smallMViewIn)
-        bm_reference!(smallMbmOut, smallMViewOut)
+        bm_reference_full!(smallMbmOut, smallMViewOut)
         bm_reference!(smallAuxDataSeq.buffM, smallMViewBuffM1)
         bm_reference!(smallAuxDataSeq.bIdM, smallMViewBuffId)
 
-        # TODO : modify sequential RGF to give us the little extra blocks in the 3x3 and 4x4 cases
-        #        (for the number of layers within each sub-domain in D1)
+        # note that RGF has been modified to give us the little extra blocks in the beyond-2x2 cases
+        # (i.e., for the number of layers within each sub-domain in D1)
         bndiag_of_inv_ddrgf!(smallMbmOut, smallMbmIn, smallAuxDataSeq, TimingData(), CountingData())
     end
 end
@@ -461,11 +528,23 @@ function bndiag_of_inv_pddrgf!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::A
     # the inverse of \widetilde{T}_{11} is stored in the D1 part of auxData.buffTHat
     bndiag_of_inv_pddrgf_inv_of_T11!(Min_, auxData)
 
+    # TODO : how can we add a check here for the correctness of those dense inverse
+    #        blocks in auxData.buffTHat ?
+
     # # Mout is used as a buffer in multiple places, this is just labeling for clarity of the implementation
     # Mout = bndiag_of_inv_pddrgf_create_permuted_matrix(Mout_, auxData.permVec)
     # buffM2 = Mout
 
-    # TODO
+    # TODO : with the inverse of \widehat{T}_{11} at hand, construct the Schur complement now
+    #       (IMPORTANT : for now, taking the approximation of ignoring those 'orange' blocks)
+
+    # TODO : invert the Schur complement, in an embarrasingly concurrent manner
+
+    # TODO : IMPORTANT : do an evaluation of how the error due to ignoring the 'orange' blocks
+    #        changes with nrBlocksInNonPivots (see test_matinvertndiag_pddrgf.jl). Something very
+    #        important is to write the code for this assessment in a reproducible manner, as we want
+    #        to evalute this for various physical regimes. This assessment will tell us whether
+    #        this approximation is a good idea, or if we need to already add a correction for it
 
     # PART (2,2)
 

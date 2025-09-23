@@ -46,8 +46,10 @@ for systemx in systemNames
 
                 # crate synthetic matrix with more principal layers and smaller block size
                 npl = 135
-                blockSize = 64
+                blockSize = 128
                 MbmSynth = bm_create_synthetic(MbmFromData, npl, blockSize)
+                # IMPORTANT : the recommended value for nrBlocksInNonPivots is four or less
+                nrBlocksInNonPivots = 4
 
                 # -----------------------------
 
@@ -61,7 +63,6 @@ for systemx in systemNames
                     println("Measurements for allocating DDRGF things")
                     @time auxDataSeq = allocate_aux_data_DDRGF(MbmSeq)
                     # pre-allocate buffer data for parallel RGF
-                    nrBlocksInNonPivots = 4
                     # TODO : move the following param inside the check_nr_tasks function,
                     #        and with this decide based on the criteria explained in the paper
                     #        (throw an error in the code if the last else is not being caught)
@@ -122,7 +123,6 @@ for systemx in systemNames
                     # pre-allocate the output matrix
                     MbmInvNdiagPar = bm_similar(MbmPar, 1)
                     # pre-allocate buffer data for parallel RGF
-                    nrBlocksInNonPivots = 4
                     # TODO : move the following param inside the check_nr_tasks function,
                     #        and with this decide based on the criteria explained in the paper
                     #        (throw an error in the code if the last else is not being caught)

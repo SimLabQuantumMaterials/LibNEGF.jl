@@ -284,7 +284,7 @@ function bm_similar(M::BlockMatrix, filling::Int)::BlockMatrix
 end
 
 """
-	bm_blocks_define!(M::BlockMatrix)
+	bm_blocks_define!(M::BlockMatrix, filling::Int)
 
 Receives a BlockMatrix object, and set its dense blocks to either zero or random.
 
@@ -347,6 +347,53 @@ function bm_blocks_define!(M::BlockMatrix, filling::Int)
                 else
                     A.M[ix, jx] = be_random_array(A.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
                 end
+            end
+        end
+    end
+end
+
+"""
+	bm_blocks_define_complement!(M::BlockMatrix, A::ArrayOrLUView_, filling::Int)
+
+Sets/pre-allocates all those blocks that are beyond block tridiagonal.
+
+# Arguments
+- `M::BlockMatrix`: some metadata.
+- `A::ArrayOrLUView_`: the matrix to be modified.
+- `filling:Int`: 1 for zero blocks, 2 for random.
+"""
+function bm_blocks_define_complement!(M::BlockMatrix, A::ArrayOrLUView_, filling::Int)
+    # TODO : integrate the use of M.ndiag["out"]
+    # ndiag = M.ndiag
+
+    blockSizes = M.blockSizes
+    npl = size(blockSizes)[1]
+
+    # loop over the block sizes, conversely over the block rows
+    for ix = 1:npl
+        # indices for the rows
+        ibeg = sum(blockSizes[1:ix-1]) + 1
+        iend = sum(blockSizes[1:ix])
+
+        # left
+        for jx = (ix-2):-1:1
+            jbeg = sum(blockSizes[1:jx-1]) + 1
+            jend = sum(blockSizes[1:jx])
+            if filling == 1
+                A[ix, jx] = be_zero_array(M.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+            else
+                A[ix, jx] = be_random_array(M.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+            end
+        end
+
+        # right
+        for jx = (ix+2):1:npl
+            jbeg = sum(blockSizes[1:jx-1]) + 1
+            jend = sum(blockSizes[1:jx])
+            if filling == 1
+                A[ix, jx] = be_zero_array(M.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+            else
+                A[ix, jx] = be_random_array(M.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
             end
         end
     end
@@ -531,4 +578,15 @@ function bm_reference!(M::BlockMatrix, B::ArrayOrLUView_)
         end
     end
 
+end
+
+# assign references in A.M to the blocks in B
+function bm_reference_full!(M::BlockMatrix, B::ArrayOrLUView_)
+    npl = size(M.blockSizes)[1]
+
+    for ix = 1:npl
+        for jx = 1:npl
+            M.M[ix, jx] = B[ix, jx]
+        end
+    end
 end
