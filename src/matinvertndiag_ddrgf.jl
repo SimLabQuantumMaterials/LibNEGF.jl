@@ -449,52 +449,35 @@ function bndiag_of_inv_pddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataPDD
     buffM3 = buffTHat
     buffId = bIdM
 
-    # first, ensure pre-allocations
-    i1 = auxData.nrTasks + 1
-    jxStart = sum(auxData.sizeDomains[1:i1-1]) + 1
-    jxEnd = sum(auxData.sizeDomains[1:i1])
-
-    smallMViewIn = view(Min.M, jxStart:jxEnd, jxStart:jxEnd)
-    smallMViewOut = view(buffM3.M, jxStart:jxEnd, jxStart:jxEnd)
-    smallMViewBuffM1 = view(buffM1.M, jxStart:jxEnd, jxStart:jxEnd)
-    smallMViewBuffId = view(buffId.M, jxStart:jxEnd, jxStart:jxEnd)
-
-    smallBlockSizes = Min.blockSizes[jxStart:jxEnd]
-
-    smallMbmIn = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
-        Min.ndiag, Min.nrsType, 0)
-    bm_reference!(smallMbmIn, smallMViewIn)
-    smallMbmOut = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
-        buffM3.ndiag, buffM3.nrsType, 0)
-    bm_reference_full!(smallMbmOut, smallMViewOut)
-
-    smallAuxDataSeq = AuxDataDDRGF(BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
-            buffM1.ndiag, buffM1.nrsType, 0), BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
-            buffId.ndiag, buffId.nrsType, 0), 1)
-
-    bm_reference!(smallAuxDataSeq.buffM, smallMViewBuffM1)
-    bm_reference!(smallAuxDataSeq.bIdM, smallMViewBuffId)
-
     # then, loop over the sub-domains in the D1 domain
     for ix = auxData.nrTasks+1:2*auxData.nrTasks
         jxStart = sum(auxData.sizeDomains[1:ix-1]) + 1
         jxEnd = sum(auxData.sizeDomains[1:ix])
 
+        smallBlockSizes = Min.blockSizes[jxStart:jxEnd]
+
+        smallAuxDataSeq = AuxDataDDRGF(BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
+                buffM1.ndiag, buffM1.nrsType, 0), BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
+                buffId.ndiag, buffId.nrsType, 0), 1)
+
         smallMViewIn = view(Min.M, jxStart:jxEnd, jxStart:jxEnd)
         smallMViewOut = view(buffM3.M, jxStart:jxEnd, jxStart:jxEnd)
         smallMViewBuffM1 = view(buffM1.M, jxStart:jxEnd, jxStart:jxEnd)
         smallMViewBuffId = view(buffId.M, jxStart:jxEnd, jxStart:jxEnd)
-        smallBlockSizes = Min.blockSizes[jxStart:jxEnd]
+
+        smallMbmIn = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
+            Min.ndiag, Min.nrsType, 0)
+        bm_reference!(smallMbmIn, smallMViewIn)
+        smallMbmOut = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
+            buffM3.ndiag, buffM3.nrsType, 0)
+        bm_reference_full!(smallMbmOut, smallMViewOut)
+        bm_reference!(smallAuxDataSeq.buffM, smallMViewBuffM1)
+        bm_reference!(smallAuxDataSeq.bIdM, smallMViewBuffId)
 
         copy!(smallMbmIn.blockSizes, smallBlockSizes)
         copy!(smallMbmOut.blockSizes, smallBlockSizes)
         copy!(smallAuxDataSeq.buffM.blockSizes, smallBlockSizes)
         copy!(smallAuxDataSeq.bIdM.blockSizes, smallBlockSizes)
-
-        bm_reference!(smallMbmIn, smallMViewIn)
-        bm_reference_full!(smallMbmOut, smallMViewOut)
-        bm_reference!(smallAuxDataSeq.buffM, smallMViewBuffM1)
-        bm_reference!(smallAuxDataSeq.bIdM, smallMViewBuffId)
 
         # note that RGF has been modified to give us the little extra blocks in the beyond-2x2 cases
         # (i.e., for the number of layers within each sub-domain in D1)
