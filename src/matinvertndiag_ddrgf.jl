@@ -210,17 +210,19 @@ function bndiag_of_inv_ddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxD
         be_gemm!('N', 'N', minusOneCmplx, buffM1.M[ix, ix-1], Mout.M[ix-1, ix], plusOneCmplx, Mout.M[ix, ix], td, cd)
     end
 
-    # TODO : if auxData.buildFullInv = 1, then compute all the other missing blocks of the inverse
+    # if auxData.buildFullInv = 1, then compute all the other missing blocks of the inverse
     if auxData.buildFullInv == 1
-        for ix = 1:npl
-            kx::Int = 1
-            for jx = (ix+2):npl
-                # first, do the upper triangular part
-                be_gemm!('N', 'N', minusOneCmplx, Mout.M[ix, jx-1], buffM1.M[ix+kx, jx], zeroCmplx, Mout.M[ix, jx], td, cd)
-                # then, do the lower triangular
-                be_gemm!('N', 'N', minusOneCmplx, buffM1.M[jx, ix+kx], Mout.M[jx-1, ix], zeroCmplx, Mout.M[jx, ix], td, cd)
+        if npl > 2
+            for ix = 1:npl
+                kx::Int = 1
+                for jx = (ix+2):npl
+                    # first, do the upper triangular part
+                    be_gemm!('N', 'N', minusOneCmplx, Mout.M[ix, jx-1], buffM1.M[ix+kx, jx], zeroCmplx, Mout.M[ix, jx], td, cd)
+                    # then, do the lower triangular
+                    be_gemm!('N', 'N', minusOneCmplx, buffM1.M[jx, ix+kx], Mout.M[jx-1, ix], zeroCmplx, Mout.M[jx, ix], td, cd)
 
-                kx += 1
+                    kx += 1
+                end
             end
         end
     end
@@ -429,7 +431,8 @@ function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix!(M::BlockMatrix,
     end
 end
 
-function bndiag_of_inv_pddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataPDDRGF)
+function bndiag_of_inv_pddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataPDDRGF, td::TimingData,
+    cd::CountingData)
     # the blocks in the following matrices contain references to blocks
     # from sequential buffers
     buffM = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.auxDataSeq.buffM, auxData.permVec)
@@ -495,7 +498,7 @@ function bndiag_of_inv_pddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataPDD
 
         # note that RGF has been modified to give us the little extra blocks in the beyond-2x2 cases
         # (i.e., for the number of layers within each sub-domain in D1)
-        bndiag_of_inv_ddrgf!(smallMbmOut, smallMbmIn, smallAuxDataSeq, TimingData(), CountingData())
+        bndiag_of_inv_ddrgf!(smallMbmOut, smallMbmIn, smallAuxDataSeq, td, cd)
     end
 end
 
@@ -547,6 +550,118 @@ function bndiag_of_inv_pddrgf_error_inv_of_T11(Min_::BlockMatrix, Mout_::BlockMa
     return sqrt(numErr / denErr)
 end
 
+function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::AuxDataPDDRGF, td::TimingData,
+    cd::CountingData)
+
+    minusOneCmplx = convert(Min_.nrsType, -1.0)
+    plusOneCmplx = convert(Min_.nrsType, 1.0)
+    zeroCmplx = convert(Min_.nrsType, 0.0)
+
+    # in, out and buffers, all permuted
+    Mout = bndiag_of_inv_pddrgf_create_permuted_matrix(Mout_, auxData.permVec)
+    buffM2 = Mout
+    Min = bndiag_of_inv_pddrgf_create_permuted_matrix(Min_, auxData.permVec)
+    buffTHat = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.buffTHat, auxData.permVec)
+    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix!(buffTHat, auxData)
+    buffM1 = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.auxDataSeq.buffM, auxData.permVec)
+    buffId = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.auxDataSeq.bIdM, auxData.permVec)
+
+    # the D2 part of buffTHat contains the (approximated) Schur complement
+
+    for ix = 1:auxData.nrTasks
+        jx2Start = sum(auxData.sizeDomains[1:ix-1]) + 1
+        jx2End = sum(auxData.sizeDomains[1:ix])
+
+        # copy the D2 part of Min into buffTHat
+
+        smallMViewIn = view(Min.M, jx2Start:jx2End, jx2Start:jx2End)
+        smallMViewBuffTHat = view(buffTHat.M, jx2Start:jx2End, jx2Start:jx2End)
+        smallMViewBuffM2 = view(buffM2.M, jx2Start:jx2End, jx2Start:jx2End)
+
+        smallBlockSizes = Min.blockSizes[jx2Start:jx2End]
+
+        smallMbmIn = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jx2End - jx2Start + 1, jx2End - jx2Start + 1),
+            Min.ndiag, Min.nrsType, 0)
+        smallMbmBuffTHat = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jx2End - jx2Start + 1, jx2End - jx2Start + 1),
+            buffTHat.ndiag, buffTHat.nrsType, 0)
+        smallMbmBuffM2 = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jx2End - jx2Start + 1, jx2End - jx2Start + 1),
+            buffM2.ndiag, buffM2.nrsType, 0)
+
+        bm_reference!(smallMbmIn, smallMViewIn)
+        bm_reference!(smallMbmBuffTHat, smallMViewBuffTHat)
+        bm_reference!(smallMbmBuffM2, smallMViewBuffM2)
+
+        copy!(smallMbmIn.blockSizes, smallBlockSizes)
+        copy!(smallMbmBuffTHat.blockSizes, smallBlockSizes)
+        copy!(smallMbmBuffM2.blockSizes, smallBlockSizes)
+
+        # copy THat22^k2 into THatS^k2
+        bm_copy!(smallMbmBuffTHat, smallMbmIn)
+
+        smallMViewBuffM1 = view(buffM1.M, jx2Start:jx2End, jx2Start:jx2End)
+        smallMViewBuffId = view(buffId.M, jx2Start:jx2End, jx2Start:jx2End)
+        smallAuxDataSeq = AuxDataDDRGF(BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jx2End - jx2Start + 1, jx2End - jx2Start + 1),
+                buffM1.ndiag, buffM1.nrsType, 0), BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jx2End - jx2Start + 1, jx2End - jx2Start + 1),
+                buffId.ndiag, buffId.nrsType, 0), 0)
+        bm_reference!(smallAuxDataSeq.buffM, smallMViewBuffM1)
+        bm_reference!(smallAuxDataSeq.bIdM, smallMViewBuffId)
+
+        if ix < auxData.nrTasks
+            jx1Start = sum(auxData.sizeDomains[1:auxData.nrTasks+ix-1]) + 1
+            jx1End = sum(auxData.sizeDomains[1:auxData.nrTasks+ix])
+
+            # in the notation of the paper:
+
+            # THatS^k2
+            THatS_k2 = smallMbmBuffTHat.M
+            # ((THat_11)^-1)^k2
+            THat11Inv_k2 = view(buffTHat.M, jx1Start:jx1End, jx1Start:jx1End)
+            # THat21_k2k2
+            THat21_k2k2 = view(Min.M, jx2Start:jx2End, jx1Start:jx1End)
+            # THat12_k2k2
+            THat12_k2k2 = view(Min.M, jx1Start:jx1End, jx2Start:jx2End)
+            # buffer for the product of THat21_k2k2 times ((THat_11)^-1)^k2
+            THat21_k2k2_buff = view(buffTHat.M, jx2Start:jx2End, jx1Start:jx1End)
+
+            be_gemm!('N', 'N', plusOneCmplx, THat21_k2k2[auxData.sizeDomains[ix], 1], THat11Inv_k2[1, 1],
+                zeroCmplx, THat21_k2k2_buff[auxData.sizeDomains[ix], 1], td, cd)
+            be_gemm!('N', 'N', minusOneCmplx, THat21_k2k2_buff[auxData.sizeDomains[ix], 1], THat12_k2k2[1, auxData.sizeDomains[ix]],
+                plusOneCmplx, THatS_k2[auxData.sizeDomains[ix], auxData.sizeDomains[ix]], td, cd)
+        end
+        if ix > 1
+            # running on index 2
+            ixm1 = ix - 1
+            # running on index 1
+            ixm1_s = auxData.nrTasks + ixm1
+
+            jx1Start = sum(auxData.sizeDomains[1:auxData.nrTasks+ixm1-1]) + 1
+            jx1End = sum(auxData.sizeDomains[1:auxData.nrTasks+ixm1])
+
+            # in the notation of the paper:
+
+            # THatS^k2
+            THatS_k2 = smallMbmBuffTHat.M
+            # ((THat_11)^-1)^k2
+            THat11Inv_k2 = view(buffTHat.M, jx1Start:jx1End, jx1Start:jx1End)
+            # THat21_k2k2
+            THat21_k2k2 = view(Min.M, jx2Start:jx2End, jx1Start:jx1End)
+            # THat12_k2k2
+            THat12_k2k2 = view(Min.M, jx1Start:jx1End, jx2Start:jx2End)
+            # buffer for the product of THat21_k2k2 times ((THat_11)^-1)^k2
+            THat21_k2k2_buff = view(buffTHat.M, jx2Start:jx2End, jx1Start:jx1End)
+
+            be_gemm!('N', 'N', plusOneCmplx, THat21_k2k2[1, auxData.sizeDomains[ixm1_s]],
+                THat11Inv_k2[auxData.sizeDomains[ixm1_s], auxData.sizeDomains[ixm1_s]],
+                zeroCmplx, THat21_k2k2_buff[1, auxData.sizeDomains[ixm1_s]], td, cd)
+            be_gemm!('N', 'N', minusOneCmplx, THat21_k2k2_buff[1, auxData.sizeDomains[ixm1_s]], THat12_k2k2[auxData.sizeDomains[ixm1_s], 1],
+                plusOneCmplx, THatS_k2[1, 1], td, cd)
+        end
+
+        # invert the Schur complement, in an embarrasingly concurrent manner
+        bndiag_of_inv_ddrgf!(smallMbmBuffM2, smallMbmBuffTHat, smallAuxDataSeq, td, cd)
+    end
+end
+
 """
     bndiag_of_inv_pddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxDataPDDRGF, td::TimingData,
     cd::CountingData)
@@ -575,19 +690,13 @@ function bndiag_of_inv_pddrgf!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::A
 
     # PART (1,1)
 
-    # first, compute the inverse of \widehat{T}_{11}
+    # first, compute the inverse of \widehat{T}_{11}, storing it in the D1 part of auxData.buffTHat
+    bndiag_of_inv_pddrgf_inv_of_T11!(Min_, auxData, td, cd)
 
-    # the inverse of \widetilde{T}_{11} is stored in the D1 part of auxData.buffTHat
-    bndiag_of_inv_pddrgf_inv_of_T11!(Min_, auxData)
-
-    # # Mout is used as a buffer in multiple places, this is just labeling for clarity of the implementation
-    # Mout = bndiag_of_inv_pddrgf_create_permuted_matrix(Mout_, auxData.permVec)
-    # buffM2 = Mout
-
-    # TODO : with the inverse of \widehat{T}_{11} at hand, construct the Schur complement now
-    #       (IMPORTANT : for now, taking the approximation of ignoring those 'orange' blocks)
-
-    # TODO : invert the Schur complement, in an embarrasingly concurrent manner
+    # with the inverse of \widehat{T}_{11} at hand, construct the Schur complement now
+    # (IMPORTANT : for now, taking the approximation of ignoring those 'orange' blocks),
+    # stored in the D2 part of Mout_
+    bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_, Min_, auxData, td, cd)
 
     # TODO : IMPORTANT : do an evaluation of how the error due to ignoring the 'orange' blocks
     #        changes with nrBlocksInNonPivots (see test_matinvertndiag_pddrgf.jl). Something very

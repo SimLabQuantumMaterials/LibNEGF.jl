@@ -47,7 +47,7 @@ for systemx in systemNames
 
                 # crate synthetic matrix with more principal layers and smaller block size
                 npl = 135
-                blockSize = 128
+                blockSize = 256
                 MbmSynth = bm_create_synthetic(MbmFromData, npl, blockSize)
                 # IMPORTANT : the recommended value for nrBlocksInNonPivots is four or less
                 nrBlocksInNonPivots = 4
@@ -141,7 +141,7 @@ for systemx in systemNames
                     @time bndiag_of_inv_pddrgf!(MbmInvNdiagPar, MbmPar, auxDataPar, TimingData(), CountingData())
 
                     # check the correctness of those dense inverse blocks in auxData.buffTHat
-                    bndiag_of_inv_pddrgf_inv_of_T11!(MbmPar, auxDataPar)
+                    bndiag_of_inv_pddrgf_inv_of_T11!(MbmPar, auxDataPar, TimingData(), CountingData())
                     relErr::Float64 = bndiag_of_inv_pddrgf_error_inv_of_T11(MbmPar, MbmInvNdiagPar, auxDataPar, TimingData(), CountingData())
                     @test relErr < roundoffs[precx] * 1.0E4
 
