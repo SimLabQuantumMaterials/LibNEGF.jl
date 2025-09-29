@@ -3,7 +3,7 @@ module TestLibNEGFBlock
 using LibNEGF, Test
 import LinearAlgebra
 
-@testset "Block" begin
+@testset verbose = true "Block" begin
     @testset "operator(+)::Block" begin
         npl = 5
         M = Matrix(undef, npl, npl)
@@ -72,6 +72,12 @@ import LinearAlgebra
         M[2, 3] = Block()
         N = M
         @test bm_equal(M, N)
+        N = Matrix(undef, 5, 5)
+        N[1, 1] = Block(rand(5, 5))
+        N[2, 3] = Block(rand(5, 5))
+        println(M[2,3])
+        @test bm_equal(M, N) broken = true
+        @test bm_equal(M, N, false)
     end
     @testset "bm_copy" begin
         M = Matrix(undef, 5, 5)
