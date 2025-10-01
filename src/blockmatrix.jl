@@ -166,6 +166,9 @@ end
 # create sparse matrix that implements permutations from the permVec vector
 function bndiag_of_inv_pddrgf_create_sparse_permutator(permVec::Vector{Int}, blockSizes::Vector{Int},
     nrsType::DataType)::SparseArrays.SparseMatrixCSC
+
+    # println(permVec)
+
     n = sum(blockSizes)
     # ndiag = M.ndiag
     # nrsType = M.nrsType
@@ -503,6 +506,8 @@ function bm_create_synthetic(A_::BlockMatrix, nrLayers::Int, blocksDim::Int)::Bl
 
     # the following two come from A_
     npl = size(A_.blockSizes)[1]
+    # repeat the central layers (i.e. without first and last)
+    npl -= 2
     ndiag = A_.ndiag
 
     # this is for A
@@ -513,7 +518,7 @@ function bm_create_synthetic(A_::BlockMatrix, nrLayers::Int, blocksDim::Int)::Bl
 
     A = BlockMatrix(blockSizes, ArrayOrLU_(undef, nrLayers, nrLayers), ndiag, A_.nrsType, 0)
 
-    # loop over those chunks of layers that are not the rest
+    # loop over chunks of layers
     for olx = 1:lowLayers+1
         # loop over the block sizes within a chunk, conversely over the block rows
         if olx < lowLayers + 1
@@ -530,26 +535,41 @@ function bm_create_synthetic(A_::BlockMatrix, nrLayers::Int, blocksDim::Int)::Bl
                 # left
                 for jxL = (ixL-1):-1:max(1, ixL - Int((ndiag["out"] - 1) / 2))
                     jxG = jxL + offsetG
-                    A.M[ixG, jxG] = be_copy_in_hw((A_.M[ixL, jxL])[1:blocksDim, 1:blocksDim])
+                    A.M[ixG, jxG] = be_copy_in_hw((A_.M[1+ixL, 1+jxL])[1:blocksDim, 1:blocksDim])
                 end
             end
             # center
-            A.M[ixG, ixG] = be_copy_in_hw((A_.M[ixL, ixL])[1:blocksDim, 1:blocksDim])
+            A.M[ixG, ixG] = be_copy_in_hw((A_.M[1+ixL, 1+ixL])[1:blocksDim, 1:blocksDim])
             if ixL < nrLoopLayers
                 # right
                 for jxL = (ixL+1):1:min(nrLoopLayers, ixL + Int((ndiag["out"] - 1) / 2))
                     jxG = jxL + offsetG
-                    A.M[ixG, jxG] = be_copy_in_hw((A_.M[ixL, jxL])[1:blocksDim, 1:blocksDim])
+                    A.M[ixG, jxG] = be_copy_in_hw((A_.M[1+ixL, 1+jxL])[1:blocksDim, 1:blocksDim])
                 end
             end
 
             # do the joints between chunks of principal layers
             if (ixL == npl) && (ixG < nrLayers)
-                A.M[ixG, ixG+1] = be_copy_in_hw((A_.M[ixL-1, ixL])[1:blocksDim, 1:blocksDim])
-                A.M[ixG+1, ixG] = be_copy_in_hw((A_.M[ixL, ixL-1])[1:blocksDim, 1:blocksDim])
+                A.M[ixG, ixG+1] = be_copy_in_hw((A_.M[1+ixL-1, 1+ixL])[1:blocksDim, 1:blocksDim])
+                A.M[ixG+1, ixG] = be_copy_in_hw((A_.M[1+ixL, 1+ixL-1])[1:blocksDim, 1:blocksDim])
             end
         end
     end
+
+    # IMPORTANT : up to here, we have populated the semi-synthetic matrix with data
+    #             coming from the device i.e. we do not use the layers next to the contacts.
+    #             Next, we correct for this
+
+    # first, top-left corner
+    A.M[1, 1] = be_copy_in_hw((A_.M[1, 1])[1:blocksDim, 1:blocksDim])
+    A.M[1, 2] = be_copy_in_hw((A_.M[1, 2])[1:blocksDim, 1:blocksDim])
+    A.M[2, 1] = be_copy_in_hw((A_.M[2, 1])[1:blocksDim, 1:blocksDim])
+
+    # then, bottom-right corner - for this, restore npl to the actual total
+    npl += 2
+    A.M[nrLayers, nrLayers] = be_copy_in_hw((A_.M[npl, npl])[1:blocksDim, 1:blocksDim])
+    A.M[nrLayers-1, nrLayers] = be_copy_in_hw((A_.M[npl-1, npl])[1:blocksDim, 1:blocksDim])
+    A.M[nrLayers, nrLayers-1] = be_copy_in_hw((A_.M[npl, npl-1])[1:blocksDim, 1:blocksDim])
 
     return A
 end
