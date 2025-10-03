@@ -190,6 +190,26 @@ for systemx in systemNames
                     # TODO : add a check here for those blocks of the Schur complement that make it
                     #        non embarrasingly parallel
 
+                    # check the correctness of the inverse of the Schur complement
+
+                    MinvNdiagSeq = bm_convert(MbmInvNdiagSeq)
+                    MinvNdiagPar = bm_convert(MbmInvNdiagPar)
+
+                    MinvNdiagSeq_perm = PermMat * (MinvNdiagSeq * PermMat')
+                    MinvNdiagPar_perm = PermMat * (MinvNdiagPar * PermMat')
+
+                    MinvNdiagPar_perm = MinvNdiagPar_perm[1:nx,1:nx]
+                    MinvNdiagSeq_perm = MinvNdiagSeq_perm[1:nx,1:nx]
+
+                    for ix=1:auxDataPar.nrTasks
+                        d1 = sum(auxDataPar.sizeDomains[1:ix-1]) + 1
+                        d2 = sum(auxDataPar.sizeDomains[1:ix])
+                        r1 = sum(MbmPar_reord.blockSizes[1:d1-1]) + 1
+                        r2 = sum(MbmPar_reord.blockSizes[1:d2])
+                        relErr = LinearAlgebra.norm(Array(MinvNdiagSeq_perm[r1:r2,r1:r2] - MinvNdiagPar_perm[r1:r2,r1:r2]), 2) / LinearAlgebra.norm(Array(MinvNdiagSeq_perm[r1:r2,r1:r2]), 2)
+                        println(relErr)
+                    end
+
                     # ----------
 
                     # # ll1 = 129:256
@@ -244,36 +264,6 @@ for systemx in systemNames
                     # # display(xlims!(ylims!(spy!(sparse(abs.(ET0))), (1,sx)), (1,sx)))
                     # # # display(xlims!(ylims!(spy!(sparse(abs.(exactSC))), (1,sx)), (1,sx)))
                     # # sleep(60)
-
-                    # # # check the correctness of the inverse of the Schur complement
-
-                    # MinvNdiagSeq = bm_convert(MbmInvNdiagSeq)
-                    # MinvNdiagPar = bm_convert(MbmInvNdiagPar)
-
-                    # MinvNdiagSeq_perm = PermMat * (MinvNdiagSeq * PermMat')
-                    # MinvNdiagPar_perm = PermMat * (MinvNdiagPar * PermMat')
-
-                    # # MinvNdiagPar_perm = MinvNdiagPar_perm[1:nx,1:nx]
-                    # Mx_perm = copy(MinvNdiagSeq_perm)
-                    # Mx_perm[1:nx,1:nx] = sparse(LinearAlgebra.inv(Array(approSC)))
-                    # Mx = PermMat' * (Mx_perm * PermMat)
-                    # Mbmx = bm_convert(Mx, MbmSynth.blockSizes, Dict("in" => 3, "out" => 3))
-                    # Mx = bm_convert(Mbmx)
-                    # Mx_perm = PermMat * (Mx * PermMat')
-                    # MinvNdiagPar_perm = Mx_perm[1:nx,1:nx]
-
-                    # MinvNdiagSeq_perm = MinvNdiagSeq_perm[1:nx,1:nx]
-
-                    # for ix=1:auxDataPar.nrTasks
-                    #     d1 = sum(auxDataPar.sizeDomains[1:ix-1]) + 1
-                    #     d2 = sum(auxDataPar.sizeDomains[1:ix])
-                    #     r1 = sum(MbmPar_reord.blockSizes[1:d1-1]) + 1
-                    #     r2 = sum(MbmPar_reord.blockSizes[1:d2])
-                    #     println(r1)
-                    #     println(r2)
-                    #     relErr = LinearAlgebra.norm(Array(MinvNdiagSeq_perm[r1:r2,r1:r2] - MinvNdiagPar_perm[r1:r2,r1:r2]), 2) / LinearAlgebra.norm(Array(MinvNdiagSeq_perm[r1:r2,r1:r2]), 2)
-                    #     println(relErr)
-                    # end
 
                     # # MinvNdiagSeq_perm_sl = MinvNdiagSeq_perm[1:nx,1:nx]
                     # # MinvNdiagPar_perm_sl = MinvNdiagPar_perm[1:nx,1:nx]
