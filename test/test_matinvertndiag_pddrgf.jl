@@ -150,7 +150,7 @@ for systemx in systemNames
 
                     MPar = bm_convert(MbmPar)
                     MPar_perm = PermMat * (MPar * PermMat')
-                    MPar_perm11 = MPar_perm[nx+1:nx+ny,nx+1:nx+ny]
+                    MPar_perm11 = MPar_perm[nx+1:nx+ny, nx+1:nx+ny]
                     sizeDomains22 = auxDataPar.sizeDomains[1:auxDataPar.nrTasks]
                     sizeDomains11 = auxDataPar.sizeDomains[auxDataPar.nrTasks+1:2*auxDataPar.nrTasks]
                     offset22 = sum(sizeDomains22)
@@ -161,29 +161,29 @@ for systemx in systemNames
                         ixDEnd = sum(sizeDomains11[1:ix])
                         ixLStart = sum(blockSizes11[1:ixDStart-1]) + 1
                         ixLEnd = sum(blockSizes11[1:ixDEnd])
-                        MPar_perm11Inv[ixLStart:ixLEnd,ixLStart:ixLEnd] =
-                            SparseArrays.SparseMatrixCSC(LinearAlgebra.inv(Array(MPar_perm11[ixLStart:ixLEnd,ixLStart:ixLEnd])))
+                        MPar_perm11Inv[ixLStart:ixLEnd, ixLStart:ixLEnd] =
+                            SparseArrays.SparseMatrixCSC(LinearAlgebra.inv(Array(MPar_perm11[ixLStart:ixLEnd, ixLStart:ixLEnd])))
                     end
 
-                    MPar_perm22 = MPar_perm[1:nx,1:nx]
-                    MPar_perm12 = MPar_perm[nx+1:nx+ny,1:nx]
-                    MPar_perm21 = MPar_perm[1:nx,nx+1:nx+ny]
+                    MPar_perm22 = MPar_perm[1:nx, 1:nx]
+                    MPar_perm12 = MPar_perm[nx+1:nx+ny, 1:nx]
+                    MPar_perm21 = MPar_perm[1:nx, nx+1:nx+ny]
 
                     exactSC = MPar_perm22 - MPar_perm21 * (MPar_perm11Inv * MPar_perm12)
 
                     buffTHat = bm_convert(auxDataPar.buffTHat)
                     buffTHat_perm = PermMat * (buffTHat * PermMat')
-                    buffTHat_perm22 = buffTHat_perm[1:nx,1:nx]
+                    buffTHat_perm22 = buffTHat_perm[1:nx, 1:nx]
                     approSC = buffTHat_perm22
 
                     # check that the Schur complement has been built correctly, at the D2-level sub-matrices. This
                     # also serves as an indirect check of the inverse of \widehat{T}_{11}
-                    for ix=1:auxDataPar.nrTasks
+                    for ix = 1:auxDataPar.nrTasks
                         d1 = sum(auxDataPar.sizeDomains[1:ix-1]) + 1
                         d2 = sum(auxDataPar.sizeDomains[1:ix])
                         r1 = sum(MbmPar_reord.blockSizes[1:d1-1]) + 1
                         r2 = sum(MbmPar_reord.blockSizes[1:d2])
-                        relErr = LinearAlgebra.norm(Array(approSC[r1:r2,r1:r2] - exactSC[r1:r2,r1:r2]), 2) / LinearAlgebra.norm(Array(exactSC[r1:r2,r1:r2]), 2)
+                        relErr = LinearAlgebra.norm(Array(approSC[r1:r2, r1:r2] - exactSC[r1:r2, r1:r2]), 2) / LinearAlgebra.norm(Array(exactSC[r1:r2, r1:r2]), 2)
                         @test relErr < roundoffs[precx] * 1.E3
                     end
 
@@ -198,103 +198,17 @@ for systemx in systemNames
                     MinvNdiagSeq_perm = PermMat * (MinvNdiagSeq * PermMat')
                     MinvNdiagPar_perm = PermMat * (MinvNdiagPar * PermMat')
 
-                    MinvNdiagPar_perm = MinvNdiagPar_perm[1:nx,1:nx]
-                    MinvNdiagSeq_perm = MinvNdiagSeq_perm[1:nx,1:nx]
+                    MinvNdiagPar_perm = MinvNdiagPar_perm[1:nx, 1:nx]
+                    MinvNdiagSeq_perm = MinvNdiagSeq_perm[1:nx, 1:nx]
 
-                    for ix=1:auxDataPar.nrTasks
+                    for ix = 1:auxDataPar.nrTasks
                         d1 = sum(auxDataPar.sizeDomains[1:ix-1]) + 1
                         d2 = sum(auxDataPar.sizeDomains[1:ix])
                         r1 = sum(MbmPar_reord.blockSizes[1:d1-1]) + 1
                         r2 = sum(MbmPar_reord.blockSizes[1:d2])
-                        relErr = LinearAlgebra.norm(Array(MinvNdiagSeq_perm[r1:r2,r1:r2] - MinvNdiagPar_perm[r1:r2,r1:r2]), 2) / LinearAlgebra.norm(Array(MinvNdiagSeq_perm[r1:r2,r1:r2]), 2)
+                        relErr = LinearAlgebra.norm(Array(MinvNdiagSeq_perm[r1:r2, r1:r2] - MinvNdiagPar_perm[r1:r2, r1:r2]), 2) / LinearAlgebra.norm(Array(MinvNdiagSeq_perm[r1:r2, r1:r2]), 2)
                         println(relErr)
                     end
-
-                    # ----------
-
-                    # # ll1 = 129:256
-                    # # ll2 = 1:128
-                    # # relErr = LinearAlgebra.norm(Array(MPar_perm11Inv[ll1,ll2] - buffTHat_perm11[1:dsx,1:dsx][ll1,ll2]), 2) / LinearAlgebra.norm(Array(MPar_perm11Inv[ll1,ll2]), 2)
-                    # # println(relErr)
-
-                    # # check first that the Schur complement was built properly
-
-                    # # MbmSynthSp = bm_convert(MbmSynth)
-                    # # tx = size(MbmSynthSp)[1]
-                    # # display(xlims!(ylims!(spy!(sparse(abs.(MbmSynthSp))), (1,tx)), (1,tx)))
-
-                    # # # MbmFromDataSp = bm_convert(MbmFromData)
-                    # # # tx = size(MbmFromDataSp)[1]
-                    # # # display(xlims!(ylims!(spy!(sparse(abs.(MbmFromDataSp))), (1,tx)), (1,tx)))
-
-                    # # sleep(30)
-
-                    # # # # xxi = 1
-                    # # # # xx1 = sum(auxDataPar.sizeDomains[xxi-1:xxi-1])+1
-                    # # # # xx2 = sum(auxDataPar.sizeDomains[xxi:xxi])
-                    # # # # dsx = sum(MbmPar_reord.blockSizes[xx1:xx2])
-                    # # dsx = sum(MbmPar_reord.blockSizes[1:sum(auxDataPar.sizeDomains[1:1])])
-                    # # println(dsx)
-                    # # r1 = 1:dsx
-                    # # r2 = r1
-                    # # relErr = LinearAlgebra.norm(Array(approSC[r1,r2] - exactSC[r1,r2]), 2) / LinearAlgebra.norm(Array(exactSC[r1,r2]), 2)
-                    # # println(relErr)
-
-                    # # # intrvl = 1:896
-                    # # # intrvl = 897:2*896
-                    # # intrvl = 1:2*896
-                    # Ex = approSC - exactSC
-                    # relErr = LinearAlgebra.norm(Array(Ex), 2) / LinearAlgebra.norm(Array(exactSC), 2)
-                    # println("relErr = "*string(relErr))
-                    # # relErr = LinearAlgebra.norm(Array(Ex[intrvl,intrvl]), 2) / LinearAlgebra.norm(Array(exactSC[intrvl,intrvl]), 2)
-                    # # println("relErr = "*string(relErr))
-
-                    # ET0 = approSC * ( Ex * approSC )
-                    # ET0 = ET0 * ( Ex * approSC )
-                    # # et0Norm = LinearAlgebra.opnorm(Array(ET0), 2)
-                    # # println("et0Norm = "*string(et0Norm))
-                    # # evalsx = LinearAlgebra.eigvals(Array(ET0))
-                    # # evalsx = abs.(evalsx)
-                    # # println(sort(evalsx))
-
-                    # # IMPORTANT : to use the following spy lines, ones needs to do Pkg.add("Plots")
-                    # # using Plots
-                    # # sx = size(Ex)[1]
-                    # # println(size(Ex))
-                    # # display(xlims!(ylims!(spy!(sparse(abs.(ET0))), (1,sx)), (1,sx)))
-                    # # # display(xlims!(ylims!(spy!(sparse(abs.(exactSC))), (1,sx)), (1,sx)))
-                    # # sleep(60)
-
-                    # # MinvNdiagSeq_perm_sl = MinvNdiagSeq_perm[1:nx,1:nx]
-                    # # MinvNdiagPar_perm_sl = MinvNdiagPar_perm[1:nx,1:nx]
-                    # # # E = approSC - exactSC
-
-                    # # println(nx+ny)
-                    # # println(nx)
-                    # # println(size(MinvNdiagPar))
-
-                    # # # MinvNdiagPar_perm_sl = MinvNdiagPar_perm_sl + MinvNdiagPar_perm_sl*(E*MinvNdiagPar_perm_sl)
-                    # # # relErr = LinearAlgebra.norm(Array(MinvNdiagSeq_perm_sl[1:128] - MinvNdiagPar_perm_sl[1:128]), 2) / LinearAlgebra.norm(Array(MinvNdiagSeq_perm_sl[1:128]), 2)
-
-                    # # relErr = LinearAlgebra.norm(Array(MinvNdiagSeq_perm_sl[1:128,1:128] - MinvNdiagPar_perm_sl[1:128,1:128]), 2) / LinearAlgebra.norm(Array(MinvNdiagSeq_perm_sl[1:128,1:128]), 2)
-                    # # println(relErr)
-                    # # # println(nx)
-                    # # # println(size(MinvNdiagSeq_perm_sl))
-                    # # # # MinvNdiagSeq_D2 = 
-
-                    # # # convert back to sparse
-                    # # MinvSp = bm_convert(MbmInvNdiag)
-
-                    # # relErr = LinearAlgebra.norm(Array(MinvSp - Gr), 2) / LinearAlgebra.norm(Array(Gr), 2)
-                    # # # making a rough assumption on backward stability. The additional
-                    # # # 1.0E1 is because we see a loss in 1 digit in some cases
-                    # # @test relErr < roundoffs[precx] * 1.0E4
-
-                    # # MbmFromData = 0
-                    # # Mbm = 0
-                    # # auxData = 0
-                    # # MbmInvNdiag = 0
-                    # # GC.gc()
 
                 end
             end
