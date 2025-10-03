@@ -135,29 +135,62 @@ for systemx in systemNames
                     relErr::Float64 = bndiag_of_inv_pddrgf_error_inv_of_T11(MbmPar, MbmInvNdiagPar, auxDataPar, TimingData(), CountingData())
                     @test relErr < roundoffs[precx] * 1.0E5
 
+                    # check that the Schur complement construction is correct
+
+                    # compute the inverse of the Schur complement. The Schur complement is stored
+                    # in the D2 part of auxData.buffTHat, and its inverse in the D2 part of MbmInvNdiagPar
+                    bndiag_of_inv_pddrgf_inv_of_Schur_compl!(MbmInvNdiagPar, MbmPar, auxDataPar, TimingData(), CountingData())
+
+                    MbmPar_reord = bndiag_of_inv_pddrgf_create_permuted_matrix(MbmPar, auxDataPar.permVec)
+                    nb2 = sum(auxDataPar.sizeDomains[1:auxDataPar.nrTasks])
+                    nb1 = sum(auxDataPar.sizeDomains[auxDataPar.nrTasks+1:2*auxDataPar.nrTasks])
+                    nx = sum(MbmPar_reord.blockSizes[1:nb2])
+                    ny = sum(MbmPar_reord.blockSizes[nb2+1:nb2+nb1])
+                    PermMat = bndiag_of_inv_pddrgf_create_sparse_permutator(auxDataPar.permVec, MbmSeq.blockSizes, MbmSeq.nrsType)
+
+                    MPar = bm_convert(MbmPar)
+                    MPar_perm = PermMat * (MPar * PermMat')
+                    MPar_perm11 = MPar_perm[nx+1:nx+ny,nx+1:nx+ny]
+                    sizeDomains22 = auxDataPar.sizeDomains[1:auxDataPar.nrTasks]
+                    sizeDomains11 = auxDataPar.sizeDomains[auxDataPar.nrTasks+1:2*auxDataPar.nrTasks]
+                    offset22 = sum(sizeDomains22)
+                    blockSizes11 = MbmPar_reord.blockSizes[offset22+1:sum(auxDataPar.sizeDomains)]
+                    MPar_perm11Inv = copy(MPar_perm11)
+                    for ix = 1:auxDataPar.nrTasks
+                        ixDStart = sum(sizeDomains11[1:ix-1]) + 1
+                        ixDEnd = sum(sizeDomains11[1:ix])
+                        ixLStart = sum(blockSizes11[1:ixDStart-1]) + 1
+                        ixLEnd = sum(blockSizes11[1:ixDEnd])
+                        MPar_perm11Inv[ixLStart:ixLEnd,ixLStart:ixLEnd] =
+                            SparseArrays.SparseMatrixCSC(LinearAlgebra.inv(Array(MPar_perm11[ixLStart:ixLEnd,ixLStart:ixLEnd])))
+                    end
+
+                    MPar_perm22 = MPar_perm[1:nx,1:nx]
+                    MPar_perm12 = MPar_perm[nx+1:nx+ny,1:nx]
+                    MPar_perm21 = MPar_perm[1:nx,nx+1:nx+ny]
+
+                    exactSC = MPar_perm22 - MPar_perm21 * (MPar_perm11Inv * MPar_perm12)
+
+                    buffTHat = bm_convert(auxDataPar.buffTHat)
+                    buffTHat_perm = PermMat * (buffTHat * PermMat')
+                    buffTHat_perm22 = buffTHat_perm[1:nx,1:nx]
+                    approSC = buffTHat_perm22
+
+                    # check that the Schur complement has been built correctly, at the D2-level sub-matrices. This
+                    # also serves as an indirect check of the inverse of \widehat{T}_{11}
+                    for ix=1:auxDataPar.nrTasks
+                        d1 = sum(auxDataPar.sizeDomains[1:ix-1]) + 1
+                        d2 = sum(auxDataPar.sizeDomains[1:ix])
+                        r1 = sum(MbmPar_reord.blockSizes[1:d1-1]) + 1
+                        r2 = sum(MbmPar_reord.blockSizes[1:d2])
+                        relErr = LinearAlgebra.norm(Array(approSC[r1:r2,r1:r2] - exactSC[r1:r2,r1:r2]), 2) / LinearAlgebra.norm(Array(exactSC[r1:r2,r1:r2]), 2)
+                        @test relErr < roundoffs[precx] * 1.E3
+                    end
+
+                    # TODO : add a check here for those blocks of the Schur complement that make it
+                    #        non embarrasingly parallel
+
                     # ----------
-
-                    # # check that the Schur complement construction is correct
-
-                    # MbmPar_reord = bndiag_of_inv_pddrgf_create_permuted_matrix(MbmPar, auxDataPar.permVec)
-                    # println(auxDataPar.sizeDomains)
-                    # nb2 = sum(auxDataPar.sizeDomains[1:auxDataPar.nrTasks])
-                    # nb1 = sum(auxDataPar.sizeDomains[auxDataPar.nrTasks+1:2*auxDataPar.nrTasks])
-                    # nx = sum(MbmPar_reord.blockSizes[1:nb2])
-                    # ny = sum(MbmPar_reord.blockSizes[nb2+1:nb2+nb1])
-                    # PermMat = bndiag_of_inv_pddrgf_create_sparse_permutator(auxDataPar.permVec, MbmSeq.blockSizes, MbmSeq.nrsType)
-
-                    # MPar = bm_convert(MbmPar)
-                    # MPar_perm = PermMat * (MPar * PermMat')
-                    # MPar_perm11 = MPar_perm[nx+1:nx+ny,nx+1:nx+ny]
-                    # MPar_perm11Inv = SparseArrays.SparseMatrixCSC(LinearAlgebra.inv(Array(MPar_perm11)))
-
-                    # # compute the inverse of the Schur complement
-                    # bndiag_of_inv_pddrgf_inv_of_Schur_compl!(MbmInvNdiagPar, MbmPar, auxDataPar, TimingData(), CountingData())
-
-                    # buffTHat = bm_convert(auxDataPar.buffTHat)
-                    # buffTHat_perm = PermMat * (buffTHat * PermMat')
-                    # buffTHat_perm11 = buffTHat_perm[nx+1:nx+ny,nx+1:nx+ny]
 
                     # # ll1 = 129:256
                     # # ll2 = 1:128
@@ -165,15 +198,6 @@ for systemx in systemNames
                     # # println(relErr)
 
                     # # check first that the Schur complement was built properly
-
-                    # MPar_perm22 = MPar_perm[1:nx,1:nx]
-                    # MPar_perm12 = MPar_perm[nx+1:nx+ny,1:nx]
-                    # MPar_perm21 = MPar_perm[1:nx,nx+1:nx+ny]
-
-                    # buffTHat_perm22 = buffTHat_perm[1:nx,1:nx]
-
-                    # exactSC = MPar_perm22 - MPar_perm21 * (MPar_perm11Inv * MPar_perm12)
-                    # approSC = buffTHat_perm22
 
                     # # MbmSynthSp = bm_convert(MbmSynth)
                     # # tx = size(MbmSynthSp)[1]
@@ -221,17 +245,6 @@ for systemx in systemNames
                     # # # display(xlims!(ylims!(spy!(sparse(abs.(exactSC))), (1,sx)), (1,sx)))
                     # # sleep(60)
 
-                    # # check that the Schur complement has been built correctly, at loadedMats
-                    # # at the D2-level sub-matrices
-                    # for ix=1:auxDataPar.nrTasks
-                    #     d1 = sum(auxDataPar.sizeDomains[1:ix-1]) + 1
-                    #     d2 = sum(auxDataPar.sizeDomains[1:ix])
-                    #     r1 = sum(MbmPar_reord.blockSizes[1:d1-1]) + 1
-                    #     r2 = sum(MbmPar_reord.blockSizes[1:d2])
-                    #     relErr = LinearAlgebra.norm(Array(approSC[r1:r2,r1:r2] - exactSC[r1:r2,r1:r2]), 2) / LinearAlgebra.norm(Array(exactSC[r1:r2,r1:r2]), 2)
-                    #     println(relErr)
-                    # end
-
                     # # # check the correctness of the inverse of the Schur complement
 
                     # MinvNdiagSeq = bm_convert(MbmInvNdiagSeq)
@@ -240,7 +253,6 @@ for systemx in systemNames
                     # MinvNdiagSeq_perm = PermMat * (MinvNdiagSeq * PermMat')
                     # MinvNdiagPar_perm = PermMat * (MinvNdiagPar * PermMat')
 
-                    # # NOTE : 
                     # # MinvNdiagPar_perm = MinvNdiagPar_perm[1:nx,1:nx]
                     # Mx_perm = copy(MinvNdiagSeq_perm)
                     # Mx_perm[1:nx,1:nx] = sparse(LinearAlgebra.inv(Array(approSC)))
