@@ -6,6 +6,8 @@ include("common_to_test.jl")
 # TODO : remove after some temporary dirty tests in here
 # import BenchmarkTools
 
+using SparseArrays
+
 for systemx in systemNames
     for E in [Epoints[1]]
         for k in [kpoints[1]]
@@ -20,7 +22,6 @@ for systemx in systemNames
             M = build_M_from_HS(H, S, Se, energVals[E])
 
             for precx in [precs[2]]
-                # println(precs[1])
                 # load matrices and build M
                 listMatsToLoad = ["H", "S", "Sc"]
                 loadedMats, blockSizes = load_matrices(systemx, E, k,
@@ -47,30 +48,28 @@ for systemx in systemNames
 
                 # crate synthetic matrix with more principal layers and smaller block size
                 npl = 135
-                blockSize = 256
+                blockSize = 128
                 MbmSynth = bm_create_synthetic(MbmFromData, npl, blockSize)
                 # IMPORTANT : the recommended value for nrBlocksInNonPivots is four or less
                 nrBlocksInNonPivots = 4
 
                 # -----------------------------
 
-                # first, some minor checks
+                # first, some minor checks, mostly related to permutations
 
                 begin
 
                     # reference to the block matrix coming from data
                     MbmSeq = MbmSynth
                     # pre-allocate buffer data for sequential RGF
-                    println("Measurements for allocating DDRGF things")
-                    @time auxDataSeq = allocate_aux_data_DDRGF(MbmSeq)
+                    auxDataSeq = allocate_aux_data_DDRGF(MbmSeq)
                     # pre-allocate buffer data for parallel RGF
                     # TODO : move the following param inside the check_nr_tasks function,
                     #        and with this decide based on the criteria explained in the paper
                     #        (throw an error in the code if the last else is not being caught)
                     # 0 is open-end, 1 is closed-end
                     splitType::Bool = 0
-                    println("Measurements for allocating PDDRGF things")
-                    @time auxDataPar = allocate_aux_data_PDDRGF(MbmSeq, nrBlocksInNonPivots, splitType, auxDataSeq)
+                    auxDataPar = allocate_aux_data_PDDRGF(MbmSeq, nrBlocksInNonPivots, splitType, auxDataSeq)
 
                     # the blocks in the following matrices are references to the blocks in Min
                     MbmSeqPerm = bndiag_of_inv_pddrgf_create_permuted_matrix(MbmSeq, auxDataPar.permVec)
@@ -107,13 +106,9 @@ for systemx in systemNames
                     MbmInvNdiagSeq = bm_similar(MbmSeq, 1)
                     # pre-allocate buffer data for sequential RGF
                     auxDataSeq = allocate_aux_data_DDRGF(MbmSeq)
-                    # call sequential RGF
-                    println("Measurements for running sequential RGF")
-                    @time bndiag_of_inv_ddrgf!(MbmInvNdiagSeq, MbmSeq, auxDataSeq, TimingData(), CountingData())
 
                     # call sequential RGF
-                    println("Measurements for running sequential RGF")
-                    @time bndiag_of_inv_ddrgf!(MbmInvNdiagSeq, MbmSeq, auxDataSeq, TimingData(), CountingData())
+                    bndiag_of_inv_ddrgf!(MbmInvNdiagSeq, MbmSeq, auxDataSeq, TimingData(), CountingData())
 
                     GC.gc()
 
@@ -129,35 +124,175 @@ for systemx in systemNames
                     #        (throw an error in the code if the last else is not being caught)
                     # 0 is open-end, 1 is closed-end
                     splitType = 0
-                    println("Measurements for allocating PDDRGF things")
-                    @time auxDataPar = allocate_aux_data_PDDRGF(MbmPar, nrBlocksInNonPivots, splitType, auxDataSeq)
+                    auxDataPar = allocate_aux_data_PDDRGF(MbmPar, nrBlocksInNonPivots, splitType, auxDataSeq)
 
-                    # get the block n-diagonal of M^-1 via RGF
-                    println("Measurements for running parallel RGF")
-                    @time bndiag_of_inv_pddrgf!(MbmInvNdiagPar, MbmPar, auxDataPar, TimingData(), CountingData())
+                    # # get the block n-diagonal of M^-1 via RGF
+                    # println("Measurements for running parallel RGF")
+                    # @time bndiag_of_inv_pddrgf!(MbmInvNdiagPar, MbmPar, auxDataPar, TimingData(), CountingData())
 
-                    # get the block n-diagonal of M^-1 via RGF
-                    println("Measurements for running parallel RGF")
-                    @time bndiag_of_inv_pddrgf!(MbmInvNdiagPar, MbmPar, auxDataPar, TimingData(), CountingData())
-
-                    # check the correctness of those dense inverse blocks in auxData.buffTHat
+                    # compute \widehat{T}_{11} (saved @ the D1 part of auxDataPar.buffTHat) and check its correctness
                     bndiag_of_inv_pddrgf_inv_of_T11!(MbmPar, auxDataPar, TimingData(), CountingData())
                     relErr::Float64 = bndiag_of_inv_pddrgf_error_inv_of_T11(MbmPar, MbmInvNdiagPar, auxDataPar, TimingData(), CountingData())
-                    @test relErr < roundoffs[precx] * 1.0E4
+                    @test relErr < roundoffs[precx] * 1.0E5
 
-                    # # convert back to sparse
-                    # MinvSp = bm_convert(MbmInvNdiag)
+                    # ----------
 
-                    # relErr = LinearAlgebra.norm(Array(MinvSp - Gr), 2) / LinearAlgebra.norm(Array(Gr), 2)
-                    # # making a rough assumption on backward stability. The additional
-                    # # 1.0E1 is because we see a loss in 1 digit in some cases
-                    # @test relErr < roundoffs[precx] * 1.0E4
+                    # # check that the Schur complement construction is correct
 
-                    # MbmFromData = 0
-                    # Mbm = 0
-                    # auxData = 0
-                    # MbmInvNdiag = 0
-                    # GC.gc()
+                    # MbmPar_reord = bndiag_of_inv_pddrgf_create_permuted_matrix(MbmPar, auxDataPar.permVec)
+                    # println(auxDataPar.sizeDomains)
+                    # nb2 = sum(auxDataPar.sizeDomains[1:auxDataPar.nrTasks])
+                    # nb1 = sum(auxDataPar.sizeDomains[auxDataPar.nrTasks+1:2*auxDataPar.nrTasks])
+                    # nx = sum(MbmPar_reord.blockSizes[1:nb2])
+                    # ny = sum(MbmPar_reord.blockSizes[nb2+1:nb2+nb1])
+                    # PermMat = bndiag_of_inv_pddrgf_create_sparse_permutator(auxDataPar.permVec, MbmSeq.blockSizes, MbmSeq.nrsType)
+
+                    # MPar = bm_convert(MbmPar)
+                    # MPar_perm = PermMat * (MPar * PermMat')
+                    # MPar_perm11 = MPar_perm[nx+1:nx+ny,nx+1:nx+ny]
+                    # MPar_perm11Inv = SparseArrays.SparseMatrixCSC(LinearAlgebra.inv(Array(MPar_perm11)))
+
+                    # # compute the inverse of the Schur complement
+                    # bndiag_of_inv_pddrgf_inv_of_Schur_compl!(MbmInvNdiagPar, MbmPar, auxDataPar, TimingData(), CountingData())
+
+                    # buffTHat = bm_convert(auxDataPar.buffTHat)
+                    # buffTHat_perm = PermMat * (buffTHat * PermMat')
+                    # buffTHat_perm11 = buffTHat_perm[nx+1:nx+ny,nx+1:nx+ny]
+
+                    # # ll1 = 129:256
+                    # # ll2 = 1:128
+                    # # relErr = LinearAlgebra.norm(Array(MPar_perm11Inv[ll1,ll2] - buffTHat_perm11[1:dsx,1:dsx][ll1,ll2]), 2) / LinearAlgebra.norm(Array(MPar_perm11Inv[ll1,ll2]), 2)
+                    # # println(relErr)
+
+                    # # check first that the Schur complement was built properly
+
+                    # MPar_perm22 = MPar_perm[1:nx,1:nx]
+                    # MPar_perm12 = MPar_perm[nx+1:nx+ny,1:nx]
+                    # MPar_perm21 = MPar_perm[1:nx,nx+1:nx+ny]
+
+                    # buffTHat_perm22 = buffTHat_perm[1:nx,1:nx]
+
+                    # exactSC = MPar_perm22 - MPar_perm21 * (MPar_perm11Inv * MPar_perm12)
+                    # approSC = buffTHat_perm22
+
+                    # # MbmSynthSp = bm_convert(MbmSynth)
+                    # # tx = size(MbmSynthSp)[1]
+                    # # display(xlims!(ylims!(spy!(sparse(abs.(MbmSynthSp))), (1,tx)), (1,tx)))
+
+                    # # # MbmFromDataSp = bm_convert(MbmFromData)
+                    # # # tx = size(MbmFromDataSp)[1]
+                    # # # display(xlims!(ylims!(spy!(sparse(abs.(MbmFromDataSp))), (1,tx)), (1,tx)))
+
+                    # # sleep(30)
+
+                    # # # # xxi = 1
+                    # # # # xx1 = sum(auxDataPar.sizeDomains[xxi-1:xxi-1])+1
+                    # # # # xx2 = sum(auxDataPar.sizeDomains[xxi:xxi])
+                    # # # # dsx = sum(MbmPar_reord.blockSizes[xx1:xx2])
+                    # # dsx = sum(MbmPar_reord.blockSizes[1:sum(auxDataPar.sizeDomains[1:1])])
+                    # # println(dsx)
+                    # # r1 = 1:dsx
+                    # # r2 = r1
+                    # # relErr = LinearAlgebra.norm(Array(approSC[r1,r2] - exactSC[r1,r2]), 2) / LinearAlgebra.norm(Array(exactSC[r1,r2]), 2)
+                    # # println(relErr)
+
+                    # # # intrvl = 1:896
+                    # # # intrvl = 897:2*896
+                    # # intrvl = 1:2*896
+                    # Ex = approSC - exactSC
+                    # relErr = LinearAlgebra.norm(Array(Ex), 2) / LinearAlgebra.norm(Array(exactSC), 2)
+                    # println("relErr = "*string(relErr))
+                    # # relErr = LinearAlgebra.norm(Array(Ex[intrvl,intrvl]), 2) / LinearAlgebra.norm(Array(exactSC[intrvl,intrvl]), 2)
+                    # # println("relErr = "*string(relErr))
+
+                    # ET0 = approSC * ( Ex * approSC )
+                    # ET0 = ET0 * ( Ex * approSC )
+                    # # et0Norm = LinearAlgebra.opnorm(Array(ET0), 2)
+                    # # println("et0Norm = "*string(et0Norm))
+                    # # evalsx = LinearAlgebra.eigvals(Array(ET0))
+                    # # evalsx = abs.(evalsx)
+                    # # println(sort(evalsx))
+
+                    # # IMPORTANT : to use the following spy lines, ones needs to do Pkg.add("Plots")
+                    # # using Plots
+                    # # sx = size(Ex)[1]
+                    # # println(size(Ex))
+                    # # display(xlims!(ylims!(spy!(sparse(abs.(ET0))), (1,sx)), (1,sx)))
+                    # # # display(xlims!(ylims!(spy!(sparse(abs.(exactSC))), (1,sx)), (1,sx)))
+                    # # sleep(60)
+
+                    # # check that the Schur complement has been built correctly, at loadedMats
+                    # # at the D2-level sub-matrices
+                    # for ix=1:auxDataPar.nrTasks
+                    #     d1 = sum(auxDataPar.sizeDomains[1:ix-1]) + 1
+                    #     d2 = sum(auxDataPar.sizeDomains[1:ix])
+                    #     r1 = sum(MbmPar_reord.blockSizes[1:d1-1]) + 1
+                    #     r2 = sum(MbmPar_reord.blockSizes[1:d2])
+                    #     relErr = LinearAlgebra.norm(Array(approSC[r1:r2,r1:r2] - exactSC[r1:r2,r1:r2]), 2) / LinearAlgebra.norm(Array(exactSC[r1:r2,r1:r2]), 2)
+                    #     println(relErr)
+                    # end
+
+                    # # # check the correctness of the inverse of the Schur complement
+
+                    # MinvNdiagSeq = bm_convert(MbmInvNdiagSeq)
+                    # MinvNdiagPar = bm_convert(MbmInvNdiagPar)
+
+                    # MinvNdiagSeq_perm = PermMat * (MinvNdiagSeq * PermMat')
+                    # MinvNdiagPar_perm = PermMat * (MinvNdiagPar * PermMat')
+
+                    # # NOTE : 
+                    # # MinvNdiagPar_perm = MinvNdiagPar_perm[1:nx,1:nx]
+                    # Mx_perm = copy(MinvNdiagSeq_perm)
+                    # Mx_perm[1:nx,1:nx] = sparse(LinearAlgebra.inv(Array(approSC)))
+                    # Mx = PermMat' * (Mx_perm * PermMat)
+                    # Mbmx = bm_convert(Mx, MbmSynth.blockSizes, Dict("in" => 3, "out" => 3))
+                    # Mx = bm_convert(Mbmx)
+                    # Mx_perm = PermMat * (Mx * PermMat')
+                    # MinvNdiagPar_perm = Mx_perm[1:nx,1:nx]
+
+                    # MinvNdiagSeq_perm = MinvNdiagSeq_perm[1:nx,1:nx]
+
+                    # for ix=1:auxDataPar.nrTasks
+                    #     d1 = sum(auxDataPar.sizeDomains[1:ix-1]) + 1
+                    #     d2 = sum(auxDataPar.sizeDomains[1:ix])
+                    #     r1 = sum(MbmPar_reord.blockSizes[1:d1-1]) + 1
+                    #     r2 = sum(MbmPar_reord.blockSizes[1:d2])
+                    #     println(r1)
+                    #     println(r2)
+                    #     relErr = LinearAlgebra.norm(Array(MinvNdiagSeq_perm[r1:r2,r1:r2] - MinvNdiagPar_perm[r1:r2,r1:r2]), 2) / LinearAlgebra.norm(Array(MinvNdiagSeq_perm[r1:r2,r1:r2]), 2)
+                    #     println(relErr)
+                    # end
+
+                    # # MinvNdiagSeq_perm_sl = MinvNdiagSeq_perm[1:nx,1:nx]
+                    # # MinvNdiagPar_perm_sl = MinvNdiagPar_perm[1:nx,1:nx]
+                    # # # E = approSC - exactSC
+
+                    # # println(nx+ny)
+                    # # println(nx)
+                    # # println(size(MinvNdiagPar))
+
+                    # # # MinvNdiagPar_perm_sl = MinvNdiagPar_perm_sl + MinvNdiagPar_perm_sl*(E*MinvNdiagPar_perm_sl)
+                    # # # relErr = LinearAlgebra.norm(Array(MinvNdiagSeq_perm_sl[1:128] - MinvNdiagPar_perm_sl[1:128]), 2) / LinearAlgebra.norm(Array(MinvNdiagSeq_perm_sl[1:128]), 2)
+
+                    # # relErr = LinearAlgebra.norm(Array(MinvNdiagSeq_perm_sl[1:128,1:128] - MinvNdiagPar_perm_sl[1:128,1:128]), 2) / LinearAlgebra.norm(Array(MinvNdiagSeq_perm_sl[1:128,1:128]), 2)
+                    # # println(relErr)
+                    # # # println(nx)
+                    # # # println(size(MinvNdiagSeq_perm_sl))
+                    # # # # MinvNdiagSeq_D2 = 
+
+                    # # # convert back to sparse
+                    # # MinvSp = bm_convert(MbmInvNdiag)
+
+                    # # relErr = LinearAlgebra.norm(Array(MinvSp - Gr), 2) / LinearAlgebra.norm(Array(Gr), 2)
+                    # # # making a rough assumption on backward stability. The additional
+                    # # # 1.0E1 is because we see a loss in 1 digit in some cases
+                    # # @test relErr < roundoffs[precx] * 1.0E4
+
+                    # # MbmFromData = 0
+                    # # Mbm = 0
+                    # # auxData = 0
+                    # # MbmInvNdiag = 0
+                    # # GC.gc()
 
                 end
             end

@@ -13,6 +13,7 @@ export bndiag_of_inv_pddrgf!
 export bndiag_of_inv_pddrgf_create_permuted_matrix
 export bndiag_of_inv_pddrgf_error_inv_of_T11
 export bndiag_of_inv_pddrgf_inv_of_T11!
+export bndiag_of_inv_pddrgf_inv_of_Schur_compl!
 
 # from keldyshndiag.jl
 export keldyshndiag!
