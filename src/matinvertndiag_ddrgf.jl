@@ -111,16 +111,17 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
             nrDiags::Int = blockSizeD1 + (blockSizeD1 - 1)
             smallMbmBuffTHat = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
                 Dict("in" => 3, "out" => nrDiags), buffTHat.nrsType, 0)
-            bm_blocks_define_complement!(smallMbmBuffTHat, smallMViewBuffTHat, 2)
+            bm_blocks_define_complement11!(smallMbmBuffTHat, smallMViewBuffTHat, 2)
         end
     end
-
-    # TODO : add extra allocations for buffTHat, for those little blocks
-    #        of the Schur complement that make it non embarrasingly parallel
 
     # the final struct with the buffers
     auxDataPar = AuxDataPDDRGF(auxDataSeq, nrTasks, permVec, permVecInv, sizeDomains, blockSizeD1,
         blockSizeD2, lastSizeD2, buffTHat)
+
+    # add extra allocations for buffTHat, for those little blocks of the Schur
+    # complement that make it non embarrasingly parallel
+    bm_blocks_define_complement22!(auxDataPar, 2)
 
     return auxDataPar
 end

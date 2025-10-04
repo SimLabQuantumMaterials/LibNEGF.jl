@@ -356,7 +356,7 @@ function bm_blocks_define!(M::BlockMatrix, filling::Int)
 end
 
 """
-	bm_blocks_define_complement!(M::BlockMatrix, A::ArrayOrLUView_, filling::Int)
+	bm_blocks_define_complement11!(M::BlockMatrix, A::ArrayOrLUView_, filling::Int)
 
 Sets/pre-allocates all those blocks that are beyond block tridiagonal.
 
@@ -365,7 +365,7 @@ Sets/pre-allocates all those blocks that are beyond block tridiagonal.
 - `A::ArrayOrLUView_`: the matrix to be modified.
 - `filling:Int`: 1 for zero blocks, 2 for random.
 """
-function bm_blocks_define_complement!(M::BlockMatrix, A::ArrayOrLUView_, filling::Int)
+function bm_blocks_define_complement11!(M::BlockMatrix, A::ArrayOrLUView_, filling::Int)
     # TODO : integrate the use of M.ndiag["out"]
     # ndiag = M.ndiag
 
@@ -398,6 +398,50 @@ function bm_blocks_define_complement!(M::BlockMatrix, A::ArrayOrLUView_, filling
             else
                 A[ix, jx] = be_random_array(M.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
             end
+        end
+    end
+end
+
+# TODO : try to assign the type AuxDataDDRGF to auxData ?
+function bm_blocks_define_complement22!(auxData, filling::Int)
+    blockSizeD2 = auxData.blockSizeD2
+    permVec = auxData.permVec
+    permVecInv = auxData.permVecInv
+    buffTHat = auxData.buffTHat
+    blockSizes = buffTHat.blockSizes
+    nrTasks = auxData.nrTasks
+
+    for ix = 1:nrTasks-1
+        # first, the upper one
+        ixLperm = blockSizeD2 * ix
+        jxLperm = ixLperm + 1
+        ixL = permVecInv[ixLperm]
+        jxL = permVec[jxLperm]
+
+        ibeg = sum(blockSizes[1:ixL-1]) + 1
+        iend = sum(blockSizes[1:ixL])
+        jbeg = sum(blockSizes[1:jxL-1]) + 1
+        jend = sum(blockSizes[1:jxL])
+        if filling == 1
+            buffTHat.M[ixL, jxL] = be_zero_array(buffTHat.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+        else
+            buffTHat.M[ixL, jxL] = be_random_array(buffTHat.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+        end
+
+        # then, the lower one
+        jxLperm = blockSizeD2 * ix
+        ixLperm = jxLperm + 1
+        ixL = permVecInv[ixLperm]
+        jxL = permVec[jxLperm]
+
+        ibeg = sum(blockSizes[1:ixL-1]) + 1
+        iend = sum(blockSizes[1:ixL])
+        jbeg = sum(blockSizes[1:jxL-1]) + 1
+        jend = sum(blockSizes[1:jxL])
+        if filling == 1
+            buffTHat.M[ixL, jxL] = be_zero_array(buffTHat.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+        else
+            buffTHat.M[ixL, jxL] = be_random_array(buffTHat.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
         end
     end
 end
