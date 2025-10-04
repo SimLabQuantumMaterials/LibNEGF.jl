@@ -404,7 +404,7 @@ end
 
 # these are references to the extra blocks in the sub-domains in D1, because there we
 # need to compute full inverses and not only block tridiagonals
-function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix!(M::BlockMatrix, auxData::AuxDataPDDRGF)
+function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix11!(M::BlockMatrix, auxData::AuxDataPDDRGF)
     if auxData.blockSizeD1 > 2
         jx1::Int = (auxData.nrTasks - 1) * auxData.blockSizeD2 + auxData.lastSizeD2
         jx2::Int = 0
@@ -431,6 +431,34 @@ function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix!(M::BlockMatrix,
     end
 end
 
+function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(M::BlockMatrix, auxData::AuxDataPDDRGF)
+    blockSizeD2 = auxData.blockSizeD2
+    nrTasks = auxData.nrTasks
+    permVec = auxData.permVec
+    permVecInv = auxData.permVecInv
+
+    for ix = 1:nrTasks-1
+        # first, the upper block
+        ixLperm = blockSizeD2 * ix
+        jxLperm = ixLperm + 1
+        ixL = permVecInv[ixLperm]
+        jxL = permVec[jxLperm]
+
+        # M.M[ibegPerm:iendPerm,jbegPerm:jendPerm] = auxData.buffTHat.M[ibeg:iend,jbeg:jend]
+        M.M[ixLperm, jxLperm] = auxData.buffTHat.M[ixL, jxL]
+
+        # then, the lower block
+        jxLperm = blockSizeD2 * ix
+        ixLperm = jxLperm + 1
+        ixL = permVecInv[ixLperm]
+        jxL = permVec[jxLperm]
+
+        # M.M[ibegPerm:iendPerm,jbegPerm:jendPerm] = auxData.buffTHat.M[ibeg:iend,jbeg:jend]
+        M.M[ixLperm, jxLperm] = auxData.buffTHat.M[ixL, jxL]
+    end
+
+end
+
 function bndiag_of_inv_pddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataPDDRGF, td::TimingData,
     cd::CountingData)
     # the blocks in the following matrices contain references to blocks
@@ -441,7 +469,7 @@ function bndiag_of_inv_pddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataPDD
     Min = bndiag_of_inv_pddrgf_create_permuted_matrix(Min_, auxData.permVec)
     buffTHat = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.buffTHat, auxData.permVec)
     # add block references, in buffTHat, for the D1 regions
-    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix!(buffTHat, auxData)
+    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix11!(buffTHat, auxData)
 
     # some relabelings, for clarity and general consistency
     buffM1 = buffM
@@ -499,7 +527,7 @@ function bndiag_of_inv_pddrgf_error_inv_of_T11(Min_::BlockMatrix, Mout_::BlockMa
     accBlk = Mout_.M[1, 1]
     Min = bndiag_of_inv_pddrgf_create_permuted_matrix(Min_, auxData.permVec)
     buffTHat = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.buffTHat, auxData.permVec)
-    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix!(buffTHat, auxData)
+    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix11!(buffTHat, auxData)
     jx::Int = (auxData.nrTasks - 1) * auxData.blockSizeD2 + auxData.lastSizeD2
     numErr::Float64 = 0.0
     denErr::Float64 = 0.0
@@ -551,10 +579,10 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
     buffTHat = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.buffTHat, auxData.permVec)
     # the following line adds references to those blocks that are beyond block tridiagonal
     # in the sub-domains within D1, as we need compute full inverses in there
-    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix!(buffTHat, auxData)
-    # TODO : add here a call that adds references to those extra blocks needed in the Schur
-    #        complement, those that make it non embarrasingly parallel. A function for this needs
-    #        to be implemented, similar to bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix!(...)
+    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix11!(buffTHat, auxData)
+    # add references to extra Schur complement blocks, those that make it non embarrasingly
+    # parallel
+    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(buffTHat, auxData)
     buffM1 = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.auxDataSeq.buffM, auxData.permVec)
     buffId = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.auxDataSeq.bIdM, auxData.permVec)
 
@@ -654,6 +682,7 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
             # TODO : compute here those blocks that make the Schur complement non embarrasingly parallel
         end
 
+        # TODO : remove this call after including the call to sequential RGF below
         # invert the Schur complement, in an embarrasingly concurrent manner
         bndiag_of_inv_ddrgf!(smallMbmBuffM2, smallMbmBuffTHat, smallAuxDataSeq, td, cd)
     end
