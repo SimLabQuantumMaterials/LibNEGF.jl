@@ -122,6 +122,9 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
     # add extra allocations for buffTHat, for those little blocks of the Schur
     # complement that make it non embarrasingly parallel
     bm_blocks_define_complement22!(auxDataPar, 2)
+    # and extra allocations for THat_{11}^{-1} * THat_{12} and THat_{21} * THat_{11}^{-1}
+    bm_blocks_define_complement12!(auxDataPar, 2)
+    bm_blocks_define_complement21!(auxDataPar, 2)
 
     return auxDataPar
 end
@@ -444,7 +447,6 @@ function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(M::BlockMatri
         ixL = permVecInv[ixLperm]
         jxL = permVec[jxLperm]
 
-        # M.M[ibegPerm:iendPerm,jbegPerm:jendPerm] = auxData.buffTHat.M[ibeg:iend,jbeg:jend]
         M.M[ixLperm, jxLperm] = auxData.buffTHat.M[ixL, jxL]
 
         # then, the lower block
@@ -453,10 +455,87 @@ function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(M::BlockMatri
         ixL = permVecInv[ixLperm]
         jxL = permVec[jxLperm]
 
-        # M.M[ibegPerm:iendPerm,jbegPerm:jendPerm] = auxData.buffTHat.M[ibeg:iend,jbeg:jend]
         M.M[ixLperm, jxLperm] = auxData.buffTHat.M[ixL, jxL]
     end
 
+end
+
+# TODO : try to assign the type AuxDataDDRGF to auxData ?
+function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix12!(M::BlockMatrix, auxData::AuxDataPDDRGF)
+    blockSizeD1 = auxData.blockSizeD1
+    permVec = auxData.permVec
+    permVecInv = auxData.permVecInv
+    nrTasks = auxData.nrTasks
+    sizeDomains = auxData.sizeDomains
+    sizeDomains22 = sizeDomains[1:nrTasks]
+    sizeDomains11 = sizeDomains[nrTasks+1:2*nrTasks]
+
+    for ix_ = 1:nrTasks
+        ixLpermOffset = sum(sizeDomains22) + sum(sizeDomains11[1:ix_-1])
+
+        # first, the central sub-domain
+        jxLperm = sum(sizeDomains22[1:ix_])
+        for ix = 2:blockSizeD1
+            ixLperm = ixLpermOffset + ix
+
+            ixL = permVecInv[ixLperm]
+            jxL = permVec[jxLperm]
+
+            M.M[ixLperm, jxLperm] = auxData.buffTHat.M[ixL, jxL]
+        end
+
+        if ix_ < nrTasks
+            # then, the right sub-domain
+            jxLperm = sum(sizeDomains22[1:ix_]) + 1
+            for ix = 1:blockSizeD1-1
+                ixLperm = ixLpermOffset + ix
+
+                ixL = permVecInv[ixLperm]
+                jxL = permVec[jxLperm]
+
+                M.M[ixLperm, jxLperm] = auxData.buffTHat.M[ixL, jxL]
+            end
+        end
+    end
+end
+
+# TODO : try to assign the type AuxDataDDRGF to auxData ?
+function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix21!(M::BlockMatrix, auxData::AuxDataPDDRGF)
+    blockSizeD1 = auxData.blockSizeD1
+    permVec = auxData.permVec
+    permVecInv = auxData.permVecInv
+    nrTasks = auxData.nrTasks
+    sizeDomains = auxData.sizeDomains
+    sizeDomains22 = sizeDomains[1:nrTasks]
+    sizeDomains11 = sizeDomains[nrTasks+1:2*nrTasks]
+
+    for jx_ = 1:nrTasks
+        jxLpermOffset = sum(sizeDomains22) + sum(sizeDomains11[1:jx_-1])
+
+        # first, the central sub-domain
+        ixLperm = sum(sizeDomains22[1:jx_])
+        for jx = 2:blockSizeD1
+            jxLperm = jxLpermOffset + jx
+
+            ixL = permVecInv[ixLperm]
+            jxL = permVec[jxLperm]
+
+            M.M[ixLperm, jxLperm] = auxData.buffTHat.M[ixL, jxL]
+        end
+
+        if jx_ < nrTasks
+            # then, the right sub-domain
+            ixLperm = sum(sizeDomains22[1:jx_]) + 1
+            for jx = 1:blockSizeD1-1
+                jxLperm = jxLpermOffset + jx
+
+                ixL = permVecInv[ixLperm]
+                jxL = permVec[jxLperm]
+
+                M.M[ixLperm, jxLperm] = auxData.buffTHat.M[ixL, jxL]
+            end
+        end
+    end
 end
 
 function bndiag_of_inv_pddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataPDDRGF, td::TimingData,
@@ -583,6 +662,11 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
     # add references to extra Schur complement blocks, those that make it non embarrasingly
     # parallel
     bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(buffTHat, auxData)
+    # add references to extra blocks related to hopping terms interactions, in particular
+    # the computation of THat_{11}^{-1} * THat_{12} and THat_{21} * THat_{11}^{-1}
+    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix12!(buffTHat, auxData)
+    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix21!(buffTHat, auxData)
+
     buffM1 = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.auxDataSeq.buffM, auxData.permVec)
     buffId = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.auxDataSeq.bIdM, auxData.permVec)
 
@@ -612,10 +696,6 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
         bm_reference!(smallMbmBuffTHat, smallMViewBuffTHat)
         bm_reference!(smallMbmBuffM2, smallMViewBuffM2)
 
-        copy!(smallMbmIn.blockSizes, smallBlockSizes)
-        copy!(smallMbmBuffTHat.blockSizes, smallBlockSizes)
-        copy!(smallMbmBuffM2.blockSizes, smallBlockSizes)
-
         # copy THat22^k2 into THatS^k2
         bm_copy!(smallMbmBuffTHat, smallMbmIn)
 
@@ -627,28 +707,29 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
         bm_reference!(smallAuxDataSeq.buffM, smallMViewBuffM1)
         bm_reference!(smallAuxDataSeq.bIdM, smallMViewBuffId)
 
-        # if ix < auxData.nrTasks
-        jx1Start = sum(auxData.sizeDomains[1:auxData.nrTasks+ix-1]) + 1
-        jx1End = sum(auxData.sizeDomains[1:auxData.nrTasks+ix])
+        begin
+            jx1Start = sum(auxData.sizeDomains[1:auxData.nrTasks+ix-1]) + 1
+            jx1End = sum(auxData.sizeDomains[1:auxData.nrTasks+ix])
 
-        # in the notation of the paper:
+            # in the notation of the paper:
 
-        # THatS^k2
-        THatS_k2 = smallMbmBuffTHat.M
-        # ((THat_11)^-1)^k2
-        THat11Inv_k2 = view(buffTHat.M, jx1Start:jx1End, jx1Start:jx1End)
-        # THat21_k2k2
-        THat21_k2k2 = view(Min.M, jx2Start:jx2End, jx1Start:jx1End)
-        # THat12_k2k2
-        THat12_k2k2 = view(Min.M, jx1Start:jx1End, jx2Start:jx2End)
-        # buffer for the product of THat21_k2k2 times ((THat_11)^-1)^k2
-        THat21_k2k2_buff = view(buffTHat.M, jx2Start:jx2End, jx1Start:jx1End)
+            # THatS^k2
+            THatS_k2 = smallMbmBuffTHat.M
+            # ((THat_11)^-1)^k2
+            THat11Inv_k2 = view(buffTHat.M, jx1Start:jx1End, jx1Start:jx1End)
+            # THat21_k2k2
+            THat21_k2k2 = view(Min.M, jx2Start:jx2End, jx1Start:jx1End)
+            # THat12_k2k2
+            THat12_k2k2 = view(Min.M, jx1Start:jx1End, jx2Start:jx2End)
+            # buffer for the product of THat21_k2k2 times ((THat_11)^-1)^k2
+            THat21_k2k2_buff = view(buffTHat.M, jx2Start:jx2End, jx1Start:jx1End)
 
-        be_gemm!('N', 'N', plusOneCmplx, THat21_k2k2[auxData.sizeDomains[ix], 1], THat11Inv_k2[1, 1],
-            zeroCmplx, THat21_k2k2_buff[auxData.sizeDomains[ix], 1], td, cd)
-        be_gemm!('N', 'N', minusOneCmplx, THat21_k2k2_buff[auxData.sizeDomains[ix], 1], THat12_k2k2[1, auxData.sizeDomains[ix]],
-            plusOneCmplx, THatS_k2[auxData.sizeDomains[ix], auxData.sizeDomains[ix]], td, cd)
-        # end
+            be_gemm!('N', 'N', plusOneCmplx, THat21_k2k2[auxData.sizeDomains[ix], 1], THat11Inv_k2[1, 1],
+                zeroCmplx, THat21_k2k2_buff[auxData.sizeDomains[ix], 1], td, cd)
+            be_gemm!('N', 'N', minusOneCmplx, THat21_k2k2_buff[auxData.sizeDomains[ix], 1], THat12_k2k2[1, auxData.sizeDomains[ix]],
+                plusOneCmplx, THatS_k2[auxData.sizeDomains[ix], auxData.sizeDomains[ix]], td, cd)
+        end
+
         if ix > 1
             # running on index 2
             ixm1 = ix - 1
@@ -679,8 +760,11 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
         end
 
         if ix < auxData.nrTasks
-            # TODO : compute here those blocks that make the Schur complement non embarrasingly parallel
+            # TODO : compute here those blocks that make the Schur complement non embarrasingly parallel. BUT, before
+            #        this, one needs to allocate some extra small buffers for doing these computations
         end
+
+        # exit()
 
         # TODO : remove this call after including the call to sequential RGF below
         # invert the Schur complement, in an embarrasingly concurrent manner

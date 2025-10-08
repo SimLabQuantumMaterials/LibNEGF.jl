@@ -446,6 +446,120 @@ function bm_blocks_define_complement22!(auxData, filling::Int)
     end
 end
 
+# TODO : try to assign the type AuxDataDDRGF to auxData ?
+function bm_blocks_define_complement12!(auxData, filling::Int)
+    blockSizeD1 = auxData.blockSizeD1
+    permVec = auxData.permVec
+    permVecInv = auxData.permVecInv
+    buffTHat = auxData.buffTHat
+    blockSizes = buffTHat.blockSizes
+    nrTasks = auxData.nrTasks
+    sizeDomains = auxData.sizeDomains
+    sizeDomains22 = sizeDomains[1:nrTasks]
+    sizeDomains11 = sizeDomains[nrTasks+1:2*nrTasks]
+
+    for ix_ = 1:nrTasks
+        ixLpermOffset = sum(sizeDomains22) + sum(sizeDomains11[1:ix_-1])
+
+        # first, the central sub-domain
+        jxLperm = sum(sizeDomains22[1:ix_])
+        for ix = 2:blockSizeD1
+            ixLperm = ixLpermOffset + ix
+
+            ixL = permVecInv[ixLperm]
+            jxL = permVec[jxLperm]
+
+            ibeg = sum(blockSizes[1:ixL-1]) + 1
+            iend = sum(blockSizes[1:ixL])
+            jbeg = sum(blockSizes[1:jxL-1]) + 1
+            jend = sum(blockSizes[1:jxL])
+            if filling == 1
+                buffTHat.M[ixL, jxL] = be_zero_array(buffTHat.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+            else
+                buffTHat.M[ixL, jxL] = be_random_array(buffTHat.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+            end
+        end
+
+        if ix_ < nrTasks
+            # then, the right sub-domain
+            jxLperm = sum(sizeDomains22[1:ix_]) + 1
+            for ix = 1:blockSizeD1-1
+                ixLperm = ixLpermOffset + ix
+
+                ixL = permVecInv[ixLperm]
+                jxL = permVec[jxLperm]
+
+                ibeg = sum(blockSizes[1:ixL-1]) + 1
+                iend = sum(blockSizes[1:ixL])
+                jbeg = sum(blockSizes[1:jxL-1]) + 1
+                jend = sum(blockSizes[1:jxL])
+                if filling == 1
+                    buffTHat.M[ixL, jxL] = be_zero_array(buffTHat.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+                else
+                    buffTHat.M[ixL, jxL] = be_random_array(buffTHat.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+                end
+            end
+        end
+    end
+end
+
+# TODO : try to assign the type AuxDataDDRGF to auxData ?
+function bm_blocks_define_complement21!(auxData, filling::Int)
+    blockSizeD1 = auxData.blockSizeD1
+    permVec = auxData.permVec
+    permVecInv = auxData.permVecInv
+    buffTHat = auxData.buffTHat
+    blockSizes = buffTHat.blockSizes
+    nrTasks = auxData.nrTasks
+    sizeDomains = auxData.sizeDomains
+    sizeDomains22 = sizeDomains[1:nrTasks]
+    sizeDomains11 = sizeDomains[nrTasks+1:2*nrTasks]
+
+    for jx_ = 1:nrTasks
+        jxLpermOffset = sum(sizeDomains22) + sum(sizeDomains11[1:jx_-1])
+
+        # first, the central sub-domain
+        ixLperm = sum(sizeDomains22[1:jx_])
+        for jx = 2:blockSizeD1
+            jxLperm = jxLpermOffset + jx
+
+            ixL = permVecInv[ixLperm]
+            jxL = permVec[jxLperm]
+
+            ibeg = sum(blockSizes[1:ixL-1]) + 1
+            iend = sum(blockSizes[1:ixL])
+            jbeg = sum(blockSizes[1:jxL-1]) + 1
+            jend = sum(blockSizes[1:jxL])
+            if filling == 1
+                buffTHat.M[ixL, jxL] = be_zero_array(buffTHat.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+            else
+                buffTHat.M[ixL, jxL] = be_random_array(buffTHat.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+            end
+        end
+
+        if jx_ < nrTasks
+            # then, the right sub-domain
+            ixLperm = sum(sizeDomains22[1:jx_]) + 1
+            for jx = 1:blockSizeD1-1
+                jxLperm = jxLpermOffset + jx
+
+                ixL = permVecInv[ixLperm]
+                jxL = permVec[jxLperm]
+
+                ibeg = sum(blockSizes[1:ixL-1]) + 1
+                iend = sum(blockSizes[1:ixL])
+                jbeg = sum(blockSizes[1:jxL-1]) + 1
+                jend = sum(blockSizes[1:jxL])
+                if filling == 1
+                    buffTHat.M[ixL, jxL] = be_zero_array(buffTHat.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+                else
+                    buffTHat.M[ixL, jxL] = be_random_array(buffTHat.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+                end
+            end
+        end
+    end
+end
+
 """
 	bm_blocks_define_identity!(M::BlockMatrix)
 
