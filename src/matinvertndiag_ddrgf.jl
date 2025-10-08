@@ -460,7 +460,6 @@ function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(M::BlockMatri
 
 end
 
-# TODO : try to assign the type AuxDataDDRGF to auxData ?
 function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix12!(M::BlockMatrix, auxData::AuxDataPDDRGF)
     blockSizeD1 = auxData.blockSizeD1
     permVec = auxData.permVec
@@ -499,7 +498,6 @@ function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix12!(M::BlockMatri
     end
 end
 
-# TODO : try to assign the type AuxDataDDRGF to auxData ?
 function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix21!(M::BlockMatrix, auxData::AuxDataPDDRGF)
     blockSizeD1 = auxData.blockSizeD1
     permVec = auxData.permVec
@@ -533,6 +531,78 @@ function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix21!(M::BlockMatri
                 jxL = permVec[jxLperm]
 
                 M.M[ixLperm, jxLperm] = auxData.buffTHat.M[ixL, jxL]
+            end
+        end
+    end
+end
+
+function bndiag_of_inv_pddrgf_compute_THat11Inv_x_THat12!(buffTHat::BlockMatrix, Min::BlockMatrix, auxData::AuxDataPDDRGF,
+    td::TimingData, cd::CountingData)
+    blockSizeD1 = auxData.blockSizeD1
+    nrTasks = auxData.nrTasks
+    sizeDomains = auxData.sizeDomains
+    sizeDomains22 = sizeDomains[1:nrTasks]
+    sizeDomains11 = sizeDomains[nrTasks+1:2*nrTasks]
+
+    plusOneCmplx = convert(Min.nrsType, 1.0)
+    zeroCmplx = convert(Min.nrsType, 0.0)
+
+    for ix_ = 1:nrTasks
+        ixLpermOffset = sum(sizeDomains22) + sum(sizeDomains11[1:ix_-1])
+
+        # first, the central sub-domain
+        jxLperm = sum(sizeDomains22[1:ix_])
+        for ix = 1:blockSizeD1
+            ixLperm = ixLpermOffset + ix
+
+            be_gemm!('N', 'N', plusOneCmplx, buffTHat.M[ixLperm, ixLpermOffset+1], Min.M[ixLpermOffset+1, jxLperm],
+                zeroCmplx, buffTHat.M[ixLperm, jxLperm], td, cd)
+        end
+
+        if ix_ < nrTasks
+            # then, the right sub-domain
+            jxLperm = sum(sizeDomains22[1:ix_]) + 1
+            for ix = 1:blockSizeD1
+                ixLperm = ixLpermOffset + ix
+
+                be_gemm!('N', 'N', plusOneCmplx, buffTHat.M[ixLperm, ixLpermOffset+blockSizeD1], Min.M[ixLpermOffset+blockSizeD1, jxLperm],
+                    zeroCmplx, buffTHat.M[ixLperm, jxLperm], td, cd)
+            end
+        end
+    end
+end
+
+function bndiag_of_inv_pddrgf_compute_THat21_x_THat11Inv!(buffTHat::BlockMatrix, Min::BlockMatrix, auxData::AuxDataPDDRGF,
+    td::TimingData, cd::CountingData)
+    blockSizeD1 = auxData.blockSizeD1
+    nrTasks = auxData.nrTasks
+    sizeDomains = auxData.sizeDomains
+    sizeDomains22 = sizeDomains[1:nrTasks]
+    sizeDomains11 = sizeDomains[nrTasks+1:2*nrTasks]
+
+    plusOneCmplx = convert(Min.nrsType, 1.0)
+    zeroCmplx = convert(Min.nrsType, 0.0)
+
+    for jx_ = 1:nrTasks
+        jxLpermOffset = sum(sizeDomains22) + sum(sizeDomains11[1:jx_-1])
+
+        # first, the central sub-domain
+        ixLperm = sum(sizeDomains22[1:jx_])
+        for jx = 2:blockSizeD1
+            jxLperm = jxLpermOffset + jx
+
+            be_gemm!('N', 'N', plusOneCmplx, Min.M[ixLperm, jxLpermOffset+1], buffTHat.M[jxLpermOffset+1, jxLperm],
+                zeroCmplx, buffTHat.M[ixLperm, jxLperm], td, cd)
+        end
+
+        if jx_ < nrTasks
+            # then, the right sub-domain
+            ixLperm = sum(sizeDomains22[1:jx_]) + 1
+            for jx = 1:blockSizeD1-1
+                jxLperm = jxLpermOffset + jx
+
+                be_gemm!('N', 'N', plusOneCmplx, Min.M[ixLperm, jxLpermOffset+blockSizeD1], buffTHat.M[jxLpermOffset+blockSizeD1, jxLperm],
+                    zeroCmplx, buffTHat.M[ixLperm, jxLperm], td, cd)
             end
         end
     end
@@ -667,10 +737,18 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
     bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix12!(buffTHat, auxData)
     bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix21!(buffTHat, auxData)
 
+    # compute the nonzero blocks in THat_{11}^{-1} * THat_{12}, saving the output to the 12 and 21 parts of buffTHat
+    bndiag_of_inv_pddrgf_compute_THat11Inv_x_THat12!(buffTHat, Min, auxData, td, cd)
+    # and then those of THat_{21} * THat_{11}^{-1}
+    bndiag_of_inv_pddrgf_compute_THat21_x_THat11Inv!(buffTHat, Min, auxData, td, cd)
+
     buffM1 = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.auxDataSeq.buffM, auxData.permVec)
     buffId = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.auxDataSeq.bIdM, auxData.permVec)
 
     # the D2 part of buffTHat contains the (approximated) Schur complement
+
+    # TODO : change the following computations of the Schur complement to take into
+    #        account the pre-computed THat_{11}^{-1} * THat_{12} and THat_{21} * THat_{11}^{-1}
 
     for ix = 1:auxData.nrTasks
         # Threads.@threads for ix in 1:Threads.nthreads()
