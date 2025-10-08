@@ -588,7 +588,7 @@ function bndiag_of_inv_pddrgf_compute_THat21_x_THat11Inv!(buffTHat::BlockMatrix,
 
         # first, the central sub-domain
         ixLperm = sum(sizeDomains22[1:jx_])
-        for jx = 2:blockSizeD1
+        for jx = 1:blockSizeD1
             jxLperm = jxLpermOffset + jx
 
             be_gemm!('N', 'N', plusOneCmplx, Min.M[ixLperm, jxLpermOffset+1], buffTHat.M[jxLpermOffset+1, jxLperm],
@@ -598,7 +598,7 @@ function bndiag_of_inv_pddrgf_compute_THat21_x_THat11Inv!(buffTHat::BlockMatrix,
         if jx_ < nrTasks
             # then, the right sub-domain
             ixLperm = sum(sizeDomains22[1:jx_]) + 1
-            for jx = 1:blockSizeD1-1
+            for jx = 1:blockSizeD1
                 jxLperm = jxLpermOffset + jx
 
                 be_gemm!('N', 'N', plusOneCmplx, Min.M[ixLperm, jxLpermOffset+blockSizeD1], buffTHat.M[jxLpermOffset+blockSizeD1, jxLperm],
