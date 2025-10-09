@@ -47,7 +47,7 @@ for systemx in systemNames
                 MbmFromData = bm_convert(M, blockSizes, Dict("in" => 3, "out" => 3))
 
                 # crate synthetic matrix with more principal layers and smaller block size
-                npl = 135
+                npl = 130
                 blockSize = 128
                 MbmSynth = bm_create_synthetic(MbmFromData, npl, blockSize)
                 # IMPORTANT : the recommended value for nrBlocksInNonPivots is four or less

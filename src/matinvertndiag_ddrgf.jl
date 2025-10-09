@@ -747,9 +747,6 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
 
     # the D2 part of buffTHat contains the (approximated) Schur complement
 
-    # TODO : change the following computations of the Schur complement to take into
-    #        account the pre-computed THat_{11}^{-1} * THat_{12} and THat_{21} * THat_{11}^{-1}
-
     for ix = 1:auxData.nrTasks
         # Threads.@threads for ix in 1:Threads.nthreads()
         jx2Start = sum(auxData.sizeDomains[1:ix-1]) + 1
@@ -802,8 +799,6 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
             # buffer for the product of THat21_k2k2 times ((THat_11)^-1)^k2
             THat21_k2k2_buff = view(buffTHat.M, jx2Start:jx2End, jx1Start:jx1End)
 
-            be_gemm!('N', 'N', plusOneCmplx, THat21_k2k2[auxData.sizeDomains[ix], 1], THat11Inv_k2[1, 1],
-                zeroCmplx, THat21_k2k2_buff[auxData.sizeDomains[ix], 1], td, cd)
             be_gemm!('N', 'N', minusOneCmplx, THat21_k2k2_buff[auxData.sizeDomains[ix], 1], THat12_k2k2[1, auxData.sizeDomains[ix]],
                 plusOneCmplx, THatS_k2[auxData.sizeDomains[ix], auxData.sizeDomains[ix]], td, cd)
         end
@@ -830,19 +825,14 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
             # buffer for the product of THat21_k2k2 times ((THat_11)^-1)^k2
             THat21_k2k2_buff = view(buffTHat.M, jx2Start:jx2End, jx1Start:jx1End)
 
-            be_gemm!('N', 'N', plusOneCmplx, THat21_k2k2[1, auxData.sizeDomains[ixm1_s]],
-                THat11Inv_k2[auxData.sizeDomains[ixm1_s], auxData.sizeDomains[ixm1_s]],
-                zeroCmplx, THat21_k2k2_buff[1, auxData.sizeDomains[ixm1_s]], td, cd)
             be_gemm!('N', 'N', minusOneCmplx, THat21_k2k2_buff[1, auxData.sizeDomains[ixm1_s]], THat12_k2k2[auxData.sizeDomains[ixm1_s], 1],
                 plusOneCmplx, THatS_k2[1, 1], td, cd)
         end
 
         if ix < auxData.nrTasks
-            # TODO : compute here those blocks that make the Schur complement non embarrasingly parallel. BUT, before
-            #        this, one needs to allocate some extra small buffers for doing these computations
+            # TODO : compute here those blocks that make the Schur complement non embarrasingly parallel. take into
+            #        account the pre-computed THat_{11}^{-1} * THat_{12} and THat_{21} * THat_{11}^{-1}
         end
-
-        # exit()
 
         # TODO : remove this call after including the call to sequential RGF below
         # invert the Schur complement, in an embarrasingly concurrent manner
