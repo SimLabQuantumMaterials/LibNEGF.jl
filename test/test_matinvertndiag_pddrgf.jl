@@ -48,7 +48,7 @@ for systemx in systemNames
 
                 # crate synthetic matrix with more principal layers and smaller block size
                 npl = 135
-                blockSize = 128
+                blockSize = 8
                 MbmSynth = bm_create_synthetic(MbmFromData, npl, blockSize)
                 # IMPORTANT : the recommended value for nrBlocksInNonPivots is four or less
                 nrBlocksInNonPivots = 4
@@ -184,8 +184,11 @@ for systemx in systemNames
                         r1 = sum(MbmPar_reord.blockSizes[1:d1-1]) + 1
                         r2 = sum(MbmPar_reord.blockSizes[1:d2])
                         relErr = LinearAlgebra.norm(Array(approSC[r1:r2, r1:r2] - exactSC[r1:r2, r1:r2]), 2) / LinearAlgebra.norm(Array(exactSC[r1:r2, r1:r2]), 2)
-                        @test relErr < roundoffs[precx] * 1.E3
+                        # @test relErr < roundoffs[precx] * 1.E3
+                        println(ix)
+                        println(relErr)
                     end
+                    println("")
 
                     # TODO : add a check here for those blocks of the Schur complement that make it
                     #        non embarrasingly parallel

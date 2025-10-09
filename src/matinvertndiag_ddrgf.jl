@@ -515,6 +515,13 @@ function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix21!(M::BlockMatri
         for jx = 2:blockSizeD1
             jxLperm = jxLpermOffset + jx
 
+            if jx_ == 6
+                println("")
+                println(ixLperm)
+                println(jxLperm)
+                println("")
+            end
+
             ixL = permVecInv[ixLperm]
             jxL = permVec[jxLperm]
 
@@ -527,6 +534,13 @@ function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix21!(M::BlockMatri
             for jx = 1:blockSizeD1-1
                 jxLperm = jxLpermOffset + jx
 
+                if jx_ == 6
+                    println("")
+                    println(ixLperm)
+                    println(jxLperm)
+                    println("")
+                end
+
                 ixL = permVecInv[ixLperm]
                 jxL = permVec[jxLperm]
 
@@ -534,6 +548,8 @@ function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix21!(M::BlockMatri
             end
         end
     end
+    println("-----")
+    println("")
 end
 
 function bndiag_of_inv_pddrgf_compute_THat11Inv_x_THat12!(buffTHat::BlockMatrix, Min::BlockMatrix, auxData::AuxDataPDDRGF,
@@ -583,8 +599,11 @@ function bndiag_of_inv_pddrgf_compute_THat21_x_THat11Inv!(buffTHat::BlockMatrix,
     plusOneCmplx = convert(Min.nrsType, 1.0)
     zeroCmplx = convert(Min.nrsType, 0.0)
 
+    println(sizeDomains)
+
     for jx_ = 1:nrTasks
         jxLpermOffset = sum(sizeDomains22) + sum(sizeDomains11[1:jx_-1])
+        # println(jxLpermOffset)
 
         # first, the central sub-domain
         ixLperm = sum(sizeDomains22[1:jx_])
@@ -593,16 +612,85 @@ function bndiag_of_inv_pddrgf_compute_THat21_x_THat11Inv!(buffTHat::BlockMatrix,
 
             be_gemm!('N', 'N', plusOneCmplx, Min.M[ixLperm, jxLpermOffset+1], buffTHat.M[jxLpermOffset+1, jxLperm],
                 zeroCmplx, buffTHat.M[ixLperm, jxLperm], td, cd)
+
+            # if jx_ == 6
+            #     println("")
+            #     println(ixLperm)
+            #     println(jxLpermOffset+1)
+            #     println(jxLpermOffset+1)
+            #     println(jxLperm)
+            #     println(ixLperm)
+            #     println(jxLperm)
+            #     println("")
+            # end
+
+            println("buf = "*string(ixLperm)*", "*string(jxLperm)*", "*string(buffTHat.M[ixLperm, jxLperm][1,1]))
+            println("Min = "*string(ixLperm)*", "*string(jxLpermOffset+1)*", "*string(Min.M[ixLperm, jxLpermOffset+1][1,1]))
+            println("buf = "*string(jxLpermOffset+1)*", "*string(jxLperm)*", "*string(buffTHat.M[jxLpermOffset+1, jxLperm][1,1]))
+
+            if ixLperm == 78 && jxLperm == 124
+                println("")
+                println(jx_)
+                println("")
+                for ixx = 1:8
+                    for jxx = 1:8
+                        # println(Min.M[ixLperm, jxLpermOffset+1][ixx,jxx])
+                        Printf.@printf("%f + %f \t ", real(Min.M[ixLperm, jxLpermOffset+1][ixx,jxx]), imag(Min.M[ixLperm, jxLpermOffset+1][ixx,jxx]))
+                    end
+                    println("")
+                end
+                println("")
+                for ixx = 1:8
+                    for jxx = 1:8
+                        # println(Min.M[ixLperm, jxLpermOffset+1][ixx,jxx])
+                        Printf.@printf("%f + %f \t ", real(buffTHat.M[jxLpermOffset+1, jxLperm][ixx,jxx]), imag(buffTHat.M[jxLpermOffset+1, jxLperm][ixx,jxx]))
+                    end
+                    println("")
+                end
+                println("")
+                for ixx = 1:8
+                    for jxx = 1:8
+                        # println(Min.M[ixLperm, jxLpermOffset+1][ixx,jxx])
+                        Printf.@printf("%f + %f \t ", real(buffTHat.M[ixLperm, jxLperm][ixx,jxx]), imag(buffTHat.M[ixLperm, jxLperm][ixx,jxx]))
+                    end
+                    println("")
+                end
+                println("")
+            end
         end
 
+        # if jx_ == 6
+        #     break
+        # end
+
         if jx_ < nrTasks
-            # then, the right sub-domain
+            # then, the bottom sub-domain
             ixLperm = sum(sizeDomains22[1:jx_]) + 1
             for jx = 1:blockSizeD1
                 jxLperm = jxLpermOffset + jx
 
                 be_gemm!('N', 'N', plusOneCmplx, Min.M[ixLperm, jxLpermOffset+blockSizeD1], buffTHat.M[jxLpermOffset+blockSizeD1, jxLperm],
                     zeroCmplx, buffTHat.M[ixLperm, jxLperm], td, cd)
+
+                # if jx_ == 6
+                #     println("")
+                #     println(ixLperm)
+                #     println(jxLpermOffset+blockSizeD1)
+                #     println(jxLpermOffset+blockSizeD1)
+                #     println(jxLperm)
+                #     println(ixLperm)
+                #     println(jxLperm)
+                #     println("")
+                # end
+
+                # println("buf = "*string(ixLperm)*", "*string(jxLperm)*", "*string(buffTHat.M[ixLperm, jxLperm][2,2]))
+                # println("Min = "*string(ixLperm)*", "*string(jxLpermOffset+blockSizeD1)*", "*string(Min.M[ixLperm, jxLpermOffset+blockSizeD1][2,2]))
+
+                if ixLperm == 78 && jxLperm == 124
+                    println("")
+                    println(jx_)
+                    println("")
+                end
             end
         end
     end
@@ -734,11 +822,11 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
     bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(buffTHat, auxData)
     # add references to extra blocks related to hopping terms interactions, in particular
     # the computation of THat_{11}^{-1} * THat_{12} and THat_{21} * THat_{11}^{-1}
-    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix12!(buffTHat, auxData)
+    # bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix12!(buffTHat, auxData)
     bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix21!(buffTHat, auxData)
 
     # compute the nonzero blocks in THat_{11}^{-1} * THat_{12}, saving the output to the 12 and 21 parts of buffTHat
-    bndiag_of_inv_pddrgf_compute_THat11Inv_x_THat12!(buffTHat, Min, auxData, td, cd)
+    # bndiag_of_inv_pddrgf_compute_THat11Inv_x_THat12!(buffTHat, Min, auxData, td, cd)
     # and then those of THat_{21} * THat_{11}^{-1}
     bndiag_of_inv_pddrgf_compute_THat21_x_THat11Inv!(buffTHat, Min, auxData, td, cd)
 
@@ -750,7 +838,10 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
     # TODO : change the following computations of the Schur complement to take into
     #        account the pre-computed THat_{11}^{-1} * THat_{12} and THat_{21} * THat_{11}^{-1}
 
+    println("---")
+
     for ix = 1:auxData.nrTasks
+        println(ix)
         # Threads.@threads for ix in 1:Threads.nthreads()
         jx2Start = sum(auxData.sizeDomains[1:ix-1]) + 1
         jx2End = sum(auxData.sizeDomains[1:ix])
@@ -802,10 +893,55 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
             # buffer for the product of THat21_k2k2 times ((THat_11)^-1)^k2
             THat21_k2k2_buff = view(buffTHat.M, jx2Start:jx2End, jx1Start:jx1End)
 
-            be_gemm!('N', 'N', plusOneCmplx, THat21_k2k2[auxData.sizeDomains[ix], 1], THat11Inv_k2[1, 1],
-                zeroCmplx, THat21_k2k2_buff[auxData.sizeDomains[ix], 1], td, cd)
-            be_gemm!('N', 'N', minusOneCmplx, THat21_k2k2_buff[auxData.sizeDomains[ix], 1], THat12_k2k2[1, auxData.sizeDomains[ix]],
-                plusOneCmplx, THatS_k2[auxData.sizeDomains[ix], auxData.sizeDomains[ix]], td, cd)
+            # be_gemm!('N', 'N', plusOneCmplx, THat21_k2k2[auxData.sizeDomains[ix], 1], THat11Inv_k2[1, 1],
+            #     zeroCmplx, THat21_k2k2_buff[auxData.sizeDomains[ix], 1], td, cd)
+
+            println("buf = "*string(jx2Start-1+auxData.sizeDomains[ix])*", "*string(jx1Start)*", "*string(buffTHat.M[jx2Start-1+auxData.sizeDomains[ix],jx1Start][1,1]))
+            println("Min = "*string(jx2Start-1+auxData.sizeDomains[ix])*", "*string(jx1Start)*", "*string(Min.M[jx2Start-1+auxData.sizeDomains[ix], jx1Start][1,1]))
+            println("buf = "*string(jx1Start)*", "*string(jx1Start)*", "*string(buffTHat.M[jx1Start,jx1Start][1,1]))
+
+            # be_gemm!('N', 'N', plusOneCmplx, Min.M[jx2Start-1+auxData.sizeDomains[ix], jx1Start],
+            #     buffTHat.M[jx1Start,jx1Start], zeroCmplx,
+            #     buffTHat.M[jx2Start-1+auxData.sizeDomains[ix],jx1Start], td, cd)
+            if ix == 6
+                println("")
+                println(jx2Start-1+auxData.sizeDomains[ix])
+                println(jx1Start)
+                println(jx1Start)
+                println(jx1Start)
+                println(jx2Start-1+auxData.sizeDomains[ix])
+                println(jx1Start)
+                println("")
+                for ixx = 1:8
+                    for jxx = 1:8
+                        # println(Min.M[ixLperm, jxLpermOffset+1][ixx,jxx])
+                        Printf.@printf("%f + %f \t ", real(Min.M[jx2Start-1+auxData.sizeDomains[ix], jx1Start][ixx,jxx]), imag(Min.M[jx2Start-1+auxData.sizeDomains[ix], jx1Start][ixx,jxx]))
+                    end
+                    println("")
+                end
+                println("")
+                for ixx = 1:8
+                    for jxx = 1:8
+                        # println(Min.M[ixLperm, jxLpermOffset+1][ixx,jxx])
+                        Printf.@printf("%f + %f \t ", real(buffTHat.M[jx1Start,jx1Start][ixx,jxx]), imag(buffTHat.M[jx1Start,jx1Start][ixx,jxx]))
+                    end
+                    println("")
+                end
+                println("")
+                for ixx = 1:8
+                    for jxx = 1:8
+                        # println(Min.M[ixLperm, jxLpermOffset+1][ixx,jxx])
+                        Printf.@printf("%f + %f \t ", real(buffTHat.M[jx2Start-1+auxData.sizeDomains[ix],jx1Start][ixx,jxx]), imag(buffTHat.M[jx2Start-1+auxData.sizeDomains[ix],jx1Start][ixx,jxx]))
+                    end
+                    println("")
+                end
+                println("")
+            end
+            # be_gemm!('N', 'N', minusOneCmplx, THat21_k2k2_buff[auxData.sizeDomains[ix], 1], THat12_k2k2[1, auxData.sizeDomains[ix]],
+            #     plusOneCmplx, THatS_k2[auxData.sizeDomains[ix], auxData.sizeDomains[ix]], td, cd)
+            be_gemm!('N', 'N', minusOneCmplx, buffTHat.M[jx2Start-1+auxData.sizeDomains[ix],jx1Start],
+                Min.M[jx1Start, jx2Start-1+auxData.sizeDomains[ix]], plusOneCmplx,
+                THatS_k2[auxData.sizeDomains[ix], auxData.sizeDomains[ix]], td, cd)
         end
 
         if ix > 1
@@ -830,9 +966,12 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
             # buffer for the product of THat21_k2k2 times ((THat_11)^-1)^k2
             THat21_k2k2_buff = view(buffTHat.M, jx2Start:jx2End, jx1Start:jx1End)
 
-            be_gemm!('N', 'N', plusOneCmplx, THat21_k2k2[1, auxData.sizeDomains[ixm1_s]],
-                THat11Inv_k2[auxData.sizeDomains[ixm1_s], auxData.sizeDomains[ixm1_s]],
-                zeroCmplx, THat21_k2k2_buff[1, auxData.sizeDomains[ixm1_s]], td, cd)
+            # println("buf = "*string(jx2Start-1+auxData.sizeDomains[ix])*", "*string(jx1Start)*", "*string(buffTHat.M[jx2Start-1+auxData.sizeDomains[ix],jx1Start][1,1]))
+            # println("Min = "*string(jx2Start-1+auxData.sizeDomains[ix])*", "*string(jx1Start)*", "*string(Min.M[jx2Start-1+auxData.sizeDomains[ix], jx1Start][1,1]))
+
+            # be_gemm!('N', 'N', plusOneCmplx, THat21_k2k2[1, auxData.sizeDomains[ixm1_s]],
+            #     THat11Inv_k2[auxData.sizeDomains[ixm1_s], auxData.sizeDomains[ixm1_s]],
+            #     zeroCmplx, THat21_k2k2_buff[1, auxData.sizeDomains[ixm1_s]], td, cd)
             be_gemm!('N', 'N', minusOneCmplx, THat21_k2k2_buff[1, auxData.sizeDomains[ixm1_s]], THat12_k2k2[auxData.sizeDomains[ixm1_s], 1],
                 plusOneCmplx, THatS_k2[1, 1], td, cd)
         end
@@ -846,7 +985,7 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
 
         # TODO : remove this call after including the call to sequential RGF below
         # invert the Schur complement, in an embarrasingly concurrent manner
-        bndiag_of_inv_ddrgf!(smallMbmBuffM2, smallMbmBuffTHat, smallAuxDataSeq, td, cd)
+        # bndiag_of_inv_ddrgf!(smallMbmBuffM2, smallMbmBuffTHat, smallAuxDataSeq, td, cd)
     end
 
     # TODO : call sequential RGF to compute the inverse of the Schur complement
