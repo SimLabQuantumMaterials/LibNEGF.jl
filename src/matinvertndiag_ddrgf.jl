@@ -436,7 +436,7 @@ function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix11!(M::BlockMatri
     end
 end
 
-function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(M::BlockMatrix, auxData::AuxDataPDDRGF)
+function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxDataPDDRGF)
     blockSizeD2 = auxData.blockSizeD2
     nrTasks = auxData.nrTasks
     permVec = auxData.permVec
@@ -449,7 +449,8 @@ function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(M::BlockMatri
         ixL = permVecInv[ixLperm]
         jxL = permVec[jxLperm]
 
-        M.M[ixLperm, jxLperm] = auxData.buffTHat.M[ixL, jxL]
+        # M.M[ixLperm, jxLperm] = auxData.buffTHat.M[ixL, jxL]
+        Mout.M[ixLperm, jxLperm] = Min.M[ixL, jxL]
 
         # then, the lower block
         jxLperm = blockSizeD2 * ix
@@ -457,7 +458,8 @@ function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(M::BlockMatri
         ixL = permVecInv[ixLperm]
         jxL = permVec[jxLperm]
 
-        M.M[ixLperm, jxLperm] = auxData.buffTHat.M[ixL, jxL]
+        # M.M[ixLperm, jxLperm] = auxData.buffTHat.M[ixL, jxL]
+        Mout.M[ixLperm, jxLperm] = Min.M[ixL, jxL]
     end
 
 end
@@ -726,7 +728,7 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
     # in, out and buffers, all permuted
     Mout = bndiag_of_inv_pddrgf_create_permuted_matrix(Mout_, auxData.permVec)
     buffM2 = Mout
-    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(buffM2, auxData)
+    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(buffM2, Mout_, auxData)
     Min = bndiag_of_inv_pddrgf_create_permuted_matrix(Min_, auxData.permVec)
     buffTHat = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.buffTHat, auxData.permVec)
     # the following line adds references to those blocks that are beyond block tridiagonal
@@ -734,7 +736,7 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
     bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix11!(buffTHat, auxData)
     # add references to extra Schur complement blocks, those that make it non embarrasingly
     # parallel
-    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(buffTHat, auxData)
+    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(buffTHat, auxData.buffTHat, auxData)
     # add references to extra blocks related to hopping terms interactions, in particular
     # the computation of THat_{11}^{-1} * THat_{12} and THat_{21} * THat_{11}^{-1}
     bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix12!(buffTHat, auxData)
@@ -746,7 +748,7 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
     bndiag_of_inv_pddrgf_compute_THat21_x_THat11Inv!(buffTHat, Min, auxData, td, cd)
 
     buffM1 = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.auxDataSeq.buffM, auxData.permVec)
-    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(buffM1, auxData)
+    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(buffM1, auxData.auxDataSeq.buffM, auxData)
     buffId = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.auxDataSeq.bIdM, auxData.permVec)
 
     # the D2 part of buffTHat contains the (approximated) Schur complement
@@ -813,9 +815,6 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
                 plusOneCmplx, THatS_k2[1, 1], td, cd)
         end
 
-        # TODO : before continuing, finish the test, in test_matinvertndiag_pddrgf.jl, that checks whether the built
-        #        Schur complement is correct
-
         if ix < auxData.nrTasks
             # compute here those blocks that make the Schur complement non embarrasingly parallel. take into
             # account the pre-computed THat_{11}^{-1} * THat_{12} and THat_{21} * THat_{11}^{-1}
@@ -867,30 +866,30 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
         end
     end
 
-    # # call sequential RGF to compute the inverse of the Schur complement
+    # call sequential RGF to compute the inverse of the Schur complement
 
-    # nrLayersSchurCompl = sum(auxData.sizeDomains[1:auxData.nrTasks])
-    # blockSizesSchurCompl = buffTHat.blockSizes[1:nrLayersSchurCompl]
+    nrLayersSchurCompl = sum(auxData.sizeDomains[1:auxData.nrTasks])
+    blockSizesSchurCompl = buffTHat.blockSizes[1:nrLayersSchurCompl]
 
-    # buffTHat22 = BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
-    #     buffTHat.ndiag, buffTHat.nrsType, 0)
-    # buffTHatMView = view(buffTHat.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
-    # bm_reference!(buffTHat22, buffTHatMView)
+    buffTHat22 = BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
+        buffTHat.ndiag, buffTHat.nrsType, 0)
+    buffTHatMView = view(buffTHat.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
+    bm_reference!(buffTHat22, buffTHatMView)
 
-    # buffM1MView22 = view(buffM1.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
-    # buffIdMView22 = view(buffId.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
-    # auxDataSeq22 = AuxDataDDRGF(BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
-    #         buffM1.ndiag, buffM1.nrsType, 0), BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
-    #         buffId.ndiag, buffId.nrsType, 0), 0)
-    # bm_reference!(auxDataSeq22.buffM, buffM1MView22)
-    # bm_reference!(auxDataSeq22.bIdM, buffIdMView22)
+    buffM1MView22 = view(buffM1.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
+    buffIdMView22 = view(buffId.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
+    auxDataSeq22 = AuxDataDDRGF(BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
+            buffM1.ndiag, buffM1.nrsType, 0), BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
+            buffId.ndiag, buffId.nrsType, 0), 0)
+    bm_reference!(auxDataSeq22.buffM, buffM1MView22)
+    bm_reference!(auxDataSeq22.bIdM, buffIdMView22)
 
-    # buffM222 = BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
-    #     buffM2.ndiag, buffM2.nrsType, 0)
-    # buffM2MView22 = view(buffM2.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
-    # bm_reference!(buffM222, buffM2MView22)
+    buffM222 = BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
+        buffM2.ndiag, buffM2.nrsType, 0)
+    buffM2MView22 = view(buffM2.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
+    bm_reference!(buffM222, buffM2MView22)
 
-    # bndiag_of_inv_ddrgf!(buffM222, buffTHat22, auxDataSeq22, td, cd)
+    bndiag_of_inv_ddrgf!(buffM222, buffTHat22, auxDataSeq22, td, cd)
 end
 
 """

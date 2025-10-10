@@ -175,7 +175,7 @@ for systemx in systemNames
                     # with the exact Schur complement at hand, check whether it was constructed correctly within
                     # the function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(...)
                     buffTHat = bndiag_of_inv_pddrgf_create_permuted_matrix(auxDataPar.buffTHat, auxDataPar.permVec)
-                    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(buffTHat, auxDataPar)
+                    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(buffTHat, auxDataPar.buffTHat, auxDataPar)
                     nrLayersSchurCompl = sum(auxDataPar.sizeDomains[1:auxDataPar.nrTasks])
                     blockSizesSchurCompl = buffTHat.blockSizes[1:nrLayersSchurCompl]
                     buffTHat22 = bm_empty(blockSizesSchurCompl, nrLayersSchurCompl, buffTHat.ndiag["in"],
@@ -203,7 +203,7 @@ for systemx in systemNames
                         r1 = sum(MbmPar_reord.blockSizes[1:d1-1]) + 1
                         r2 = sum(MbmPar_reord.blockSizes[1:d2])
                         relErr = LinearAlgebra.norm(Array(MinvNdiagSeq_perm[r1:r2, r1:r2] - MinvNdiagPar_perm[r1:r2, r1:r2]), 2) / LinearAlgebra.norm(Array(MinvNdiagSeq_perm[r1:r2, r1:r2]), 2)
-                        println(relErr)
+                        @test relErr < roundoffs[precx] * 1.E4
                     end
 
                 end
