@@ -121,7 +121,9 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
 
     # add extra allocations for buffTHat, for those little blocks of the Schur
     # complement that make it non embarrasingly parallel
-    bm_blocks_define_complement22!(auxDataPar, 2)
+    bm_blocks_define_complement22!(auxDataPar.buffTHat, auxDataPar, 2)
+    # and we need those little blocks for the buffM buffer as well
+    bm_blocks_define_complement22!(auxDataPar.auxDataSeq.buffM, auxDataPar, 2)
     # and extra allocations for THat_{11}^{-1} * THat_{12} and THat_{21} * THat_{11}^{-1}
     bm_blocks_define_complement12!(auxDataPar, 2)
     bm_blocks_define_complement21!(auxDataPar, 2)
@@ -724,6 +726,7 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
     # in, out and buffers, all permuted
     Mout = bndiag_of_inv_pddrgf_create_permuted_matrix(Mout_, auxData.permVec)
     buffM2 = Mout
+    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(buffM2, auxData)
     Min = bndiag_of_inv_pddrgf_create_permuted_matrix(Min_, auxData.permVec)
     buffTHat = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.buffTHat, auxData.permVec)
     # the following line adds references to those blocks that are beyond block tridiagonal
@@ -743,6 +746,7 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
     bndiag_of_inv_pddrgf_compute_THat21_x_THat11Inv!(buffTHat, Min, auxData, td, cd)
 
     buffM1 = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.auxDataSeq.buffM, auxData.permVec)
+    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(buffM1, auxData)
     buffId = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.auxDataSeq.bIdM, auxData.permVec)
 
     # the D2 part of buffTHat contains the (approximated) Schur complement
@@ -756,7 +760,6 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
 
         smallMViewIn = view(Min.M, jx2Start:jx2End, jx2Start:jx2End)
         smallMViewBuffTHat = view(buffTHat.M, jx2Start:jx2End, jx2Start:jx2End)
-        smallMViewBuffM2 = view(buffM2.M, jx2Start:jx2End, jx2Start:jx2End)
 
         smallBlockSizes = Min.blockSizes[jx2Start:jx2End]
 
@@ -764,23 +767,12 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
             Min.ndiag, Min.nrsType, 0)
         smallMbmBuffTHat = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jx2End - jx2Start + 1, jx2End - jx2Start + 1),
             buffTHat.ndiag, buffTHat.nrsType, 0)
-        smallMbmBuffM2 = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jx2End - jx2Start + 1, jx2End - jx2Start + 1),
-            buffM2.ndiag, buffM2.nrsType, 0)
 
         bm_reference!(smallMbmIn, smallMViewIn)
         bm_reference!(smallMbmBuffTHat, smallMViewBuffTHat)
-        bm_reference!(smallMbmBuffM2, smallMViewBuffM2)
 
         # copy THat22^k2 into THatS^k2
         bm_copy!(smallMbmBuffTHat, smallMbmIn)
-
-        smallMViewBuffM1 = view(buffM1.M, jx2Start:jx2End, jx2Start:jx2End)
-        smallMViewBuffId = view(buffId.M, jx2Start:jx2End, jx2Start:jx2End)
-        smallAuxDataSeq = AuxDataDDRGF(BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jx2End - jx2Start + 1, jx2End - jx2Start + 1),
-                buffM1.ndiag, buffM1.nrsType, 0), BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jx2End - jx2Start + 1, jx2End - jx2Start + 1),
-                buffId.ndiag, buffId.nrsType, 0), 0)
-        bm_reference!(smallAuxDataSeq.buffM, smallMViewBuffM1)
-        bm_reference!(smallAuxDataSeq.bIdM, smallMViewBuffId)
 
         begin
             jx1Start = sum(auxData.sizeDomains[1:auxData.nrTasks+ix-1]) + 1
@@ -790,10 +782,6 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
 
             # THatS^k2
             THatS_k2 = smallMbmBuffTHat.M
-            # ((THat_11)^-1)^k2
-            THat11Inv_k2 = view(buffTHat.M, jx1Start:jx1End, jx1Start:jx1End)
-            # THat21_k2k2
-            THat21_k2k2 = view(Min.M, jx2Start:jx2End, jx1Start:jx1End)
             # THat12_k2k2
             THat12_k2k2 = view(Min.M, jx1Start:jx1End, jx2Start:jx2End)
             # buffer for the product of THat21_k2k2 times ((THat_11)^-1)^k2
@@ -816,10 +804,6 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
 
             # THatS^k2
             THatS_k2 = smallMbmBuffTHat.M
-            # ((THat_11)^-1)^k2
-            THat11Inv_k2 = view(buffTHat.M, jx1Start:jx1End, jx1Start:jx1End)
-            # THat21_k2k2
-            THat21_k2k2 = view(Min.M, jx2Start:jx2End, jx1Start:jx1End)
             # THat12_k2k2
             THat12_k2k2 = view(Min.M, jx1Start:jx1End, jx2Start:jx2End)
             # buffer for the product of THat21_k2k2 times ((THat_11)^-1)^k2
@@ -829,17 +813,84 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
                 plusOneCmplx, THatS_k2[1, 1], td, cd)
         end
 
-        if ix < auxData.nrTasks
-            # TODO : compute here those blocks that make the Schur complement non embarrasingly parallel. take into
-            #        account the pre-computed THat_{11}^{-1} * THat_{12} and THat_{21} * THat_{11}^{-1}
-        end
+        # TODO : before continuing, finish the test, in test_matinvertndiag_pddrgf.jl, that checks whether the built
+        #        Schur complement is correct
 
-        # TODO : remove this call after including the call to sequential RGF below
-        # invert the Schur complement, in an embarrasingly concurrent manner
-        bndiag_of_inv_ddrgf!(smallMbmBuffM2, smallMbmBuffTHat, smallAuxDataSeq, td, cd)
+        if ix < auxData.nrTasks
+            # compute here those blocks that make the Schur complement non embarrasingly parallel. take into
+            # account the pre-computed THat_{11}^{-1} * THat_{12} and THat_{21} * THat_{11}^{-1}
+
+            jx2p1Start = sum(auxData.sizeDomains[1:ix+1-1]) + 1
+            jx2p1End = sum(auxData.sizeDomains[1:ix+1])
+
+            jx1Start = sum(auxData.sizeDomains[1:auxData.nrTasks+ix-1]) + 1
+            jx1End = sum(auxData.sizeDomains[1:auxData.nrTasks+ix])
+
+            ix_s = auxData.nrTasks + ix
+
+            # the right block
+            begin
+                # in the notation of the paper:
+
+                # THatS^k2k2p1
+                THatS_k2k2p1 = view(buffTHat.M, jx2Start:jx2End, jx2p1Start:jx2p1End)
+                # THat21_k2k2_buff
+                THat21_k2k2_buff = view(buffTHat.M, jx2Start:jx2End, jx1Start:jx1End)
+                # THat12_k2k2p1
+                THat12_k2k2p1 = view(Min.M, jx1Start:jx1End, jx2p1Start:jx2p1End)
+
+                # THat12_k2k2
+                THat12_k2k2 = view(Min.M, jx1Start:jx1End, jx2Start:jx2End)
+                # buffer for the product of THat21_k2k2 times ((THat_11)^-1)^k2
+                THat21_k2k2_buff = view(buffTHat.M, jx2Start:jx2End, jx1Start:jx1End)
+
+                be_gemm!('N', 'N', minusOneCmplx, THat21_k2k2_buff[auxData.sizeDomains[ix], auxData.sizeDomains[ix_s]],
+                    THat12_k2k2p1[auxData.sizeDomains[ix_s], 1],
+                    zeroCmplx, THatS_k2k2p1[auxData.sizeDomains[ix], 1], td, cd)
+            end
+
+            # the left block
+            begin
+                # in the notation of the paper:
+
+                # THatS^k2k2p1
+                THatS_k2p1k2 = view(buffTHat.M, jx2p1Start:jx2p1End, jx2Start:jx2End)
+                # THat21k2p1k2
+                THat21_k2p1k2 = view(Min.M, jx2p1Start:jx2p1End, jx1Start:jx1End)
+                # THat12_k2k2_buff
+                THat12_k2k2_buff = view(buffTHat.M, jx1Start:jx1End, jx2Start:jx2End)
+
+                be_gemm!('N', 'N', minusOneCmplx, THat21_k2p1k2[1, auxData.sizeDomains[ix_s]],
+                    THat12_k2k2_buff[auxData.sizeDomains[ix_s], auxData.sizeDomains[ix]],
+                    zeroCmplx, THatS_k2p1k2[1, auxData.sizeDomains[ix]], td, cd)
+            end
+        end
     end
 
-    # TODO : call sequential RGF to compute the inverse of the Schur complement
+    # # call sequential RGF to compute the inverse of the Schur complement
+
+    # nrLayersSchurCompl = sum(auxData.sizeDomains[1:auxData.nrTasks])
+    # blockSizesSchurCompl = buffTHat.blockSizes[1:nrLayersSchurCompl]
+
+    # buffTHat22 = BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
+    #     buffTHat.ndiag, buffTHat.nrsType, 0)
+    # buffTHatMView = view(buffTHat.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
+    # bm_reference!(buffTHat22, buffTHatMView)
+
+    # buffM1MView22 = view(buffM1.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
+    # buffIdMView22 = view(buffId.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
+    # auxDataSeq22 = AuxDataDDRGF(BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
+    #         buffM1.ndiag, buffM1.nrsType, 0), BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
+    #         buffId.ndiag, buffId.nrsType, 0), 0)
+    # bm_reference!(auxDataSeq22.buffM, buffM1MView22)
+    # bm_reference!(auxDataSeq22.bIdM, buffIdMView22)
+
+    # buffM222 = BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
+    #     buffM2.ndiag, buffM2.nrsType, 0)
+    # buffM2MView22 = view(buffM2.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
+    # bm_reference!(buffM222, buffM2MView22)
+
+    # bndiag_of_inv_ddrgf!(buffM222, buffTHat22, auxDataSeq22, td, cd)
 end
 
 """

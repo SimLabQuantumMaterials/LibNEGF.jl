@@ -14,6 +14,7 @@ export bndiag_of_inv_pddrgf_create_permuted_matrix
 export bndiag_of_inv_pddrgf_error_inv_of_T11
 export bndiag_of_inv_pddrgf_inv_of_T11!
 export bndiag_of_inv_pddrgf_inv_of_Schur_compl!
+export bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!
 
 # from keldyshndiag.jl
 export keldyshndiag!
@@ -30,6 +31,8 @@ export set_blocks_to_identity!
 export bm_create_synthetic
 export bndiag_of_inv_pddrgf_create_sparse_permutator
 export bm_reference!
+export bm_blocks_define_complement22!
+export bm_empty
 
 # from backend_*.jl
 export be_zero_array

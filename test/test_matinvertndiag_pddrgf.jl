@@ -125,6 +125,7 @@ for systemx in systemNames
                     # 0 is open-end, 1 is closed-end
                     splitType = 0
                     auxDataPar = allocate_aux_data_PDDRGF(MbmPar, nrBlocksInNonPivots, splitType, auxDataSeq)
+                    bm_blocks_define_complement22!(MbmInvNdiagPar, auxDataPar, 2)
 
                     # # get the block n-diagonal of M^-1 via RGF
                     # println("Measurements for running parallel RGF")
@@ -170,6 +171,20 @@ for systemx in systemNames
                     MPar_perm21 = MPar_perm[1:nx, nx+1:nx+ny]
 
                     exactSC = MPar_perm22 - MPar_perm21 * (MPar_perm11Inv * MPar_perm12)
+
+                    # with the exact Schur complement at hand, check whether it was constructed correctly within
+                    # the function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(...)
+                    buffTHat = bndiag_of_inv_pddrgf_create_permuted_matrix(auxDataPar.buffTHat, auxDataPar.permVec)
+                    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(buffTHat, auxDataPar)
+                    nrLayersSchurCompl = sum(auxDataPar.sizeDomains[1:auxDataPar.nrTasks])
+                    blockSizesSchurCompl = buffTHat.blockSizes[1:nrLayersSchurCompl]
+                    buffTHat22 = bm_empty(blockSizesSchurCompl, nrLayersSchurCompl, buffTHat.ndiag["in"],
+                        buffTHat.isArrayOrLU, buffTHat.nrsType)
+                    buffTHatMView = view(buffTHat.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
+                    bm_reference!(buffTHat22, buffTHatMView)
+                    buffTHatM22 = bm_convert(buffTHat22)
+                    relErr = LinearAlgebra.norm(Array(buffTHatM22 - exactSC), 2) / LinearAlgebra.norm(Array(exactSC), 2)
+                    @test relErr < roundoffs[precx] * 1.E3
 
                     buffTHat = bm_convert(auxDataPar.buffTHat)
                     buffTHat_perm = PermMat * (buffTHat * PermMat')

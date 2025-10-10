@@ -286,6 +286,10 @@ function bm_similar(M::BlockMatrix, filling::Int)::BlockMatrix
     end
 end
 
+function bm_empty(blockSizes::Vector{Int}, npl::Int, ndiag::Int, isArrayOrLU::Bool, nrsType::DataType)::BlockMatrix
+    return BlockMatrix(blockSizes, ArrayOrLU_(undef, npl, npl), Dict("in" => ndiag, "out" => ndiag), nrsType, isArrayOrLU)
+end
+
 """
 	bm_blocks_define!(M::BlockMatrix, filling::Int)
 
@@ -403,7 +407,7 @@ function bm_blocks_define_complement11!(M::BlockMatrix, A::ArrayOrLUView_, filli
 end
 
 # TODO : try to assign the type AuxDataDDRGF to auxData ?
-function bm_blocks_define_complement22!(auxData, filling::Int)
+function bm_blocks_define_complement22!(M::BlockMatrix, auxData, filling::Int)
     blockSizeD2 = auxData.blockSizeD2
     permVec = auxData.permVec
     permVecInv = auxData.permVecInv
@@ -423,9 +427,9 @@ function bm_blocks_define_complement22!(auxData, filling::Int)
         jbeg = sum(blockSizes[1:jxL-1]) + 1
         jend = sum(blockSizes[1:jxL])
         if filling == 1
-            buffTHat.M[ixL, jxL] = be_zero_array(buffTHat.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+            M.M[ixL, jxL] = be_zero_array(M.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
         else
-            buffTHat.M[ixL, jxL] = be_random_array(buffTHat.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+            M.M[ixL, jxL] = be_random_array(M.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
         end
 
         # then, the lower one
@@ -439,9 +443,9 @@ function bm_blocks_define_complement22!(auxData, filling::Int)
         jbeg = sum(blockSizes[1:jxL-1]) + 1
         jend = sum(blockSizes[1:jxL])
         if filling == 1
-            buffTHat.M[ixL, jxL] = be_zero_array(buffTHat.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+            M.M[ixL, jxL] = be_zero_array(M.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
         else
-            buffTHat.M[ixL, jxL] = be_random_array(buffTHat.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+            M.M[ixL, jxL] = be_random_array(M.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
         end
     end
 end
