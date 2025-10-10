@@ -274,7 +274,7 @@ function bndiag_of_inv_pddrgf_check_nr_tasks(M::BlockMatrix, nrBlocksInNonPivots
     restOfTotalSizeD2 = totalSizeD2 - ceilOfTotalSizeD2
 
     if restOfTotalSizeD2 <= 0
-        nrTasks, blockSizeD1, blockSizeD2 = bndiag_of_inv_pddrgf_check_nr_tasks(M, nrBlocksInNonPivots,
+        nrTasks, blockSizeD1, blockSizeD2, restOfTotalSizeD2 = bndiag_of_inv_pddrgf_check_nr_tasks(M, nrBlocksInNonPivots,
             nrTasks - 1, splitType)
     end
 
@@ -447,7 +447,7 @@ function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(Mout::BlockMa
         ixLperm = blockSizeD2 * ix
         jxLperm = ixLperm + 1
         ixL = permVecInv[ixLperm]
-        jxL = permVec[jxLperm]
+        jxL = permVecInv[jxLperm]
 
         # M.M[ixLperm, jxLperm] = auxData.buffTHat.M[ixL, jxL]
         Mout.M[ixLperm, jxLperm] = Min.M[ixL, jxL]
@@ -456,7 +456,7 @@ function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(Mout::BlockMa
         jxLperm = blockSizeD2 * ix
         ixLperm = jxLperm + 1
         ixL = permVecInv[ixLperm]
-        jxL = permVec[jxLperm]
+        jxL = permVecInv[jxLperm]
 
         # M.M[ixLperm, jxLperm] = auxData.buffTHat.M[ixL, jxL]
         Mout.M[ixLperm, jxLperm] = Min.M[ixL, jxL]
@@ -482,7 +482,7 @@ function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix12!(M::BlockMatri
             ixLperm = ixLpermOffset + ix
 
             ixL = permVecInv[ixLperm]
-            jxL = permVec[jxLperm]
+            jxL = permVecInv[jxLperm]
 
             M.M[ixLperm, jxLperm] = auxData.buffTHat.M[ixL, jxL]
         end
@@ -494,7 +494,7 @@ function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix12!(M::BlockMatri
                 ixLperm = ixLpermOffset + ix
 
                 ixL = permVecInv[ixLperm]
-                jxL = permVec[jxLperm]
+                jxL = permVecInv[jxLperm]
 
                 M.M[ixLperm, jxLperm] = auxData.buffTHat.M[ixL, jxL]
             end
@@ -520,7 +520,7 @@ function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix21!(M::BlockMatri
             jxLperm = jxLpermOffset + jx
 
             ixL = permVecInv[ixLperm]
-            jxL = permVec[jxLperm]
+            jxL = permVecInv[jxLperm]
 
             M.M[ixLperm, jxLperm] = auxData.buffTHat.M[ixL, jxL]
         end
@@ -532,7 +532,7 @@ function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix21!(M::BlockMatri
                 jxLperm = jxLpermOffset + jx
 
                 ixL = permVecInv[ixLperm]
-                jxL = permVec[jxLperm]
+                jxL = permVecInv[jxLperm]
 
                 M.M[ixLperm, jxLperm] = auxData.buffTHat.M[ixL, jxL]
             end

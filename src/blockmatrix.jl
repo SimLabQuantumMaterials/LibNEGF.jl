@@ -420,7 +420,7 @@ function bm_blocks_define_complement22!(M::BlockMatrix, auxData, filling::Int)
         ixLperm = blockSizeD2 * ix
         jxLperm = ixLperm + 1
         ixL = permVecInv[ixLperm]
-        jxL = permVec[jxLperm]
+        jxL = permVecInv[jxLperm]
 
         ibeg = sum(blockSizes[1:ixL-1]) + 1
         iend = sum(blockSizes[1:ixL])
@@ -436,7 +436,7 @@ function bm_blocks_define_complement22!(M::BlockMatrix, auxData, filling::Int)
         jxLperm = blockSizeD2 * ix
         ixLperm = jxLperm + 1
         ixL = permVecInv[ixLperm]
-        jxL = permVec[jxLperm]
+        jxL = permVecInv[jxLperm]
 
         ibeg = sum(blockSizes[1:ixL-1]) + 1
         iend = sum(blockSizes[1:ixL])
@@ -471,7 +471,7 @@ function bm_blocks_define_complement12!(auxData, filling::Int)
             ixLperm = ixLpermOffset + ix
 
             ixL = permVecInv[ixLperm]
-            jxL = permVec[jxLperm]
+            jxL = permVecInv[jxLperm]
 
             ibeg = sum(blockSizes[1:ixL-1]) + 1
             iend = sum(blockSizes[1:ixL])
@@ -491,7 +491,7 @@ function bm_blocks_define_complement12!(auxData, filling::Int)
                 ixLperm = ixLpermOffset + ix
 
                 ixL = permVecInv[ixLperm]
-                jxL = permVec[jxLperm]
+                jxL = permVecInv[jxLperm]
 
                 ibeg = sum(blockSizes[1:ixL-1]) + 1
                 iend = sum(blockSizes[1:ixL])
@@ -528,7 +528,7 @@ function bm_blocks_define_complement21!(auxData, filling::Int)
             jxLperm = jxLpermOffset + jx
 
             ixL = permVecInv[ixLperm]
-            jxL = permVec[jxLperm]
+            jxL = permVecInv[jxLperm]
 
             ibeg = sum(blockSizes[1:ixL-1]) + 1
             iend = sum(blockSizes[1:ixL])
@@ -548,7 +548,7 @@ function bm_blocks_define_complement21!(auxData, filling::Int)
                 jxLperm = jxLpermOffset + jx
 
                 ixL = permVecInv[ixLperm]
-                jxL = permVec[jxLperm]
+                jxL = permVecInv[jxLperm]
 
                 ibeg = sum(blockSizes[1:ixL-1]) + 1
                 iend = sum(blockSizes[1:ixL])
@@ -732,6 +732,36 @@ function bm_create_synthetic(A_::BlockMatrix, nrLayers::Int, blocksDim::Int)::Bl
     A.M[nrLayers, nrLayers] = be_copy_in_hw((A_.M[npl, npl])[1:blocksDim, 1:blocksDim])
     A.M[nrLayers-1, nrLayers] = be_copy_in_hw((A_.M[npl-1, npl])[1:blocksDim, 1:blocksDim])
     A.M[nrLayers, nrLayers-1] = be_copy_in_hw((A_.M[npl, npl-1])[1:blocksDim, 1:blocksDim])
+
+    return A
+end
+
+function bm_create_synthetic_random(A_::BlockMatrix, nrLayers::Int, blocksDim::Int)::BlockMatrix
+    # IMPORTANT : this function assumes that all of the principal layers are of
+    #             the same size
+
+    blockSizes = repeat([blocksDim], nrLayers)
+    ndiag = A_.ndiag
+
+    A = BlockMatrix(blockSizes, ArrayOrLU_(undef, nrLayers, nrLayers), ndiag, A_.nrsType, 0)
+
+    # loop over chunks of layers
+    for ix = 1:nrLayers
+        if ix > 1
+            # left
+            for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
+                A.M[ix, jx] = be_random_array(A_.nrsType, (blocksDim, blocksDim))
+            end
+        end
+        # center
+        A.M[ix, ix] = be_random_array(A_.nrsType, (blocksDim, blocksDim))
+        if ix < nrLayers
+            # right
+            for jx = (ix+1):1:min(nrLayers, ix + Int((ndiag["out"] - 1) / 2))
+                A.M[ix, jx] = be_random_array(A_.nrsType, (blocksDim, blocksDim))
+            end
+        end
+    end
 
     return A
 end

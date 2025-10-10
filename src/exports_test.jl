@@ -29,6 +29,7 @@ export bm_copy
 export set_blocks_to_zero!
 export set_blocks_to_identity!
 export bm_create_synthetic
+export bm_create_synthetic_random
 export bndiag_of_inv_pddrgf_create_sparse_permutator
 export bm_reference!
 export bm_blocks_define_complement22!

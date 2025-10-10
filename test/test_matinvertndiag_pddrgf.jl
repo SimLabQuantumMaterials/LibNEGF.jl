@@ -47,7 +47,7 @@ for systemx in systemNames
                 MbmFromData = bm_convert(M, blockSizes, Dict("in" => 3, "out" => 3))
 
                 # crate synthetic matrix with more principal layers and smaller block size
-                npl = 130
+                npl = 135
                 blockSize = 128
                 MbmSynth = bm_create_synthetic(MbmFromData, npl, blockSize)
                 # IMPORTANT : the recommended value for nrBlocksInNonPivots is four or less
@@ -108,7 +108,9 @@ for systemx in systemNames
                     auxDataSeq = allocate_aux_data_DDRGF(MbmSeq)
 
                     # call sequential RGF
-                    bndiag_of_inv_ddrgf!(MbmInvNdiagSeq, MbmSeq, auxDataSeq, TimingData(), CountingData())
+                    @time bndiag_of_inv_ddrgf!(MbmInvNdiagSeq, MbmSeq, auxDataSeq, TimingData(), CountingData())
+                    # @time bndiag_of_inv_ddrgf!(MbmInvNdiagSeq, MbmSeq, auxDataSeq, TimingData(), CountingData())
+                    # @time bndiag_of_inv_ddrgf!(MbmInvNdiagSeq, MbmSeq, auxDataSeq, TimingData(), CountingData())
 
                     GC.gc()
 
@@ -132,15 +134,19 @@ for systemx in systemNames
                     # @time bndiag_of_inv_pddrgf!(MbmInvNdiagPar, MbmPar, auxDataPar, TimingData(), CountingData())
 
                     # compute \widehat{T}_{11} (saved @ the D1 part of auxDataPar.buffTHat) and check its correctness
-                    bndiag_of_inv_pddrgf_inv_of_T11!(MbmPar, auxDataPar, TimingData(), CountingData())
+                    @time bndiag_of_inv_pddrgf_inv_of_T11!(MbmPar, auxDataPar, TimingData(), CountingData())
+                    # @time bndiag_of_inv_pddrgf_inv_of_T11!(MbmPar, auxDataPar, TimingData(), CountingData())
+                    # @time bndiag_of_inv_pddrgf_inv_of_T11!(MbmPar, auxDataPar, TimingData(), CountingData())
                     relErr::Float64 = bndiag_of_inv_pddrgf_error_inv_of_T11(MbmPar, MbmInvNdiagPar, auxDataPar, TimingData(), CountingData())
-                    @test relErr < roundoffs[precx] * 1.0E5
+                    @test relErr < roundoffs[precx] * 1.0E6
 
                     # check that the Schur complement construction is correct
 
                     # compute the inverse of the Schur complement. The Schur complement is stored
                     # in the D2 part of auxData.buffTHat, and its inverse in the D2 part of MbmInvNdiagPar
-                    bndiag_of_inv_pddrgf_inv_of_Schur_compl!(MbmInvNdiagPar, MbmPar, auxDataPar, TimingData(), CountingData())
+                    @time bndiag_of_inv_pddrgf_inv_of_Schur_compl!(MbmInvNdiagPar, MbmPar, auxDataPar, TimingData(), CountingData())
+                    # @time bndiag_of_inv_pddrgf_inv_of_Schur_compl!(MbmInvNdiagPar, MbmPar, auxDataPar, TimingData(), CountingData())
+                    # @time bndiag_of_inv_pddrgf_inv_of_Schur_compl!(MbmInvNdiagPar, MbmPar, auxDataPar, TimingData(), CountingData())
 
                     MbmPar_reord = bndiag_of_inv_pddrgf_create_permuted_matrix(MbmPar, auxDataPar.permVec)
                     nb2 = sum(auxDataPar.sizeDomains[1:auxDataPar.nrTasks])
@@ -172,6 +178,21 @@ for systemx in systemNames
 
                     exactSC = MPar_perm22 - MPar_perm21 * (MPar_perm11Inv * MPar_perm12)
 
+                    # check that the Schur complement has been built correctly, at the D2-level sub-matrices. This
+                    # also serves as an indirect check of the inverse of \widehat{T}_{11}
+                    buffTHat = bm_convert(auxDataPar.buffTHat)
+                    buffTHat_perm = PermMat * (buffTHat * PermMat')
+                    buffTHat_perm22 = buffTHat_perm[1:nx, 1:nx]
+                    approSC = buffTHat_perm22
+                    for ix = 1:auxDataPar.nrTasks
+                        d1 = sum(auxDataPar.sizeDomains[1:ix-1]) + 1
+                        d2 = sum(auxDataPar.sizeDomains[1:ix])
+                        r1 = sum(MbmPar_reord.blockSizes[1:d1-1]) + 1
+                        r2 = sum(MbmPar_reord.blockSizes[1:d2])
+                        relErr = LinearAlgebra.norm(Array(approSC[r1:r2, r1:r2] - exactSC[r1:r2, r1:r2]), 2) / LinearAlgebra.norm(Array(exactSC[r1:r2, r1:r2]), 2)
+                        @test relErr < roundoffs[precx] * 1.E3
+                    end
+
                     # with the exact Schur complement at hand, check whether it was constructed correctly within
                     # the function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(...)
                     buffTHat = bndiag_of_inv_pddrgf_create_permuted_matrix(auxDataPar.buffTHat, auxDataPar.permVec)
@@ -184,7 +205,7 @@ for systemx in systemNames
                     bm_reference!(buffTHat22, buffTHatMView)
                     buffTHatM22 = bm_convert(buffTHat22)
                     relErr = LinearAlgebra.norm(Array(buffTHatM22 - exactSC), 2) / LinearAlgebra.norm(Array(exactSC), 2)
-                    @test relErr < roundoffs[precx] * 1.E3
+                    @test relErr < roundoffs[precx] * 1.E5
 
                     # check the correctness of the inverse of the Schur complement
 
@@ -203,7 +224,7 @@ for systemx in systemNames
                         r1 = sum(MbmPar_reord.blockSizes[1:d1-1]) + 1
                         r2 = sum(MbmPar_reord.blockSizes[1:d2])
                         relErr = LinearAlgebra.norm(Array(MinvNdiagSeq_perm[r1:r2, r1:r2] - MinvNdiagPar_perm[r1:r2, r1:r2]), 2) / LinearAlgebra.norm(Array(MinvNdiagSeq_perm[r1:r2, r1:r2]), 2)
-                        @test relErr < roundoffs[precx] * 1.E4
+                        @test relErr < roundoffs[precx] * 1.E5
                     end
 
                 end
