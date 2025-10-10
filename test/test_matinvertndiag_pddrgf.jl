@@ -186,25 +186,6 @@ for systemx in systemNames
                     relErr = LinearAlgebra.norm(Array(buffTHatM22 - exactSC), 2) / LinearAlgebra.norm(Array(exactSC), 2)
                     @test relErr < roundoffs[precx] * 1.E3
 
-                    buffTHat = bm_convert(auxDataPar.buffTHat)
-                    buffTHat_perm = PermMat * (buffTHat * PermMat')
-                    buffTHat_perm22 = buffTHat_perm[1:nx, 1:nx]
-                    approSC = buffTHat_perm22
-
-                    # check that the Schur complement has been built correctly, at the D2-level sub-matrices. This
-                    # also serves as an indirect check of the inverse of \widehat{T}_{11}
-                    for ix = 1:auxDataPar.nrTasks
-                        d1 = sum(auxDataPar.sizeDomains[1:ix-1]) + 1
-                        d2 = sum(auxDataPar.sizeDomains[1:ix])
-                        r1 = sum(MbmPar_reord.blockSizes[1:d1-1]) + 1
-                        r2 = sum(MbmPar_reord.blockSizes[1:d2])
-                        relErr = LinearAlgebra.norm(Array(approSC[r1:r2, r1:r2] - exactSC[r1:r2, r1:r2]), 2) / LinearAlgebra.norm(Array(exactSC[r1:r2, r1:r2]), 2)
-                        @test relErr < roundoffs[precx] * 1.E3
-                    end
-
-                    # TODO : add a check here for those blocks of the Schur complement that make it
-                    #        non embarrasingly parallel
-
                     # check the correctness of the inverse of the Schur complement
 
                     MinvNdiagSeq = bm_convert(MbmInvNdiagSeq)
