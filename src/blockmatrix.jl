@@ -789,7 +789,36 @@ function bm_reference!(M::BlockMatrix, B::ArrayOrLUView_)
             end
         end
     end
+end
 
+# assign references in A.M to the blocks in B
+function bm_reference!(M::BlockMatrix, B::ArrayOrLU_, iOffset::Int, jOffset::Int)
+    npl = size(M.blockSizes)[1]
+    ndiag = M.ndiag
+
+    # loop over the block sizes, conversely over the block rows
+    for ix = 1:npl
+        # now, copy the blocks within the ix-th row
+        if ix > 1
+            # left
+            for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
+                ix_ = iOffset + ix
+                jx_ = jOffset + jx
+                M.M[ix, jx] = B[ix_, jx_]
+            end
+        end
+        # center
+        ix_ = iOffset + ix
+        M.M[ix, ix] = B[ix_, ix_]
+        if ix < npl
+            # right
+            for jx = (ix+1):1:min(npl, ix + Int((ndiag["out"] - 1) / 2))
+                ix_ = iOffset + ix
+                jx_ = jOffset + jx
+                M.M[ix, jx] = B[ix_, jx_]
+            end
+        end
+    end
 end
 
 # assign references in A.M to the blocks in B
@@ -799,6 +828,19 @@ function bm_reference_full!(M::BlockMatrix, B::ArrayOrLUView_)
     for ix = 1:npl
         for jx = 1:npl
             M.M[ix, jx] = B[ix, jx]
+        end
+    end
+end
+
+# assign references in A.M to the blocks in B
+function bm_reference_full!(M::BlockMatrix, B::ArrayOrLU_, iOffset::Int, jOffset::Int)
+    npl = size(M.blockSizes)[1]
+
+    for ix = 1:npl
+        for jx = 1:npl
+            ix_ = iOffset + ix
+            jx_ = jOffset + jx
+            M.M[ix, jx] = B[ix_, jx_]
         end
     end
 end

@@ -674,7 +674,8 @@ function bndiag_of_inv_pddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataPDD
     # buffM3 will store the inverse of \widehat{T}_{11}
     buffM3 = auxData.buffTHatPerm
 
-    Min = bndiag_of_inv_pddrgf_create_permuted_matrix(Min_, auxData.permVec)
+    # Min_ is assumed to be permuted already
+    Min = Min_
 
     # then, loop over the sub-domains in the D1 domain
 
@@ -693,6 +694,7 @@ function bndiag_of_inv_pddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataPDD
         smallMbmOut = auxData.smallMbmOut[ixo]
 
         @time for ixi = 1:nrTasksPerThread
+            # index of each individual task
             ix = auxData.nrTasks + (ixo - 1) * auxData.maxNrTasksPerThread + ixi
 
             jxStart = sum(auxData.sizeDomains[1:ix-1]) + 1
@@ -700,20 +702,17 @@ function bndiag_of_inv_pddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataPDD
 
             copy!(smallBlockSizes, Min.blockSizes[jxStart:jxEnd])
 
+            # making sure we have the correct sizes of the blocks within the domain
             copy!(smallAuxDataSeq.buffM.blockSizes, smallBlockSizes)
             copy!(smallAuxDataSeq.bIdM.blockSizes, smallBlockSizes)
-
-            smallMViewIn = view(Min.M, jxStart:jxEnd, jxStart:jxEnd)
-            smallMViewOut = view(buffM3.M, jxStart:jxEnd, jxStart:jxEnd)
-            smallMViewBuffM1 = view(buffM1.M, jxStart:jxEnd, jxStart:jxEnd)
-            smallMViewBuffId = view(buffId.M, jxStart:jxEnd, jxStart:jxEnd)
-
             copy!(smallMbmIn.blockSizes, smallBlockSizes)
-            bm_reference!(smallMbmIn, smallMViewIn)
             copy!(smallMbmOut.blockSizes, smallBlockSizes)
-            bm_reference_full!(smallMbmOut, smallMViewOut)
-            bm_reference!(smallAuxDataSeq.buffM, smallMViewBuffM1)
-            bm_reference!(smallAuxDataSeq.bIdM, smallMViewBuffId)
+
+            # 'pointing' to the appropriate blocks
+            bm_reference!(smallMbmIn, Min.M, jxStart-1, jxStart-1)
+            bm_reference_full!(smallMbmOut, buffM3.M, jxStart-1, jxStart-1)
+            bm_reference!(smallAuxDataSeq.buffM, buffM1.M, jxStart-1, jxStart-1)
+            bm_reference!(smallAuxDataSeq.bIdM, buffId.M, jxStart-1, jxStart-1)
 
             # note that RGF has been modified to give us the little extra blocks in the beyond-2x2 cases
             # (i.e., for the number of layers within each sub-domain in D1)
@@ -965,7 +964,8 @@ function bndiag_of_inv_pddrgf!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::A
     # PART (1,1)
 
     # first, compute the inverse of \widehat{T}_{11}, storing it in the D1 part of auxData.buffTHat
-    bndiag_of_inv_pddrgf_inv_of_T11!(Min_, auxData, td, cd)
+    Min = bndiag_of_inv_pddrgf_create_permuted_matrix(Min_, auxData.permVec)
+    bndiag_of_inv_pddrgf_inv_of_T11!(Min, auxData, td, cd)
 
     # with the inverse of \widehat{T}_{11} at hand, construct the Schur complement now
     # (IMPORTANT : for now, taking the approximation of ignoring those 'orange' blocks),
