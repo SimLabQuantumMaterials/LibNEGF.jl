@@ -31,6 +31,10 @@ struct AuxDataPDDRGF
     buffMPerm::BlockMatrix
     bIdMPerm::BlockMatrix
     buffTHatPerm::BlockMatrix
+    smallBlockSizes::Vector{Vector{Int}}
+    smallAuxDataSeq::Vector{AuxDataDDRGF}
+    smallMbmIn::Vector{BlockMatrix}
+    smallMbmOut::Vector{BlockMatrix}
 end
 
 """
@@ -86,7 +90,7 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
     if nrTasks == 1
         println("WARNING: nrTasks = 1, then calling sequential RGF.")
         return AuxDataPDDRGF(auxDataSeq, nrTasks, Vector{Int}(), Vector{Int}(), Vector{Int}(),
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     end
 
     permVecInv, sizeDomains = bndiag_of_inv_pddrgf_create_permutation_vector(M, nrTasks, nrBlocksInNonPivots, splitType)
@@ -129,10 +133,25 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
     bIdMPerm = bndiag_of_inv_pddrgf_create_permuted_matrix(auxDataSeq.bIdM, permVec)
     buffTHatPerm = bndiag_of_inv_pddrgf_create_permuted_matrix(buffTHat, permVec)
 
+    smallBlockSizes = Vector{Vector{Int}}()
+    smallAuxDataSeq = Vector{AuxDataDDRGF}()
+    smallMbmIn = Vector{BlockMatrix}()
+    smallMbmOut = Vector{BlockMatrix}()
+    for ix = 1:nrThreads
+        push!(smallBlockSizes, M.blockSizes[1:blockSizeD1])
+        push!(smallAuxDataSeq, AuxDataDDRGF(BlockMatrix(smallBlockSizes[ix], ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
+            buffMPerm.ndiag, buffMPerm.nrsType, 0), BlockMatrix(smallBlockSizes[ix], ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
+            bIdMPerm.ndiag, bIdMPerm.nrsType, 0), 1))
+        push!(smallMbmIn, BlockMatrix(smallBlockSizes[ix], ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
+            M.ndiag, M.nrsType, 0))
+        push!(smallMbmOut, BlockMatrix(smallBlockSizes[ix], ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
+            buffTHatPerm.ndiag, buffTHatPerm.nrsType, 0))
+    end
+
     # the final struct with the buffers
     auxDataPar = AuxDataPDDRGF(auxDataSeq, nrTasks, permVec, permVecInv, sizeDomains, blockSizeD1,
         blockSizeD2, lastSizeD2, buffTHat, nrThreads, maxNrTasksPerThread, lastNrTasksPerThread, buffMPerm,
-        bIdMPerm, buffTHatPerm)
+        bIdMPerm, buffTHatPerm, smallBlockSizes, smallAuxDataSeq, smallMbmIn, smallMbmOut)
 
     # add extra allocations for buffTHat, for those little blocks of the Schur
     # complement that make it non embarrasingly parallel
@@ -668,14 +687,10 @@ function bndiag_of_inv_pddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataPDD
         end
 
         # per-thread pre-allocations
-        smallBlockSizes = Min.blockSizes[1:auxData.blockSizeD1]
-        smallAuxDataSeq = AuxDataDDRGF(BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, auxData.blockSizeD1, auxData.blockSizeD1),
-                buffM1.ndiag, buffM1.nrsType, 0), BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, auxData.blockSizeD1, auxData.blockSizeD1),
-                buffId.ndiag, buffId.nrsType, 0), 1)
-        smallMbmIn = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, auxData.blockSizeD1, auxData.blockSizeD1),
-            Min.ndiag, Min.nrsType, 0)
-        smallMbmOut = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, auxData.blockSizeD1, auxData.blockSizeD1),
-            buffM3.ndiag, buffM3.nrsType, 0)
+        smallBlockSizes = auxData.smallBlockSizes[ixo]
+        smallAuxDataSeq = auxData.smallAuxDataSeq[ixo]
+        smallMbmIn = auxData.smallMbmIn[ixo]
+        smallMbmOut = auxData.smallMbmOut[ixo]
 
         @time for ixi = 1:nrTasksPerThread
             ix = auxData.nrTasks + (ixo - 1) * auxData.maxNrTasksPerThread + ixi
