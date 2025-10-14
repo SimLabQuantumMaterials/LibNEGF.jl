@@ -28,6 +28,9 @@ struct AuxDataPDDRGF
     nrThreads::Int
     maxNrTasksPerThread::Int
     lastNrTasksPerThread::Int
+    buffMPerm::BlockMatrix
+    bIdMPerm::BlockMatrix
+    buffTHatPerm::BlockMatrix
 end
 
 """
@@ -82,7 +85,8 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
         nrTasks, splitType)
     if nrTasks == 1
         println("WARNING: nrTasks = 1, then calling sequential RGF.")
-        return AuxDataPDDRGF(auxDataSeq, nrTasks, Vector{Int}(), Vector{Int}(), Vector{Int}(), 0, 0, 0, 0, 0, 0, 0)
+        return AuxDataPDDRGF(auxDataSeq, nrTasks, Vector{Int}(), Vector{Int}(), Vector{Int}(),
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     end
 
     permVecInv, sizeDomains = bndiag_of_inv_pddrgf_create_permutation_vector(M, nrTasks, nrBlocksInNonPivots, splitType)
@@ -121,9 +125,14 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
     # the appropriate number of threads for good load balance and not wasting energy
     nrThreads, maxNrTasksPerThread, lastNrTasksPerThread = bndiag_of_inv_pddrgf_check_nr_threads(Threads.nthreads(), nrTasks)
 
+    buffMPerm = bndiag_of_inv_pddrgf_create_permuted_matrix(auxDataSeq.buffM, permVec)
+    bIdMPerm = bndiag_of_inv_pddrgf_create_permuted_matrix(auxDataSeq.bIdM, permVec)
+    buffTHatPerm = bndiag_of_inv_pddrgf_create_permuted_matrix(buffTHat, permVec)
+
     # the final struct with the buffers
     auxDataPar = AuxDataPDDRGF(auxDataSeq, nrTasks, permVec, permVecInv, sizeDomains, blockSizeD1,
-        blockSizeD2, lastSizeD2, buffTHat, nrThreads, maxNrTasksPerThread, lastNrTasksPerThread)
+        blockSizeD2, lastSizeD2, buffTHat, nrThreads, maxNrTasksPerThread, lastNrTasksPerThread, buffMPerm,
+        bIdMPerm, buffTHatPerm)
 
     # add extra allocations for buffTHat, for those little blocks of the Schur
     # complement that make it non embarrasingly parallel
@@ -133,6 +142,16 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
     # and extra allocations for THat_{11}^{-1} * THat_{12} and THat_{21} * THat_{11}^{-1}
     bm_blocks_define_complement12!(auxDataPar, 2)
     bm_blocks_define_complement21!(auxDataPar, 2)
+
+    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(auxDataPar.buffMPerm, auxDataPar.auxDataSeq.buffM, auxDataPar)
+    # add block references, in buffTHat, for the D1 regions
+    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix11!(auxDataPar.buffTHatPerm, auxDataPar)
+    # add references to extra Schur complement blocks, those that make it non embarrasingly parallel
+    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(auxDataPar.buffTHatPerm, auxDataPar.buffTHat, auxDataPar)
+    # add references to extra blocks related to hopping terms interactions, in particular
+    # the computation of THat_{11}^{-1} * THat_{12} and THat_{21} * THat_{11}^{-1}
+    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix12!(auxDataPar.buffTHatPerm, auxDataPar)
+    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix21!(auxDataPar.buffTHatPerm, auxDataPar)
 
     return auxDataPar
 end
@@ -631,20 +650,12 @@ end
 function bndiag_of_inv_pddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataPDDRGF, td::TimingData,
     cd::CountingData)
     # the blocks in the following matrices contain references to blocks
-    # from sequential buffers
-    buffM = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.auxDataSeq.buffM, auxData.permVec)
-    bIdM = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.auxDataSeq.bIdM, auxData.permVec)
-    # from parallel buffers
-    Min = bndiag_of_inv_pddrgf_create_permuted_matrix(Min_, auxData.permVec)
-    buffTHat = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.buffTHat, auxData.permVec)
-    # add block references, in buffTHat, for the D1 regions
-    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix11!(buffTHat, auxData)
-
-    # some relabelings, for clarity and general consistency
-    buffM1 = buffM
+    buffM1 = auxData.buffMPerm
+    buffId = auxData.bIdMPerm
     # buffM3 will store the inverse of \widehat{T}_{11}
-    buffM3 = buffTHat
-    buffId = bIdM
+    buffM3 = auxData.buffTHatPerm
+
+    Min = bndiag_of_inv_pddrgf_create_permuted_matrix(Min_, auxData.permVec)
 
     # then, loop over the sub-domains in the D1 domain
 
@@ -666,7 +677,7 @@ function bndiag_of_inv_pddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataPDD
         smallMbmOut = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, auxData.blockSizeD1, auxData.blockSizeD1),
             buffM3.ndiag, buffM3.nrsType, 0)
 
-        for ixi = 1:nrTasksPerThread
+        @time for ixi = 1:nrTasksPerThread
             ix = auxData.nrTasks + (ixo - 1) * auxData.maxNrTasksPerThread + ixi
 
             jxStart = sum(auxData.sizeDomains[1:ix-1]) + 1
@@ -754,31 +765,20 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
     plusOneCmplx = convert(Min_.nrsType, 1.0)
     zeroCmplx = convert(Min_.nrsType, 0.0)
 
+    # the blocks in the following matrices contain references to blocks
+    buffM1 = auxData.buffMPerm
+    buffId = auxData.bIdMPerm
+    buffTHat = auxData.buffTHatPerm
+
     # in, out and buffers, all permuted
-    Mout = bndiag_of_inv_pddrgf_create_permuted_matrix(Mout_, auxData.permVec)
-    buffM2 = Mout
+    buffM2 = bndiag_of_inv_pddrgf_create_permuted_matrix(Mout_, auxData.permVec)
     bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(buffM2, Mout_, auxData)
     Min = bndiag_of_inv_pddrgf_create_permuted_matrix(Min_, auxData.permVec)
-    buffTHat = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.buffTHat, auxData.permVec)
-    # the following line adds references to those blocks that are beyond block tridiagonal
-    # in the sub-domains within D1, as we need compute full inverses in there
-    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix11!(buffTHat, auxData)
-    # add references to extra Schur complement blocks, those that make it non embarrasingly
-    # parallel
-    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(buffTHat, auxData.buffTHat, auxData)
-    # add references to extra blocks related to hopping terms interactions, in particular
-    # the computation of THat_{11}^{-1} * THat_{12} and THat_{21} * THat_{11}^{-1}
-    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix12!(buffTHat, auxData)
-    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix21!(buffTHat, auxData)
 
     # compute the nonzero blocks in THat_{11}^{-1} * THat_{12}, saving the output to the 12 and 21 parts of buffTHat
     @time bndiag_of_inv_pddrgf_compute_THat11Inv_x_THat12!(buffTHat, Min, auxData, td, cd)
     # and then those of THat_{21} * THat_{11}^{-1}
     @time bndiag_of_inv_pddrgf_compute_THat21_x_THat11Inv!(buffTHat, Min, auxData, td, cd)
-
-    buffM1 = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.auxDataSeq.buffM, auxData.permVec)
-    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(buffM1, auxData.auxDataSeq.buffM, auxData)
-    buffId = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.auxDataSeq.bIdM, auxData.permVec)
 
     # the D2 part of buffTHat contains the (approximated) Schur complement
 
