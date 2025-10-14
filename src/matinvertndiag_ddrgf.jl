@@ -11,6 +11,8 @@ struct AuxDataDDRGF
     buffM::BlockMatrix
     bIdM::BlockMatrix
     buildFullInv::Bool
+    nrBLASThreadsOuter::Int
+    nrBLASThreadsInner::Int
 end
 
 struct AuxDataPDDRGF
@@ -35,6 +37,8 @@ struct AuxDataPDDRGF
     smallAuxDataSeq::Vector{AuxDataDDRGF}
     smallMbmIn::Vector{BlockMatrix}
     smallMbmOut::Vector{BlockMatrix}
+    nrBLASThreadsOuter::Int
+    nrBLASThreadsInner::Int
 end
 
 """
@@ -46,7 +50,7 @@ buffers in `AuxDataDDRGF`.
 # Arguments
 - `M::BlockMatrix`: the matrix used as reference.
 """
-function allocate_aux_data_DDRGF(M::BlockMatrix)::AuxDataDDRGF
+function allocate_aux_data_DDRGF(M::BlockMatrix, nrBLASThreadsOuter::Int, nrBLASThreadsInner::Int)::AuxDataDDRGF
     npl = size(M.blockSizes)[1]
 
     # in general, these type of auxiliary block matrices will contain
@@ -60,7 +64,7 @@ function allocate_aux_data_DDRGF(M::BlockMatrix)::AuxDataDDRGF
     bm_blocks_define_identity!(bIdM)
 
     # the final struct with the buffers
-    auxData = AuxDataDDRGF(buffM, bIdM, 0)
+    auxData = AuxDataDDRGF(buffM, bIdM, 0, nrBLASThreadsOuter, nrBLASThreadsInner)
 
     return auxData
 end
@@ -75,7 +79,7 @@ Allocate some extra buffers in `AuxDataPDDRGF` useful for parallel RGF.
 - `auxDataSeq::AuxDataDDRGF`: reference to the data pre-allocated already for sequential RGF.
 """
 function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, splitType::Bool,
-    auxDataSeq::AuxDataDDRGF, nrTasksBare::Int)::AuxDataPDDRGF
+    auxDataSeq::AuxDataDDRGF, nrTasksBare::Int, nrBLASThreadsOuter::Int, nrBLASThreadsInner::Int)::AuxDataPDDRGF
     nrTasks = nrTasksBare
 
     if splitType != 0
@@ -89,8 +93,9 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
         nrTasks, splitType)
     if nrTasks == 1
         println("WARNING: nrTasks = 1, then calling sequential RGF.")
+        # FIXME : the following call to the constructor AuxDataPDDRGF(..) is not really correct. Change and call/test
         return AuxDataPDDRGF(auxDataSeq, nrTasks, Vector{Int}(), Vector{Int}(), Vector{Int}(),
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     end
 
     permVecInv, sizeDomains = bndiag_of_inv_pddrgf_create_permutation_vector(M, nrTasks, nrBlocksInNonPivots, splitType)
@@ -140,8 +145,8 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
     for ix = 1:nrThreads
         push!(smallBlockSizes, M.blockSizes[1:blockSizeD1])
         push!(smallAuxDataSeq, AuxDataDDRGF(BlockMatrix(smallBlockSizes[ix], ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
-            buffMPerm.ndiag, buffMPerm.nrsType, 0), BlockMatrix(smallBlockSizes[ix], ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
-            bIdMPerm.ndiag, bIdMPerm.nrsType, 0), 1))
+                buffMPerm.ndiag, buffMPerm.nrsType, 0), BlockMatrix(smallBlockSizes[ix], ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
+                bIdMPerm.ndiag, bIdMPerm.nrsType, 0), 1, auxDataSeq.nrBLASThreadsOuter, auxDataSeq.nrBLASThreadsInner))
         push!(smallMbmIn, BlockMatrix(smallBlockSizes[ix], ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
             M.ndiag, M.nrsType, 0))
         push!(smallMbmOut, BlockMatrix(smallBlockSizes[ix], ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
@@ -151,7 +156,8 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
     # the final struct with the buffers
     auxDataPar = AuxDataPDDRGF(auxDataSeq, nrTasks, permVec, permVecInv, sizeDomains, blockSizeD1,
         blockSizeD2, lastSizeD2, buffTHat, nrThreads, maxNrTasksPerThread, lastNrTasksPerThread, buffMPerm,
-        bIdMPerm, buffTHatPerm, smallBlockSizes, smallAuxDataSeq, smallMbmIn, smallMbmOut)
+        bIdMPerm, buffTHatPerm, smallBlockSizes, smallAuxDataSeq, smallMbmIn, smallMbmOut, nrBLASThreadsOuter,
+        nrBLASThreadsInner)
 
     # add extra allocations for buffTHat, for those little blocks of the Schur
     # complement that make it non embarrasingly parallel
@@ -189,7 +195,7 @@ of `M`. This function uses the RGF method (soon to be extended to DD-RGF).
 - `td`: struct for fine-level (i.e. of the backend kernels) timing. The user can choose no timing,
 in which case `td` is an empty `TimingData` struct.
 """
-function bndiag_of_inv_ddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxDataDDRGF, td::TimingData,
+function bndiag_of_inv_ddrgf_local!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxDataDDRGF, td::TimingData,
     cd::CountingData)
     # TODO : extend this code to n-diagonal, otherwise rename this function
     #        to keep it as the simple traditional RGF
@@ -275,6 +281,16 @@ function bndiag_of_inv_ddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxD
     end
 end
 
+function bndiag_of_inv_ddrgf_global!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxDataDDRGF, td::TimingData,
+    cd::CountingData)
+    # set the number of chosen BLAS threads
+    LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsOuter * auxData.nrBLASThreadsInner)
+
+    bndiag_of_inv_ddrgf_local!(Mout, Min, auxData, td, cd)
+
+    # restore the number of BLAS threads to 1
+    LinearAlgebra.BLAS.set_num_threads(1)
+end
 """
     bndiag_of_inv_pddrgf_check_nr_tasks(M::BlockMatrix, nrTasks::Int, nrBlocksInPivots::Int, splitType::Bool)
 
@@ -325,7 +341,7 @@ function bndiag_of_inv_pddrgf_check_nr_tasks(M::BlockMatrix, nrBlocksInNonPivots
     return nrTasks, blockSizeD1, blockSizeD2, restOfTotalSizeD2
 end
 
-function bndiag_of_inv_pddrgf_check_nr_threads(nrThreads::Int, nrTasks::Int)::Tuple{Int, Int, Int}
+function bndiag_of_inv_pddrgf_check_nr_threads(nrThreads::Int, nrTasks::Int)::Tuple{Int,Int,Int}
     maxNrTasksPerThread = Int(ceil(nrTasks / nrThreads))
     ceilOfTotalNrTasksPerThread = (nrThreads - 1) * maxNrTasksPerThread
     restOfTotalNrTasksPerThread = nrTasks - ceilOfTotalNrTasksPerThread
@@ -596,6 +612,8 @@ end
 
 function bndiag_of_inv_pddrgf_compute_THat11Inv_x_THat12!(buffTHat::BlockMatrix, Min::BlockMatrix, auxData::AuxDataPDDRGF,
     td::TimingData, cd::CountingData)
+    LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
+
     blockSizeD1 = auxData.blockSizeD1
     nrTasks = auxData.nrTasks
     sizeDomains = auxData.sizeDomains
@@ -605,33 +623,48 @@ function bndiag_of_inv_pddrgf_compute_THat11Inv_x_THat12!(buffTHat::BlockMatrix,
     plusOneCmplx = convert(Min.nrsType, 1.0)
     zeroCmplx = convert(Min.nrsType, 0.0)
 
-    for ix_ = 1:nrTasks
-        ixLpermOffset = sum(sizeDomains22) + sum(sizeDomains11[1:ix_-1])
-
-        # first, the central sub-domain
-        jxLperm = sum(sizeDomains22[1:ix_])
-        for ix = 1:blockSizeD1
-            ixLperm = ixLpermOffset + ix
-
-            be_gemm!('N', 'N', plusOneCmplx, buffTHat.M[ixLperm, ixLpermOffset+1], Min.M[ixLpermOffset+1, jxLperm],
-                zeroCmplx, buffTHat.M[ixLperm, jxLperm], td, cd)
+    Threads.@threads for ixo = 1:auxData.nrThreads
+        if ixo < auxData.nrThreads
+            nrTasksPerThread = auxData.maxNrTasksPerThread
+        else
+            nrTasksPerThread = auxData.lastNrTasksPerThread
         end
 
-        if ix_ < nrTasks
-            # then, the right sub-domain
-            jxLperm = sum(sizeDomains22[1:ix_]) + 1
+        for ixi = 1:nrTasksPerThread
+            # index of each individual task
+            ix_ = (ixo - 1) * auxData.maxNrTasksPerThread + ixi
+
+            ixLpermOffset = sum(sizeDomains22) + sum(sizeDomains11[1:ix_-1])
+
+            # first, the central sub-domain
+            jxLperm = sum(sizeDomains22[1:ix_])
             for ix = 1:blockSizeD1
                 ixLperm = ixLpermOffset + ix
 
-                be_gemm!('N', 'N', plusOneCmplx, buffTHat.M[ixLperm, ixLpermOffset+blockSizeD1], Min.M[ixLpermOffset+blockSizeD1, jxLperm],
+                be_gemm!('N', 'N', plusOneCmplx, buffTHat.M[ixLperm, ixLpermOffset+1], Min.M[ixLpermOffset+1, jxLperm],
                     zeroCmplx, buffTHat.M[ixLperm, jxLperm], td, cd)
+            end
+
+            if ix_ < nrTasks
+                # then, the right sub-domain
+                jxLperm = sum(sizeDomains22[1:ix_]) + 1
+                for ix = 1:blockSizeD1
+                    ixLperm = ixLpermOffset + ix
+
+                    be_gemm!('N', 'N', plusOneCmplx, buffTHat.M[ixLperm, ixLpermOffset+blockSizeD1], Min.M[ixLpermOffset+blockSizeD1, jxLperm],
+                        zeroCmplx, buffTHat.M[ixLperm, jxLperm], td, cd)
+                end
             end
         end
     end
+
+    LinearAlgebra.BLAS.set_num_threads(1)
 end
 
 function bndiag_of_inv_pddrgf_compute_THat21_x_THat11Inv!(buffTHat::BlockMatrix, Min::BlockMatrix, auxData::AuxDataPDDRGF,
     td::TimingData, cd::CountingData)
+    LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
+
     blockSizeD1 = auxData.blockSizeD1
     nrTasks = auxData.nrTasks
     sizeDomains = auxData.sizeDomains
@@ -641,33 +674,48 @@ function bndiag_of_inv_pddrgf_compute_THat21_x_THat11Inv!(buffTHat::BlockMatrix,
     plusOneCmplx = convert(Min.nrsType, 1.0)
     zeroCmplx = convert(Min.nrsType, 0.0)
 
-    for jx_ = 1:nrTasks
-        jxLpermOffset = sum(sizeDomains22) + sum(sizeDomains11[1:jx_-1])
-
-        # first, the central sub-domain
-        ixLperm = sum(sizeDomains22[1:jx_])
-        for jx = 1:blockSizeD1
-            jxLperm = jxLpermOffset + jx
-
-            be_gemm!('N', 'N', plusOneCmplx, Min.M[ixLperm, jxLpermOffset+1], buffTHat.M[jxLpermOffset+1, jxLperm],
-                zeroCmplx, buffTHat.M[ixLperm, jxLperm], td, cd)
+    Threads.@threads for jxo = 1:auxData.nrThreads
+        if jxo < auxData.nrThreads
+            nrTasksPerThread = auxData.maxNrTasksPerThread
+        else
+            nrTasksPerThread = auxData.lastNrTasksPerThread
         end
 
-        if jx_ < nrTasks
-            # then, the right sub-domain
-            ixLperm = sum(sizeDomains22[1:jx_]) + 1
+        for jxi = 1:nrTasksPerThread
+            # index of each individual task
+            jx_ = (jxo - 1) * auxData.maxNrTasksPerThread + jxi
+
+            jxLpermOffset = sum(sizeDomains22) + sum(sizeDomains11[1:jx_-1])
+
+            # first, the central sub-domain
+            ixLperm = sum(sizeDomains22[1:jx_])
             for jx = 1:blockSizeD1
                 jxLperm = jxLpermOffset + jx
 
-                be_gemm!('N', 'N', plusOneCmplx, Min.M[ixLperm, jxLpermOffset+blockSizeD1], buffTHat.M[jxLpermOffset+blockSizeD1, jxLperm],
+                be_gemm!('N', 'N', plusOneCmplx, Min.M[ixLperm, jxLpermOffset+1], buffTHat.M[jxLpermOffset+1, jxLperm],
                     zeroCmplx, buffTHat.M[ixLperm, jxLperm], td, cd)
+            end
+
+            if jx_ < nrTasks
+                # then, the right sub-domain
+                ixLperm = sum(sizeDomains22[1:jx_]) + 1
+                for jx = 1:blockSizeD1
+                    jxLperm = jxLpermOffset + jx
+
+                    be_gemm!('N', 'N', plusOneCmplx, Min.M[ixLperm, jxLpermOffset+blockSizeD1], buffTHat.M[jxLpermOffset+blockSizeD1, jxLperm],
+                        zeroCmplx, buffTHat.M[ixLperm, jxLperm], td, cd)
+                end
             end
         end
     end
+
+    LinearAlgebra.BLAS.set_num_threads(1)
 end
 
 function bndiag_of_inv_pddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataPDDRGF, td::TimingData,
     cd::CountingData)
+    LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
+
     # the blocks in the following matrices contain references to blocks
     buffM1 = auxData.buffMPerm
     buffId = auxData.bIdMPerm
@@ -680,7 +728,7 @@ function bndiag_of_inv_pddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataPDD
     # then, loop over the sub-domains in the D1 domain
 
     # to parallelize the following loop, append to its beginning : Threads.@threads
-    for ixo = 1:auxData.nrThreads
+    Threads.@threads for ixo = 1:auxData.nrThreads
         if ixo < auxData.nrThreads
             nrTasksPerThread = auxData.maxNrTasksPerThread
         else
@@ -693,7 +741,7 @@ function bndiag_of_inv_pddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataPDD
         smallMbmIn = auxData.smallMbmIn[ixo]
         smallMbmOut = auxData.smallMbmOut[ixo]
 
-        @time for ixi = 1:nrTasksPerThread
+        for ixi = 1:nrTasksPerThread
             # index of each individual task
             ix = auxData.nrTasks + (ixo - 1) * auxData.maxNrTasksPerThread + ixi
 
@@ -709,17 +757,19 @@ function bndiag_of_inv_pddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataPDD
             copy!(smallMbmOut.blockSizes, smallBlockSizes)
 
             # 'pointing' to the appropriate blocks
-            bm_reference!(smallMbmIn, Min.M, jxStart-1, jxStart-1)
-            bm_reference_full!(smallMbmOut, buffM3.M, jxStart-1, jxStart-1)
-            bm_reference!(smallAuxDataSeq.buffM, buffM1.M, jxStart-1, jxStart-1)
-            bm_reference!(smallAuxDataSeq.bIdM, buffId.M, jxStart-1, jxStart-1)
+            bm_reference!(smallMbmIn, Min.M, jxStart - 1, jxStart - 1)
+            bm_reference_full!(smallMbmOut, buffM3.M, jxStart - 1, jxStart - 1)
+            bm_reference!(smallAuxDataSeq.buffM, buffM1.M, jxStart - 1, jxStart - 1)
+            bm_reference!(smallAuxDataSeq.bIdM, buffId.M, jxStart - 1, jxStart - 1)
 
             # note that RGF has been modified to give us the little extra blocks in the beyond-2x2 cases
             # (i.e., for the number of layers within each sub-domain in D1)
-            bndiag_of_inv_ddrgf!(smallMbmOut, smallMbmIn, smallAuxDataSeq, td, cd)
+            bndiag_of_inv_ddrgf_local!(smallMbmOut, smallMbmIn, smallAuxDataSeq, td, cd)
 
         end
     end
+
+    LinearAlgebra.BLAS.set_num_threads(1)
 end
 
 function bndiag_of_inv_pddrgf_error_inv_of_T11(Min_::BlockMatrix, Mout_::BlockMatrix,
@@ -796,143 +846,167 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
 
     # the D2 part of buffTHat contains the (approximated) Schur complement
 
-    for ix = 1:auxData.nrTasks
-        # Threads.@threads for ix in 1:Threads.nthreads()
-        jx2Start = sum(auxData.sizeDomains[1:ix-1]) + 1
-        jx2End = sum(auxData.sizeDomains[1:ix])
+    # TODO : pack this whole for loop in a separate function
+    Threads.@threads for ixo = 1:auxData.nrThreads
+        LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
 
-        # copy the D2 part of Min into buffTHat
+        # TODO : for the whole code in this for loop, change the code to make
+        #        use of memory pre-allocations (as in the T11 inverse function)
 
-        smallMViewIn = view(Min.M, jx2Start:jx2End, jx2Start:jx2End)
-        smallMViewBuffTHat = view(buffTHat.M, jx2Start:jx2End, jx2Start:jx2End)
-
-        smallBlockSizes = Min.blockSizes[jx2Start:jx2End]
-
-        smallMbmIn = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jx2End - jx2Start + 1, jx2End - jx2Start + 1),
-            Min.ndiag, Min.nrsType, 0)
-        smallMbmBuffTHat = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jx2End - jx2Start + 1, jx2End - jx2Start + 1),
-            buffTHat.ndiag, buffTHat.nrsType, 0)
-
-        bm_reference!(smallMbmIn, smallMViewIn)
-        bm_reference!(smallMbmBuffTHat, smallMViewBuffTHat)
-
-        # copy THat22^k2 into THatS^k2
-        bm_copy!(smallMbmBuffTHat, smallMbmIn)
-
-        begin
-            jx1Start = sum(auxData.sizeDomains[1:auxData.nrTasks+ix-1]) + 1
-            jx1End = sum(auxData.sizeDomains[1:auxData.nrTasks+ix])
-
-            # in the notation of the paper:
-
-            # THatS^k2
-            THatS_k2 = smallMbmBuffTHat.M
-            # THat12_k2k2
-            THat12_k2k2 = view(Min.M, jx1Start:jx1End, jx2Start:jx2End)
-            # buffer for the product of THat21_k2k2 times ((THat_11)^-1)^k2
-            THat21_k2k2_buff = view(buffTHat.M, jx2Start:jx2End, jx1Start:jx1End)
-
-            be_gemm!('N', 'N', minusOneCmplx, THat21_k2k2_buff[auxData.sizeDomains[ix], 1], THat12_k2k2[1, auxData.sizeDomains[ix]],
-                plusOneCmplx, THatS_k2[auxData.sizeDomains[ix], auxData.sizeDomains[ix]], td, cd)
+        if ixo < auxData.nrThreads
+            nrTasksPerThread = auxData.maxNrTasksPerThread
+        else
+            nrTasksPerThread = auxData.lastNrTasksPerThread
         end
 
-        if ix > 1
-            # running on index 2
-            ixm1 = ix - 1
-            # running on index 1
-            ixm1_s = auxData.nrTasks + ixm1
+        for ixi = 1:nrTasksPerThread
+            # index of each individual task
+            ix = (ixo - 1) * auxData.maxNrTasksPerThread + ixi
 
-            jx1Start = sum(auxData.sizeDomains[1:auxData.nrTasks+ixm1-1]) + 1
-            jx1End = sum(auxData.sizeDomains[1:auxData.nrTasks+ixm1])
+            # Threads.@threads for ix in 1:Threads.nthreads()
+            jx2Start = sum(auxData.sizeDomains[1:ix-1]) + 1
+            jx2End = sum(auxData.sizeDomains[1:ix])
 
-            # in the notation of the paper:
+            # copy the D2 part of Min into buffTHat
 
-            # THatS^k2
-            THatS_k2 = smallMbmBuffTHat.M
-            # THat12_k2k2
-            THat12_k2k2 = view(Min.M, jx1Start:jx1End, jx2Start:jx2End)
-            # buffer for the product of THat21_k2k2 times ((THat_11)^-1)^k2
-            THat21_k2k2_buff = view(buffTHat.M, jx2Start:jx2End, jx1Start:jx1End)
+            smallMViewIn = view(Min.M, jx2Start:jx2End, jx2Start:jx2End)
+            smallMViewBuffTHat = view(buffTHat.M, jx2Start:jx2End, jx2Start:jx2End)
 
-            be_gemm!('N', 'N', minusOneCmplx, THat21_k2k2_buff[1, auxData.sizeDomains[ixm1_s]], THat12_k2k2[auxData.sizeDomains[ixm1_s], 1],
-                plusOneCmplx, THatS_k2[1, 1], td, cd)
-        end
+            smallBlockSizes = Min.blockSizes[jx2Start:jx2End]
 
-        if ix < auxData.nrTasks
-            # compute here those blocks that make the Schur complement non embarrasingly parallel. take into
-            # account the pre-computed THat_{11}^{-1} * THat_{12} and THat_{21} * THat_{11}^{-1}
+            smallMbmIn = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jx2End - jx2Start + 1, jx2End - jx2Start + 1),
+                Min.ndiag, Min.nrsType, 0)
+            smallMbmBuffTHat = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jx2End - jx2Start + 1, jx2End - jx2Start + 1),
+                buffTHat.ndiag, buffTHat.nrsType, 0)
 
-            jx2p1Start = sum(auxData.sizeDomains[1:ix+1-1]) + 1
-            jx2p1End = sum(auxData.sizeDomains[1:ix+1])
+            bm_reference!(smallMbmIn, smallMViewIn)
+            bm_reference!(smallMbmBuffTHat, smallMViewBuffTHat)
 
-            jx1Start = sum(auxData.sizeDomains[1:auxData.nrTasks+ix-1]) + 1
-            jx1End = sum(auxData.sizeDomains[1:auxData.nrTasks+ix])
+            # copy THat22^k2 into THatS^k2
+            bm_copy!(smallMbmBuffTHat, smallMbmIn)
 
-            ix_s = auxData.nrTasks + ix
-
-            # the right block
             begin
+                jx1Start = sum(auxData.sizeDomains[1:auxData.nrTasks+ix-1]) + 1
+                jx1End = sum(auxData.sizeDomains[1:auxData.nrTasks+ix])
+
                 # in the notation of the paper:
 
-                # THatS^k2k2p1
-                THatS_k2k2p1 = view(buffTHat.M, jx2Start:jx2End, jx2p1Start:jx2p1End)
-                # THat21_k2k2_buff
-                THat21_k2k2_buff = view(buffTHat.M, jx2Start:jx2End, jx1Start:jx1End)
-                # THat12_k2k2p1
-                THat12_k2k2p1 = view(Min.M, jx1Start:jx1End, jx2p1Start:jx2p1End)
-
+                # THatS^k2
+                THatS_k2 = smallMbmBuffTHat.M
                 # THat12_k2k2
                 THat12_k2k2 = view(Min.M, jx1Start:jx1End, jx2Start:jx2End)
                 # buffer for the product of THat21_k2k2 times ((THat_11)^-1)^k2
                 THat21_k2k2_buff = view(buffTHat.M, jx2Start:jx2End, jx1Start:jx1End)
 
-                be_gemm!('N', 'N', minusOneCmplx, THat21_k2k2_buff[auxData.sizeDomains[ix], auxData.sizeDomains[ix_s]],
-                    THat12_k2k2p1[auxData.sizeDomains[ix_s], 1],
-                    zeroCmplx, THatS_k2k2p1[auxData.sizeDomains[ix], 1], td, cd)
+                be_gemm!('N', 'N', minusOneCmplx, THat21_k2k2_buff[auxData.sizeDomains[ix], 1], THat12_k2k2[1, auxData.sizeDomains[ix]],
+                    plusOneCmplx, THatS_k2[auxData.sizeDomains[ix], auxData.sizeDomains[ix]], td, cd)
             end
 
-            # the left block
-            begin
+            if ix > 1
+                # running on index 2
+                ixm1 = ix - 1
+                # running on index 1
+                ixm1_s = auxData.nrTasks + ixm1
+
+                jx1Start = sum(auxData.sizeDomains[1:auxData.nrTasks+ixm1-1]) + 1
+                jx1End = sum(auxData.sizeDomains[1:auxData.nrTasks+ixm1])
+
                 # in the notation of the paper:
 
-                # THatS^k2k2p1
-                THatS_k2p1k2 = view(buffTHat.M, jx2p1Start:jx2p1End, jx2Start:jx2End)
-                # THat21k2p1k2
-                THat21_k2p1k2 = view(Min.M, jx2p1Start:jx2p1End, jx1Start:jx1End)
-                # THat12_k2k2_buff
-                THat12_k2k2_buff = view(buffTHat.M, jx1Start:jx1End, jx2Start:jx2End)
+                # THatS^k2
+                THatS_k2 = smallMbmBuffTHat.M
+                # THat12_k2k2
+                THat12_k2k2 = view(Min.M, jx1Start:jx1End, jx2Start:jx2End)
+                # buffer for the product of THat21_k2k2 times ((THat_11)^-1)^k2
+                THat21_k2k2_buff = view(buffTHat.M, jx2Start:jx2End, jx1Start:jx1End)
 
-                be_gemm!('N', 'N', minusOneCmplx, THat21_k2p1k2[1, auxData.sizeDomains[ix_s]],
-                    THat12_k2k2_buff[auxData.sizeDomains[ix_s], auxData.sizeDomains[ix]],
-                    zeroCmplx, THatS_k2p1k2[1, auxData.sizeDomains[ix]], td, cd)
+                be_gemm!('N', 'N', minusOneCmplx, THat21_k2k2_buff[1, auxData.sizeDomains[ixm1_s]], THat12_k2k2[auxData.sizeDomains[ixm1_s], 1],
+                    plusOneCmplx, THatS_k2[1, 1], td, cd)
+            end
+
+            if ix < auxData.nrTasks
+                # compute here those blocks that make the Schur complement non embarrasingly parallel. take into
+                # account the pre-computed THat_{11}^{-1} * THat_{12} and THat_{21} * THat_{11}^{-1}
+
+                jx2p1Start = sum(auxData.sizeDomains[1:ix+1-1]) + 1
+                jx2p1End = sum(auxData.sizeDomains[1:ix+1])
+
+                jx1Start = sum(auxData.sizeDomains[1:auxData.nrTasks+ix-1]) + 1
+                jx1End = sum(auxData.sizeDomains[1:auxData.nrTasks+ix])
+
+                ix_s = auxData.nrTasks + ix
+
+                # the right block
+                begin
+                    # in the notation of the paper:
+
+                    # THatS^k2k2p1
+                    THatS_k2k2p1 = view(buffTHat.M, jx2Start:jx2End, jx2p1Start:jx2p1End)
+                    # THat21_k2k2_buff
+                    THat21_k2k2_buff = view(buffTHat.M, jx2Start:jx2End, jx1Start:jx1End)
+                    # THat12_k2k2p1
+                    THat12_k2k2p1 = view(Min.M, jx1Start:jx1End, jx2p1Start:jx2p1End)
+
+                    # THat12_k2k2
+                    THat12_k2k2 = view(Min.M, jx1Start:jx1End, jx2Start:jx2End)
+                    # buffer for the product of THat21_k2k2 times ((THat_11)^-1)^k2
+                    THat21_k2k2_buff = view(buffTHat.M, jx2Start:jx2End, jx1Start:jx1End)
+
+                    be_gemm!('N', 'N', minusOneCmplx, THat21_k2k2_buff[auxData.sizeDomains[ix], auxData.sizeDomains[ix_s]],
+                        THat12_k2k2p1[auxData.sizeDomains[ix_s], 1],
+                        zeroCmplx, THatS_k2k2p1[auxData.sizeDomains[ix], 1], td, cd)
+                end
+
+                # the left block
+                begin
+                    # in the notation of the paper:
+
+                    # THatS^k2k2p1
+                    THatS_k2p1k2 = view(buffTHat.M, jx2p1Start:jx2p1End, jx2Start:jx2End)
+                    # THat21k2p1k2
+                    THat21_k2p1k2 = view(Min.M, jx2p1Start:jx2p1End, jx1Start:jx1End)
+                    # THat12_k2k2_buff
+                    THat12_k2k2_buff = view(buffTHat.M, jx1Start:jx1End, jx2Start:jx2End)
+
+                    be_gemm!('N', 'N', minusOneCmplx, THat21_k2p1k2[1, auxData.sizeDomains[ix_s]],
+                        THat12_k2k2_buff[auxData.sizeDomains[ix_s], auxData.sizeDomains[ix]],
+                        zeroCmplx, THatS_k2p1k2[1, auxData.sizeDomains[ix]], td, cd)
+                end
             end
         end
+
+        LinearAlgebra.BLAS.set_num_threads(1)
     end
 
     # call sequential RGF to compute the inverse of the Schur complement
 
-    nrLayersSchurCompl = sum(auxData.sizeDomains[1:auxData.nrTasks])
-    blockSizesSchurCompl = buffTHat.blockSizes[1:nrLayersSchurCompl]
+    # TODO : pack this whole following section in a separate function
+    begin
+        # TODO : for the whole code in this section, change the code to make
+        #        use of memory pre-allocations (as in the T11 inverse function)
+        nrLayersSchurCompl = sum(auxData.sizeDomains[1:auxData.nrTasks])
+        blockSizesSchurCompl = buffTHat.blockSizes[1:nrLayersSchurCompl]
 
-    buffTHat22 = BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
-        buffTHat.ndiag, buffTHat.nrsType, 0)
-    buffTHatMView = view(buffTHat.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
-    bm_reference!(buffTHat22, buffTHatMView)
+        buffTHat22 = BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
+            buffTHat.ndiag, buffTHat.nrsType, 0)
+        buffTHatMView = view(buffTHat.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
+        bm_reference!(buffTHat22, buffTHatMView)
 
-    buffM1MView22 = view(buffM1.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
-    buffIdMView22 = view(buffId.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
-    auxDataSeq22 = AuxDataDDRGF(BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
-            buffM1.ndiag, buffM1.nrsType, 0), BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
-            buffId.ndiag, buffId.nrsType, 0), 0)
-    bm_reference!(auxDataSeq22.buffM, buffM1MView22)
-    bm_reference!(auxDataSeq22.bIdM, buffIdMView22)
+        buffM1MView22 = view(buffM1.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
+        buffIdMView22 = view(buffId.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
+        auxDataSeq22 = AuxDataDDRGF(BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
+                buffM1.ndiag, buffM1.nrsType, 0), BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
+                buffId.ndiag, buffId.nrsType, 0), 0, auxData.nrBLASThreadsOuter, auxData.nrBLASThreadsInner)
+        bm_reference!(auxDataSeq22.buffM, buffM1MView22)
+        bm_reference!(auxDataSeq22.bIdM, buffIdMView22)
 
-    buffM222 = BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
-        buffM2.ndiag, buffM2.nrsType, 0)
-    buffM2MView22 = view(buffM2.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
-    bm_reference!(buffM222, buffM2MView22)
+        buffM222 = BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
+            buffM2.ndiag, buffM2.nrsType, 0)
+        buffM2MView22 = view(buffM2.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
+        bm_reference!(buffM222, buffM2MView22)
 
-    @time bndiag_of_inv_ddrgf!(buffM222, buffTHat22, auxDataSeq22, td, cd)
+        @time bndiag_of_inv_ddrgf_global!(buffM222, buffTHat22, auxDataSeq22, td, cd)
+    end
 end
 
 """
@@ -957,7 +1031,7 @@ function bndiag_of_inv_pddrgf!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::A
 
     # call sequential RGF if nrTasks = 1
     if auxData.nrTasks == 1
-        bndiag_of_inv_ddrgf!(Mout_, Min_, auxData.auxDataSeq, td, cd)
+        bndiag_of_inv_ddrgf_global!(Mout_, Min_, auxData.auxDataSeq, td, cd)
         return
     end
 

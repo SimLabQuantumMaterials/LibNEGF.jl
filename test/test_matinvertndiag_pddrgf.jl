@@ -62,14 +62,15 @@ for systemx in systemNames
                     # reference to the block matrix coming from data
                     MbmSeq = MbmSynth
                     # pre-allocate buffer data for sequential RGF
-                    auxDataSeq = allocate_aux_data_DDRGF(MbmSeq)
+                    auxDataSeq = allocate_aux_data_DDRGF(MbmSeq, parse(Int, ARGS[3]), parse(Int, ARGS[4]))
                     # pre-allocate buffer data for parallel RGF
                     # TODO : move the following param inside the check_nr_tasks function,
                     #        and with this decide based on the criteria explained in the paper
                     #        (throw an error in the code if the last else is not being caught)
                     # 0 is open-end, 1 is closed-end
                     splitType::Bool = 0
-                    auxDataPar = allocate_aux_data_PDDRGF(MbmSeq, nrBlocksInNonPivots, splitType, auxDataSeq, parse(Int,ARGS[2]))
+                    auxDataPar = allocate_aux_data_PDDRGF(MbmSeq, nrBlocksInNonPivots, splitType, auxDataSeq,
+                        parse(Int, ARGS[2]), parse(Int, ARGS[3]), parse(Int, ARGS[4]))
 
                     # the blocks in the following matrices are references to the blocks in Min
                     MbmSeqPerm = bndiag_of_inv_pddrgf_create_permuted_matrix(MbmSeq, auxDataPar.permVec)
@@ -105,12 +106,12 @@ for systemx in systemNames
                     # pre-allocate the output matrix
                     MbmInvNdiagSeq = bm_similar(MbmSeq, 1)
                     # pre-allocate buffer data for sequential RGF
-                    auxDataSeq = allocate_aux_data_DDRGF(MbmSeq)
+                    auxDataSeq = allocate_aux_data_DDRGF(MbmSeq, parse(Int, ARGS[3]), parse(Int, ARGS[4]))
 
                     # call sequential RGF
-                    @time bndiag_of_inv_ddrgf!(MbmInvNdiagSeq, MbmSeq, auxDataSeq, TimingData(), CountingData())
-                    @time bndiag_of_inv_ddrgf!(MbmInvNdiagSeq, MbmSeq, auxDataSeq, TimingData(), CountingData())
-                    @time bndiag_of_inv_ddrgf!(MbmInvNdiagSeq, MbmSeq, auxDataSeq, TimingData(), CountingData())
+                    @time bndiag_of_inv_ddrgf_global!(MbmInvNdiagSeq, MbmSeq, auxDataSeq, TimingData(), CountingData())
+                    @time bndiag_of_inv_ddrgf_global!(MbmInvNdiagSeq, MbmSeq, auxDataSeq, TimingData(), CountingData())
+                    @time bndiag_of_inv_ddrgf_global!(MbmInvNdiagSeq, MbmSeq, auxDataSeq, TimingData(), CountingData())
 
                     GC.gc()
 
@@ -126,8 +127,9 @@ for systemx in systemNames
                     #        (throw an error in the code if the last else is not being caught)
                     # 0 is open-end, 1 is closed-end
                     splitType = 0
-                    auxDataPar = allocate_aux_data_PDDRGF(MbmPar, nrBlocksInNonPivots, splitType, auxDataSeq, parse(Int,ARGS[2]))
-                    println("Actual number of tasks: "*string(auxDataPar.nrTasks))
+                    auxDataPar = allocate_aux_data_PDDRGF(MbmPar, nrBlocksInNonPivots, splitType, auxDataSeq,
+                        parse(Int, ARGS[2]), parse(Int, ARGS[3]), parse(Int, ARGS[4]))
+                    println("Actual number of tasks: " * string(auxDataPar.nrTasks))
                     bm_blocks_define_complement22!(MbmInvNdiagPar, auxDataPar, 2)
 
                     # # get the block n-diagonal of M^-1 via RGF
@@ -194,7 +196,8 @@ for systemx in systemNames
                         d2 = sum(auxDataPar.sizeDomains[1:ix])
                         r1 = sum(MbmPar_reord.blockSizes[1:d1-1]) + 1
                         r2 = sum(MbmPar_reord.blockSizes[1:d2])
-                        relErr = LinearAlgebra.norm(Array(approSC[r1:r2, r1:r2] - exactSC[r1:r2, r1:r2]), 2) / LinearAlgebra.norm(Array(exactSC[r1:r2, r1:r2]), 2)
+                        relErr = LinearAlgebra.norm(Array(approSC[r1:r2, r1:r2] - exactSC[r1:r2, r1:r2]), 2) /
+                            LinearAlgebra.norm(Array(exactSC[r1:r2, r1:r2]), 2)
                         @test relErr < roundoffs[precx] * 1.E6
                     end
 
@@ -228,7 +231,8 @@ for systemx in systemNames
                         d2 = sum(auxDataPar.sizeDomains[1:ix])
                         r1 = sum(MbmPar_reord.blockSizes[1:d1-1]) + 1
                         r2 = sum(MbmPar_reord.blockSizes[1:d2])
-                        relErr = LinearAlgebra.norm(Array(MinvNdiagSeq_perm[r1:r2, r1:r2] - MinvNdiagPar_perm[r1:r2, r1:r2]), 2) / LinearAlgebra.norm(Array(MinvNdiagSeq_perm[r1:r2, r1:r2]), 2)
+                        relErr = LinearAlgebra.norm(Array(MinvNdiagSeq_perm[r1:r2, r1:r2] - MinvNdiagPar_perm[r1:r2, r1:r2]), 2) /
+                            LinearAlgebra.norm(Array(MinvNdiagSeq_perm[r1:r2, r1:r2]), 2)
                         @test relErr < roundoffs[precx] * 1.E6
                     end
 
