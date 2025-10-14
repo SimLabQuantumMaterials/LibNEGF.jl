@@ -47,8 +47,8 @@ for systemx in systemNames
                 MbmFromData = bm_convert(M, blockSizes, Dict("in" => 3, "out" => 3))
 
                 # crate synthetic matrix with more principal layers and smaller block size
-                npl = 135
-                blockSize = 128
+                npl = 160
+                blockSize = 256
                 MbmSynth = bm_create_synthetic(MbmFromData, npl, blockSize)
                 # IMPORTANT : the recommended value for nrBlocksInNonPivots is four or less
                 nrBlocksInNonPivots = 4
@@ -69,7 +69,7 @@ for systemx in systemNames
                     #        (throw an error in the code if the last else is not being caught)
                     # 0 is open-end, 1 is closed-end
                     splitType::Bool = 0
-                    auxDataPar = allocate_aux_data_PDDRGF(MbmSeq, nrBlocksInNonPivots, splitType, auxDataSeq)
+                    auxDataPar = allocate_aux_data_PDDRGF(MbmSeq, nrBlocksInNonPivots, splitType, auxDataSeq, parse(Int,ARGS[2]))
 
                     # the blocks in the following matrices are references to the blocks in Min
                     MbmSeqPerm = bndiag_of_inv_pddrgf_create_permuted_matrix(MbmSeq, auxDataPar.permVec)
@@ -109,8 +109,8 @@ for systemx in systemNames
 
                     # call sequential RGF
                     @time bndiag_of_inv_ddrgf!(MbmInvNdiagSeq, MbmSeq, auxDataSeq, TimingData(), CountingData())
-                    # @time bndiag_of_inv_ddrgf!(MbmInvNdiagSeq, MbmSeq, auxDataSeq, TimingData(), CountingData())
-                    # @time bndiag_of_inv_ddrgf!(MbmInvNdiagSeq, MbmSeq, auxDataSeq, TimingData(), CountingData())
+                    @time bndiag_of_inv_ddrgf!(MbmInvNdiagSeq, MbmSeq, auxDataSeq, TimingData(), CountingData())
+                    @time bndiag_of_inv_ddrgf!(MbmInvNdiagSeq, MbmSeq, auxDataSeq, TimingData(), CountingData())
 
                     GC.gc()
 
@@ -126,7 +126,8 @@ for systemx in systemNames
                     #        (throw an error in the code if the last else is not being caught)
                     # 0 is open-end, 1 is closed-end
                     splitType = 0
-                    auxDataPar = allocate_aux_data_PDDRGF(MbmPar, nrBlocksInNonPivots, splitType, auxDataSeq)
+                    auxDataPar = allocate_aux_data_PDDRGF(MbmPar, nrBlocksInNonPivots, splitType, auxDataSeq, parse(Int,ARGS[2]))
+                    println("Actual number of tasks: "*string(auxDataPar.nrTasks))
                     bm_blocks_define_complement22!(MbmInvNdiagPar, auxDataPar, 2)
 
                     # # get the block n-diagonal of M^-1 via RGF
@@ -135,8 +136,8 @@ for systemx in systemNames
 
                     # compute \widehat{T}_{11} (saved @ the D1 part of auxDataPar.buffTHat) and check its correctness
                     @time bndiag_of_inv_pddrgf_inv_of_T11!(MbmPar, auxDataPar, TimingData(), CountingData())
-                    # @time bndiag_of_inv_pddrgf_inv_of_T11!(MbmPar, auxDataPar, TimingData(), CountingData())
-                    # @time bndiag_of_inv_pddrgf_inv_of_T11!(MbmPar, auxDataPar, TimingData(), CountingData())
+                    @time bndiag_of_inv_pddrgf_inv_of_T11!(MbmPar, auxDataPar, TimingData(), CountingData())
+                    @time bndiag_of_inv_pddrgf_inv_of_T11!(MbmPar, auxDataPar, TimingData(), CountingData())
                     relErr::Float64 = bndiag_of_inv_pddrgf_error_inv_of_T11(MbmPar, MbmInvNdiagPar, auxDataPar, TimingData(), CountingData())
                     @test relErr < roundoffs[precx] * 1.0E6
 
@@ -144,9 +145,13 @@ for systemx in systemNames
 
                     # compute the inverse of the Schur complement. The Schur complement is stored
                     # in the D2 part of auxData.buffTHat, and its inverse in the D2 part of MbmInvNdiagPar
+                    println("")
                     @time bndiag_of_inv_pddrgf_inv_of_Schur_compl!(MbmInvNdiagPar, MbmPar, auxDataPar, TimingData(), CountingData())
-                    # @time bndiag_of_inv_pddrgf_inv_of_Schur_compl!(MbmInvNdiagPar, MbmPar, auxDataPar, TimingData(), CountingData())
-                    # @time bndiag_of_inv_pddrgf_inv_of_Schur_compl!(MbmInvNdiagPar, MbmPar, auxDataPar, TimingData(), CountingData())
+                    println("")
+                    @time bndiag_of_inv_pddrgf_inv_of_Schur_compl!(MbmInvNdiagPar, MbmPar, auxDataPar, TimingData(), CountingData())
+                    println("")
+                    @time bndiag_of_inv_pddrgf_inv_of_Schur_compl!(MbmInvNdiagPar, MbmPar, auxDataPar, TimingData(), CountingData())
+                    println("")
 
                     MbmPar_reord = bndiag_of_inv_pddrgf_create_permuted_matrix(MbmPar, auxDataPar.permVec)
                     nb2 = sum(auxDataPar.sizeDomains[1:auxDataPar.nrTasks])
@@ -190,7 +195,7 @@ for systemx in systemNames
                         r1 = sum(MbmPar_reord.blockSizes[1:d1-1]) + 1
                         r2 = sum(MbmPar_reord.blockSizes[1:d2])
                         relErr = LinearAlgebra.norm(Array(approSC[r1:r2, r1:r2] - exactSC[r1:r2, r1:r2]), 2) / LinearAlgebra.norm(Array(exactSC[r1:r2, r1:r2]), 2)
-                        @test relErr < roundoffs[precx] * 1.E3
+                        @test relErr < roundoffs[precx] * 1.E6
                     end
 
                     # with the exact Schur complement at hand, check whether it was constructed correctly within
@@ -205,7 +210,7 @@ for systemx in systemNames
                     bm_reference!(buffTHat22, buffTHatMView)
                     buffTHatM22 = bm_convert(buffTHat22)
                     relErr = LinearAlgebra.norm(Array(buffTHatM22 - exactSC), 2) / LinearAlgebra.norm(Array(exactSC), 2)
-                    @test relErr < roundoffs[precx] * 1.E5
+                    @test relErr < roundoffs[precx] * 1.E6
 
                     # check the correctness of the inverse of the Schur complement
 
@@ -224,7 +229,7 @@ for systemx in systemNames
                         r1 = sum(MbmPar_reord.blockSizes[1:d1-1]) + 1
                         r2 = sum(MbmPar_reord.blockSizes[1:d2])
                         relErr = LinearAlgebra.norm(Array(MinvNdiagSeq_perm[r1:r2, r1:r2] - MinvNdiagPar_perm[r1:r2, r1:r2]), 2) / LinearAlgebra.norm(Array(MinvNdiagSeq_perm[r1:r2, r1:r2]), 2)
-                        @test relErr < roundoffs[precx] * 1.E5
+                        @test relErr < roundoffs[precx] * 1.E6
                     end
 
                 end

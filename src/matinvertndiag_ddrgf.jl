@@ -25,6 +25,9 @@ struct AuxDataPDDRGF
     blockSizeD2::Int
     lastSizeD2::Int
     buffTHat::BlockMatrix
+    nrThreads::Int
+    maxNrTasksPerThread::Int
+    lastNrTasksPerThread::Int
 end
 
 """
@@ -65,8 +68,8 @@ Allocate some extra buffers in `AuxDataPDDRGF` useful for parallel RGF.
 - `auxDataSeq::AuxDataDDRGF`: reference to the data pre-allocated already for sequential RGF.
 """
 function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, splitType::Bool,
-    auxDataSeq::AuxDataDDRGF)::AuxDataPDDRGF
-    nrTasks = Threads.nthreads()
+    auxDataSeq::AuxDataDDRGF, nrTasksBare::Int)::AuxDataPDDRGF
+    nrTasks = nrTasksBare
 
     if splitType != 0
         println("ERROR: the code is currently restricted to open-end only.")
@@ -79,7 +82,7 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
         nrTasks, splitType)
     if nrTasks == 1
         println("WARNING: nrTasks = 1, then calling sequential RGF.")
-        return AuxDataPDDRGF(auxDataSeq, nrTasks, Vector{Int}(), Vector{Int}(), Vector{Int}(), 0, 0, 0, 0)
+        return AuxDataPDDRGF(auxDataSeq, nrTasks, Vector{Int}(), Vector{Int}(), Vector{Int}(), 0, 0, 0, 0, 0, 0, 0)
     end
 
     permVecInv, sizeDomains = bndiag_of_inv_pddrgf_create_permutation_vector(M, nrTasks, nrBlocksInNonPivots, splitType)
@@ -115,9 +118,12 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
         end
     end
 
+    # the appropriate number of threads for good load balance and not wasting energy
+    nrThreads, maxNrTasksPerThread, lastNrTasksPerThread = bndiag_of_inv_pddrgf_check_nr_threads(Threads.nthreads(), nrTasks)
+
     # the final struct with the buffers
     auxDataPar = AuxDataPDDRGF(auxDataSeq, nrTasks, permVec, permVecInv, sizeDomains, blockSizeD1,
-        blockSizeD2, lastSizeD2, buffTHat)
+        blockSizeD2, lastSizeD2, buffTHat, nrThreads, maxNrTasksPerThread, lastNrTasksPerThread)
 
     # add extra allocations for buffTHat, for those little blocks of the Schur
     # complement that make it non embarrasingly parallel
@@ -281,6 +287,16 @@ function bndiag_of_inv_pddrgf_check_nr_tasks(M::BlockMatrix, nrBlocksInNonPivots
     return nrTasks, blockSizeD1, blockSizeD2, restOfTotalSizeD2
 end
 
+function bndiag_of_inv_pddrgf_check_nr_threads(nrThreads::Int, nrTasks::Int)::Tuple{Int, Int, Int}
+    maxNrTasksPerThread = Int(ceil(nrTasks / nrThreads))
+    ceilOfTotalNrTasksPerThread = (nrThreads - 1) * maxNrTasksPerThread
+    restOfTotalNrTasksPerThread = nrTasks - ceilOfTotalNrTasksPerThread
+    if restOfTotalNrTasksPerThread <= 0
+        nrThreads, maxNrTasksPerThread, restOfTotalNrTasksPerThread = bndiag_of_inv_pddrgf_check_nr_threads(nrThreads - 1, nrTasks)
+    end
+
+    return nrThreads, maxNrTasksPerThread, restOfTotalNrTasksPerThread
+end
 """
     bndiag_of_inv_pddrgf_create_permutation_vector(M::BlockMatrix, nrTasks::Int,
     nrBlocksInPivots::Int, splitType::Bool)
@@ -631,40 +647,53 @@ function bndiag_of_inv_pddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataPDD
     buffId = bIdM
 
     # then, loop over the sub-domains in the D1 domain
-    for ix = auxData.nrTasks+1:2*auxData.nrTasks
-        # Threads.@threads for ix_ in 1:Threads.nthreads()
-        # ix = auxData.nrTasks + ix_
-        jxStart = sum(auxData.sizeDomains[1:ix-1]) + 1
-        jxEnd = sum(auxData.sizeDomains[1:ix])
 
-        smallBlockSizes = Min.blockSizes[jxStart:jxEnd]
+    # to parallelize the following loop, append to its beginning : Threads.@threads
+    for ixo = 1:auxData.nrThreads
+        if ixo < auxData.nrThreads
+            nrTasksPerThread = auxData.maxNrTasksPerThread
+        else
+            nrTasksPerThread = auxData.lastNrTasksPerThread
+        end
 
-        smallAuxDataSeq = AuxDataDDRGF(BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
-                buffM1.ndiag, buffM1.nrsType, 0), BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
+        # per-thread pre-allocations
+        smallBlockSizes = Min.blockSizes[1:auxData.blockSizeD1]
+        smallAuxDataSeq = AuxDataDDRGF(BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, auxData.blockSizeD1, auxData.blockSizeD1),
+                buffM1.ndiag, buffM1.nrsType, 0), BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, auxData.blockSizeD1, auxData.blockSizeD1),
                 buffId.ndiag, buffId.nrsType, 0), 1)
-
-        smallMViewIn = view(Min.M, jxStart:jxEnd, jxStart:jxEnd)
-        smallMViewOut = view(buffM3.M, jxStart:jxEnd, jxStart:jxEnd)
-        smallMViewBuffM1 = view(buffM1.M, jxStart:jxEnd, jxStart:jxEnd)
-        smallMViewBuffId = view(buffId.M, jxStart:jxEnd, jxStart:jxEnd)
-
-        smallMbmIn = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
+        smallMbmIn = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, auxData.blockSizeD1, auxData.blockSizeD1),
             Min.ndiag, Min.nrsType, 0)
-        bm_reference!(smallMbmIn, smallMViewIn)
-        smallMbmOut = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
+        smallMbmOut = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, auxData.blockSizeD1, auxData.blockSizeD1),
             buffM3.ndiag, buffM3.nrsType, 0)
-        bm_reference_full!(smallMbmOut, smallMViewOut)
-        bm_reference!(smallAuxDataSeq.buffM, smallMViewBuffM1)
-        bm_reference!(smallAuxDataSeq.bIdM, smallMViewBuffId)
 
-        copy!(smallMbmIn.blockSizes, smallBlockSizes)
-        copy!(smallMbmOut.blockSizes, smallBlockSizes)
-        copy!(smallAuxDataSeq.buffM.blockSizes, smallBlockSizes)
-        copy!(smallAuxDataSeq.bIdM.blockSizes, smallBlockSizes)
+        for ixi = 1:nrTasksPerThread
+            ix = auxData.nrTasks + (ixo - 1) * auxData.maxNrTasksPerThread + ixi
 
-        # note that RGF has been modified to give us the little extra blocks in the beyond-2x2 cases
-        # (i.e., for the number of layers within each sub-domain in D1)
-        bndiag_of_inv_ddrgf!(smallMbmOut, smallMbmIn, smallAuxDataSeq, td, cd)
+            jxStart = sum(auxData.sizeDomains[1:ix-1]) + 1
+            jxEnd = sum(auxData.sizeDomains[1:ix])
+
+            copy!(smallBlockSizes, Min.blockSizes[jxStart:jxEnd])
+
+            copy!(smallAuxDataSeq.buffM.blockSizes, smallBlockSizes)
+            copy!(smallAuxDataSeq.bIdM.blockSizes, smallBlockSizes)
+
+            smallMViewIn = view(Min.M, jxStart:jxEnd, jxStart:jxEnd)
+            smallMViewOut = view(buffM3.M, jxStart:jxEnd, jxStart:jxEnd)
+            smallMViewBuffM1 = view(buffM1.M, jxStart:jxEnd, jxStart:jxEnd)
+            smallMViewBuffId = view(buffId.M, jxStart:jxEnd, jxStart:jxEnd)
+
+            copy!(smallMbmIn.blockSizes, smallBlockSizes)
+            bm_reference!(smallMbmIn, smallMViewIn)
+            copy!(smallMbmOut.blockSizes, smallBlockSizes)
+            bm_reference_full!(smallMbmOut, smallMViewOut)
+            bm_reference!(smallAuxDataSeq.buffM, smallMViewBuffM1)
+            bm_reference!(smallAuxDataSeq.bIdM, smallMViewBuffId)
+
+            # note that RGF has been modified to give us the little extra blocks in the beyond-2x2 cases
+            # (i.e., for the number of layers within each sub-domain in D1)
+            bndiag_of_inv_ddrgf!(smallMbmOut, smallMbmIn, smallAuxDataSeq, td, cd)
+
+        end
     end
 end
 
@@ -743,9 +772,9 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
     bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix21!(buffTHat, auxData)
 
     # compute the nonzero blocks in THat_{11}^{-1} * THat_{12}, saving the output to the 12 and 21 parts of buffTHat
-    bndiag_of_inv_pddrgf_compute_THat11Inv_x_THat12!(buffTHat, Min, auxData, td, cd)
+    @time bndiag_of_inv_pddrgf_compute_THat11Inv_x_THat12!(buffTHat, Min, auxData, td, cd)
     # and then those of THat_{21} * THat_{11}^{-1}
-    bndiag_of_inv_pddrgf_compute_THat21_x_THat11Inv!(buffTHat, Min, auxData, td, cd)
+    @time bndiag_of_inv_pddrgf_compute_THat21_x_THat11Inv!(buffTHat, Min, auxData, td, cd)
 
     buffM1 = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.auxDataSeq.buffM, auxData.permVec)
     bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(buffM1, auxData.auxDataSeq.buffM, auxData)
@@ -889,7 +918,7 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
     buffM2MView22 = view(buffM2.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
     bm_reference!(buffM222, buffM2MView22)
 
-    bndiag_of_inv_ddrgf!(buffM222, buffTHat22, auxDataSeq22, td, cd)
+    @time bndiag_of_inv_ddrgf!(buffM222, buffTHat22, auxDataSeq22, td, cd)
 end
 
 """
