@@ -33,12 +33,15 @@ struct AuxDataPDDRGF
     buffMPerm::BlockMatrix
     bIdMPerm::BlockMatrix
     buffTHatPerm::BlockMatrix
-    smallBlockSizes::Vector{Vector{Int}}
-    smallAuxDataSeq::Vector{AuxDataDDRGF}
-    smallMbmIn::Vector{BlockMatrix}
-    smallMbmOut::Vector{BlockMatrix}
+    smallBlockSizes11::Vector{Vector{Int}}
+    smallAuxDataSeq11::Vector{AuxDataDDRGF}
+    smallMbmIn11::Vector{BlockMatrix}
+    smallMbmOut11::Vector{BlockMatrix}
     nrBLASThreadsOuter::Int
     nrBLASThreadsInner::Int
+    smallBlockSizes22::Vector{Vector{Int}}
+    smallMbmIn22::Vector{BlockMatrix}
+    smallMbmBuffTHat22::Vector{BlockMatrix}
 end
 
 """
@@ -96,7 +99,7 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
         println("WARNING: nrTasks = 1, then calling sequential RGF.")
         # FIXME : the following call to the constructor AuxDataPDDRGF(..) is not really correct. Change and call/test
         return AuxDataPDDRGF(auxDataSeq, nrTasks, Vector{Int}(), Vector{Int}(), Vector{Int}(),
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     end
 
     permVecInv, sizeDomains = bndiag_of_inv_pddrgf_create_permutation_vector(M, nrTasks, nrBlocksInNonPivots, splitType)
@@ -140,26 +143,34 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
     bIdMPerm = bndiag_of_inv_pddrgf_create_permuted_matrix(auxDataSeq.bIdM, permVec)
     buffTHatPerm = bndiag_of_inv_pddrgf_create_permuted_matrix(buffTHat, permVec)
 
-    smallBlockSizes = Vector{Vector{Int}}()
-    smallAuxDataSeq = Vector{AuxDataDDRGF}()
-    smallMbmIn = Vector{BlockMatrix}()
-    smallMbmOut = Vector{BlockMatrix}()
+    smallBlockSizes11 = Vector{Vector{Int}}()
+    smallAuxDataSeq11 = Vector{AuxDataDDRGF}()
+    smallMbmIn11 = Vector{BlockMatrix}()
+    smallMbmOut11 = Vector{BlockMatrix}()
+    smallBlockSizes22 = Vector{Vector{Int}}()
+    smallMbmIn22 = Vector{BlockMatrix}()
+    smallMbmBuffTHat22 = Vector{BlockMatrix}()
     for ix = 1:nrThreads
-        push!(smallBlockSizes, M.blockSizes[1:blockSizeD1])
-        push!(smallAuxDataSeq, AuxDataDDRGF(BlockMatrix(smallBlockSizes[ix], ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
-                buffMPerm.ndiag, buffMPerm.nrsType, 0), BlockMatrix(smallBlockSizes[ix], ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
+        push!(smallBlockSizes11, M.blockSizes[1:blockSizeD1])
+        push!(smallAuxDataSeq11, AuxDataDDRGF(BlockMatrix(smallBlockSizes11[ix], ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
+                buffMPerm.ndiag, buffMPerm.nrsType, 0), BlockMatrix(smallBlockSizes11[ix], ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
                 bIdMPerm.ndiag, bIdMPerm.nrsType, 0), 1, auxDataSeq.nrBLASThreadsOuter, auxDataSeq.nrBLASThreadsInner))
-        push!(smallMbmIn, BlockMatrix(smallBlockSizes[ix], ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
+        push!(smallMbmIn11, BlockMatrix(smallBlockSizes11[ix], ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
             M.ndiag, M.nrsType, 0))
-        push!(smallMbmOut, BlockMatrix(smallBlockSizes[ix], ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
+        push!(smallMbmOut11, BlockMatrix(smallBlockSizes11[ix], ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
+            buffTHatPerm.ndiag, buffTHatPerm.nrsType, 0))
+        push!(smallBlockSizes22, M.blockSizes[1:blockSizeD2])
+        push!(smallMbmIn22, BlockMatrix(smallBlockSizes22[ix], ArrayOrLU_(undef, blockSizeD2, blockSizeD2),
+            M.ndiag, M.nrsType, 0))
+        push!(smallMbmBuffTHat22, BlockMatrix(smallBlockSizes22[ix], ArrayOrLU_(undef, blockSizeD2, blockSizeD2),
             buffTHatPerm.ndiag, buffTHatPerm.nrsType, 0))
     end
 
     # the final struct with the buffers
     auxDataPar = AuxDataPDDRGF(auxDataSeq, nrTasks, permVec, permVecInv, sizeDomains, blockSizeD1,
         blockSizeD2, lastSizeD2, buffTHat, nrThreads, maxNrTasksPerThread, lastNrTasksPerThread, buffMPerm,
-        bIdMPerm, buffTHatPerm, smallBlockSizes, smallAuxDataSeq, smallMbmIn, smallMbmOut, nrBLASThreadsOuter,
-        nrBLASThreadsInner)
+        bIdMPerm, buffTHatPerm, smallBlockSizes11, smallAuxDataSeq11, smallMbmIn11, smallMbmOut11, nrBLASThreadsOuter,
+        nrBLASThreadsInner, smallBlockSizes22, smallMbmIn22, smallMbmBuffTHat22)
 
     # add extra allocations for buffTHat, for those little blocks of the Schur
     # complement that make it non embarrasingly parallel
@@ -736,10 +747,10 @@ function bndiag_of_inv_pddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataPDD
         end
 
         # per-thread pre-allocations
-        smallBlockSizes = auxData.smallBlockSizes[ixo]
-        smallAuxDataSeq = auxData.smallAuxDataSeq[ixo]
-        smallMbmIn = auxData.smallMbmIn[ixo]
-        smallMbmOut = auxData.smallMbmOut[ixo]
+        smallBlockSizes = auxData.smallBlockSizes11[ixo]
+        smallAuxDataSeq = auxData.smallAuxDataSeq11[ixo]
+        smallMbmIn = auxData.smallMbmIn11[ixo]
+        smallMbmOut = auxData.smallMbmOut11[ixo]
 
         for ixi = 1:nrTasksPerThread
             # index of each individual task
@@ -858,12 +869,17 @@ function bndiag_of_inv_pddrgf_build_Schur_compl!(Min_::BlockMatrix, auxData::Aux
             smallMViewIn = view(Min.M, jx2Start:jx2End, jx2Start:jx2End)
             smallMViewBuffTHat = view(buffTHat.M, jx2Start:jx2End, jx2Start:jx2End)
 
-            smallBlockSizes = Min.blockSizes[jx2Start:jx2End]
-
-            smallMbmIn = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jx2End - jx2Start + 1, jx2End - jx2Start + 1),
-                Min.ndiag, Min.nrsType, 0)
-            smallMbmBuffTHat = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jx2End - jx2Start + 1, jx2End - jx2Start + 1),
-                buffTHat.ndiag, buffTHat.nrsType, 0)
+            if ix < auxData.nrTasks
+                smallBlockSizes = auxData.smallBlockSizes22[ixo]
+                smallMbmIn = auxData.smallMbmIn22[ixo]
+                smallMbmBuffTHat = auxData.smallMbmBuffTHat22[ixo]
+            else
+                smallBlockSizes = Min.blockSizes[jx2Start:jx2End]
+                smallMbmIn = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jx2End - jx2Start + 1, jx2End - jx2Start + 1),
+                    Min.ndiag, Min.nrsType, 0)
+                smallMbmBuffTHat = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jx2End - jx2Start + 1, jx2End - jx2Start + 1),
+                    buffTHat.ndiag, buffTHat.nrsType, 0)
+            end
 
             bm_reference!(smallMbmIn, smallMViewIn)
             bm_reference!(smallMbmBuffTHat, smallMViewBuffTHat)
