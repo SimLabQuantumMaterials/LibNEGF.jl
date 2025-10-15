@@ -42,6 +42,9 @@ struct AuxDataPDDRGF
     smallBlockSizes22::Vector{Vector{Int}}
     smallMbmIn22::Vector{BlockMatrix}
     smallMbmBuffTHat22::Vector{BlockMatrix}
+    buffTHat22inv::BlockMatrix
+    auxDataSeq22inv::AuxDataDDRGF
+    buffM222inv::BlockMatrix
 end
 
 """
@@ -99,7 +102,7 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
         println("WARNING: nrTasks = 1, then calling sequential RGF.")
         # FIXME : the following call to the constructor AuxDataPDDRGF(..) is not really correct. Change and call/test
         return AuxDataPDDRGF(auxDataSeq, nrTasks, Vector{Int}(), Vector{Int}(), Vector{Int}(),
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     end
 
     permVecInv, sizeDomains = bndiag_of_inv_pddrgf_create_permutation_vector(M, nrTasks, nrBlocksInNonPivots, splitType)
@@ -166,11 +169,22 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
             buffTHatPerm.ndiag, buffTHatPerm.nrsType, 0))
     end
 
+    # pre-allocations needed for the inverse of the Schur complement
+    nrLayersSchurCompl = sum(sizeDomains[1:nrTasks])
+    blockSizesSchurCompl = buffTHatPerm.blockSizes[1:nrLayersSchurCompl]
+    buffTHat22inv = BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
+        buffTHatPerm.ndiag, buffTHatPerm.nrsType, 0)
+    auxDataSeq22inv = AuxDataDDRGF(BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
+        buffMPerm.ndiag, buffMPerm.nrsType, 0), BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
+        bIdMPerm.ndiag, bIdMPerm.nrsType, 0), 0, nrBLASThreadsOuter, nrBLASThreadsInner)
+    buffM222inv = BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
+        buffTHatPerm.ndiag, buffTHatPerm.nrsType, 0)
+
     # the final struct with the buffers
     auxDataPar = AuxDataPDDRGF(auxDataSeq, nrTasks, permVec, permVecInv, sizeDomains, blockSizeD1,
         blockSizeD2, lastSizeD2, buffTHat, nrThreads, maxNrTasksPerThread, lastNrTasksPerThread, buffMPerm,
         bIdMPerm, buffTHatPerm, smallBlockSizes11, smallAuxDataSeq11, smallMbmIn11, smallMbmOut11, nrBLASThreadsOuter,
-        nrBLASThreadsInner, smallBlockSizes22, smallMbmIn22, smallMbmBuffTHat22)
+        nrBLASThreadsInner, smallBlockSizes22, smallMbmIn22, smallMbmBuffTHat22, buffTHat22inv, auxDataSeq22inv, buffM222inv)
 
     # add extra allocations for buffTHat, for those little blocks of the Schur
     # complement that make it non embarrasingly parallel
@@ -190,6 +204,10 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
     # the computation of THat_{11}^{-1} * THat_{12} and THat_{21} * THat_{11}^{-1}
     bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix12!(auxDataPar.buffTHatPerm, auxDataPar)
     bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix21!(auxDataPar.buffTHatPerm, auxDataPar)
+
+    bm_reference!(auxDataPar.buffTHat22inv, buffTHatPerm.M, 0, 0)
+    bm_reference!(auxDataPar.auxDataSeq22inv.buffM, buffMPerm.M, 0, 0)
+    bm_reference!(auxDataPar.auxDataSeq22inv.bIdM, bIdMPerm.M, 0, 0)
 
     return auxDataPar
 end
@@ -988,29 +1006,12 @@ end
 function bndiag_of_inv_pddrgf_inv_Schur_compl!(Mout_::BlockMatrix, auxData::AuxDataPDDRGF, td::TimingData,
     cd::CountingData)
     # the blocks in the following matrices contain references to blocks
-    buffM1 = auxData.buffMPerm
-    buffId = auxData.bIdMPerm
-    buffTHat = auxData.buffTHatPerm
     buffM2 = Mout_
 
-    # TODO : for the whole code in this function, change the code to make
-    #        use of memory pre-allocations (as in the T11 inverse function)
+    buffTHat22 = auxData.buffTHat22inv
+    auxDataSeq22 = auxData.auxDataSeq22inv
+    buffM222 = auxData.buffM222inv
 
-    nrLayersSchurCompl = sum(auxData.sizeDomains[1:auxData.nrTasks])
-    blockSizesSchurCompl = buffTHat.blockSizes[1:nrLayersSchurCompl]
-
-    buffTHat22 = BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
-        buffTHat.ndiag, buffTHat.nrsType, 0)
-    bm_reference!(buffTHat22, buffTHat.M, 0, 0)
-
-    auxDataSeq22 = AuxDataDDRGF(BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
-            buffM1.ndiag, buffM1.nrsType, 0), BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
-            buffId.ndiag, buffId.nrsType, 0), 0, auxData.nrBLASThreadsOuter, auxData.nrBLASThreadsInner)
-    bm_reference!(auxDataSeq22.buffM, buffM1.M, 0, 0)
-    bm_reference!(auxDataSeq22.bIdM, buffId.M, 0, 0)
-
-    buffM222 = BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
-        buffM2.ndiag, buffM2.nrsType, 0)
     bm_reference!(buffM222, buffM2.M, 0, 0)
 
     @time bndiag_of_inv_ddrgf_global!(buffM222, buffTHat22, auxDataSeq22, td, cd)
@@ -1022,6 +1023,7 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
     # the blocks in the following matrices contain references to blocks
     buffTHat = auxData.buffTHatPerm
     Min = Min_
+    Mout = Mout_
 
     # compute the nonzero blocks in THat_{11}^{-1} * THat_{12}, saving the output to the 12 and 21 parts of buffTHat
     @time bndiag_of_inv_pddrgf_compute_THat11Inv_x_THat12!(buffTHat, Min, auxData, td, cd)
@@ -1032,7 +1034,7 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
     bndiag_of_inv_pddrgf_build_Schur_compl!(Min, auxData, td, cd)
 
     # call sequential RGF to compute the inverse of the Schur complement
-    bndiag_of_inv_pddrgf_inv_Schur_compl!(Mout_, auxData, td, cd)
+    bndiag_of_inv_pddrgf_inv_Schur_compl!(Mout, auxData, td, cd)
 end
 
 """
