@@ -91,6 +91,7 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
     # this might change the number of threads to be used
     nrTasks, blockSizeD1, blockSizeD2, lastSizeD2 = bndiag_of_inv_pddrgf_check_nr_tasks(M, nrBlocksInNonPivots,
         nrTasks, splitType)
+    println("Actual number of tasks: " * string(nrTasks))
     if nrTasks == 1
         println("WARNING: nrTasks = 1, then calling sequential RGF.")
         # FIXME : the following call to the constructor AuxDataPDDRGF(..) is not really correct. Change and call/test
@@ -133,6 +134,7 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
 
     # the appropriate number of threads for good load balance and not wasting energy
     nrThreads, maxNrTasksPerThread, lastNrTasksPerThread = bndiag_of_inv_pddrgf_check_nr_threads(Threads.nthreads(), nrTasks)
+    println("Actual number of threads: " * string(nrThreads))
 
     buffMPerm = bndiag_of_inv_pddrgf_create_permuted_matrix(auxDataSeq.buffM, permVec)
     bIdMPerm = bndiag_of_inv_pddrgf_create_permuted_matrix(auxDataSeq.bIdM, permVec)

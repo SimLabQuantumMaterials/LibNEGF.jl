@@ -48,10 +48,10 @@ for systemx in systemNames
 
                 # crate synthetic matrix with more principal layers and smaller block size
                 npl = 160
-                blockSize = 64
+                blockSize = 128
                 MbmSynth = bm_create_synthetic(MbmFromData, npl, blockSize)
                 # IMPORTANT : the recommended value for nrBlocksInNonPivots is four or less
-                nrBlocksInNonPivots = 4
+                nrBlocksInNonPivots = 2
 
                 # -----------------------------
 
@@ -129,7 +129,6 @@ for systemx in systemNames
                     splitType = 0
                     auxDataPar = allocate_aux_data_PDDRGF(MbmPar, nrBlocksInNonPivots, splitType, auxDataSeq,
                         parse(Int, ARGS[2]), parse(Int, ARGS[3]), parse(Int, ARGS[4]))
-                    println("Actual number of tasks: " * string(auxDataPar.nrTasks))
                     bm_blocks_define_complement22!(MbmInvNdiagPar, auxDataPar, 2)
 
                     # # get the block n-diagonal of M^-1 via RGF
