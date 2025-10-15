@@ -509,7 +509,6 @@ end
 function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxDataPDDRGF)
     blockSizeD2 = auxData.blockSizeD2
     nrTasks = auxData.nrTasks
-    permVec = auxData.permVec
     permVecInv = auxData.permVecInv
 
     for ix = 1:nrTasks-1
@@ -574,7 +573,6 @@ end
 
 function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix21!(M::BlockMatrix, auxData::AuxDataPDDRGF)
     blockSizeD1 = auxData.blockSizeD1
-    permVec = auxData.permVec
     permVecInv = auxData.permVecInv
     nrTasks = auxData.nrTasks
     sizeDomains = auxData.sizeDomains
@@ -822,33 +820,19 @@ function bndiag_of_inv_pddrgf_error_inv_of_T11(Min_::BlockMatrix, Mout_::BlockMa
     return sqrt(numErr / denErr)
 end
 
-function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::AuxDataPDDRGF, td::TimingData,
+function bndiag_of_inv_pddrgf_build_Schur_compl!(Min_::BlockMatrix, auxData::AuxDataPDDRGF, td::TimingData,
     cd::CountingData)
+    LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
 
     minusOneCmplx = convert(Min_.nrsType, -1.0)
     plusOneCmplx = convert(Min_.nrsType, 1.0)
     zeroCmplx = convert(Min_.nrsType, 0.0)
 
     # the blocks in the following matrices contain references to blocks
-    buffM1 = auxData.buffMPerm
-    buffId = auxData.bIdMPerm
     buffTHat = auxData.buffTHatPerm
+    Min = Min_
 
-    # in, out and buffers, all permuted
-    buffM2 = bndiag_of_inv_pddrgf_create_permuted_matrix(Mout_, auxData.permVec)
-    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(buffM2, Mout_, auxData)
-    Min = bndiag_of_inv_pddrgf_create_permuted_matrix(Min_, auxData.permVec)
-
-    # compute the nonzero blocks in THat_{11}^{-1} * THat_{12}, saving the output to the 12 and 21 parts of buffTHat
-    @time bndiag_of_inv_pddrgf_compute_THat11Inv_x_THat12!(buffTHat, Min, auxData, td, cd)
-    # and then those of THat_{21} * THat_{11}^{-1}
-    @time bndiag_of_inv_pddrgf_compute_THat21_x_THat11Inv!(buffTHat, Min, auxData, td, cd)
-
-    # the D2 part of buffTHat contains the (approximated) Schur complement
-
-    # TODO : pack this whole for loop in a separate function
     Threads.@threads for ixo = 1:auxData.nrThreads
-        LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
 
         # TODO : for the whole code in this for loop, change the code to make
         #        use of memory pre-allocations (as in the T11 inverse function)
@@ -975,8 +959,28 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
             end
         end
 
-        LinearAlgebra.BLAS.set_num_threads(1)
     end
+
+    LinearAlgebra.BLAS.set_num_threads(1)
+end
+
+function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::AuxDataPDDRGF, td::TimingData,
+    cd::CountingData)
+
+    # the blocks in the following matrices contain references to blocks
+    buffM1 = auxData.buffMPerm
+    buffId = auxData.bIdMPerm
+    buffTHat = auxData.buffTHatPerm
+    Min = Min_
+    buffM2 = Mout_
+
+    # compute the nonzero blocks in THat_{11}^{-1} * THat_{12}, saving the output to the 12 and 21 parts of buffTHat
+    @time bndiag_of_inv_pddrgf_compute_THat11Inv_x_THat12!(buffTHat, Min, auxData, td, cd)
+    # and then those of THat_{21} * THat_{11}^{-1}
+    @time bndiag_of_inv_pddrgf_compute_THat21_x_THat11Inv!(buffTHat, Min, auxData, td, cd)
+
+    # the D2 part of buffTHat contains the (approximated) Schur complement
+    bndiag_of_inv_pddrgf_build_Schur_compl!(Min, auxData, td, cd)
 
     # call sequential RGF to compute the inverse of the Schur complement
 
@@ -1037,27 +1041,16 @@ function bndiag_of_inv_pddrgf!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::A
 
     # PART (1,1)
 
-    # first, compute the inverse of \widehat{T}_{11}, storing it in the D1 part of auxData.buffTHat
     Min = bndiag_of_inv_pddrgf_create_permuted_matrix(Min_, auxData.permVec)
+    Mout = bndiag_of_inv_pddrgf_create_permuted_matrix(Mout_, auxData.permVec)
+    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(Mout, Mout_, auxData)
+
+    # first, compute the inverse of \widehat{T}_{11}, storing it in the D1 part of auxData.buffTHat
     bndiag_of_inv_pddrgf_inv_of_T11!(Min, auxData, td, cd)
 
-    # with the inverse of \widehat{T}_{11} at hand, construct the Schur complement now
-    # (IMPORTANT : for now, taking the approximation of ignoring those 'orange' blocks),
-    # stored in the D2 part of Mout_
-    bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_, Min_, auxData, td, cd)
-
-    # TODO : IMPORTANT : do an evaluation of how the error due to ignoring the 'orange' blocks
-    #        changes with nrBlocksInNonPivots (see test_matinvertndiag_pddrgf.jl). Something very
-    #        important is to write the code for this assessment in a reproducible manner, as we want
-    #        to evalute this for various physical regimes. This assessment will tell us whether
-    #        this approximation is a good idea, or if we need to already add a correction for it
-
-    # PART (2,2)
-
-    # first, we compute \widetilde{T}_{11}^{-1}
-    # TODO !!
-
-    # println(Mout_.blockSizes)
+    # with the inverse of \widehat{T}_{11} at hand, construct the Schur complement, and
+    # then invert it, stored in the D2 part of Mout_
+    bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout, Min, auxData, td, cd)
 
     # TODO : the rest of the implementation
 end

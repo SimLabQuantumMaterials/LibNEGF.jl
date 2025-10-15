@@ -136,10 +136,14 @@ for systemx in systemNames
                     # println("Measurements for running parallel RGF")
                     # @time bndiag_of_inv_pddrgf!(MbmInvNdiagPar, MbmPar, auxDataPar, TimingData(), CountingData())
 
+                    MbmParPerm = bndiag_of_inv_pddrgf_create_permuted_matrix(MbmPar, auxDataPar.permVec)
+                    MbmInvNdiagParPerm = bndiag_of_inv_pddrgf_create_permuted_matrix(MbmInvNdiagPar, auxDataPar.permVec)
+                    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(MbmInvNdiagParPerm, MbmInvNdiagPar, auxDataPar)
+
                     # compute \widehat{T}_{11} (saved @ the D1 part of auxDataPar.buffTHat) and check its correctness
-                    @time bndiag_of_inv_pddrgf_inv_of_T11!(MbmPar, auxDataPar, TimingData(), CountingData())
-                    @time bndiag_of_inv_pddrgf_inv_of_T11!(MbmPar, auxDataPar, TimingData(), CountingData())
-                    @time bndiag_of_inv_pddrgf_inv_of_T11!(MbmPar, auxDataPar, TimingData(), CountingData())
+                    @time bndiag_of_inv_pddrgf_inv_of_T11!(MbmParPerm, auxDataPar, TimingData(), CountingData())
+                    @time bndiag_of_inv_pddrgf_inv_of_T11!(MbmParPerm, auxDataPar, TimingData(), CountingData())
+                    @time bndiag_of_inv_pddrgf_inv_of_T11!(MbmParPerm, auxDataPar, TimingData(), CountingData())
                     relErr::Float64 = bndiag_of_inv_pddrgf_error_inv_of_T11(MbmPar, MbmInvNdiagPar, auxDataPar, TimingData(), CountingData())
                     @test relErr < roundoffs[precx] * 1.0E6
 
@@ -148,11 +152,11 @@ for systemx in systemNames
                     # compute the inverse of the Schur complement. The Schur complement is stored
                     # in the D2 part of auxData.buffTHat, and its inverse in the D2 part of MbmInvNdiagPar
                     println("")
-                    @time bndiag_of_inv_pddrgf_inv_of_Schur_compl!(MbmInvNdiagPar, MbmPar, auxDataPar, TimingData(), CountingData())
+                    @time bndiag_of_inv_pddrgf_inv_of_Schur_compl!(MbmInvNdiagParPerm, MbmParPerm, auxDataPar, TimingData(), CountingData())
                     println("")
-                    @time bndiag_of_inv_pddrgf_inv_of_Schur_compl!(MbmInvNdiagPar, MbmPar, auxDataPar, TimingData(), CountingData())
+                    @time bndiag_of_inv_pddrgf_inv_of_Schur_compl!(MbmInvNdiagParPerm, MbmParPerm, auxDataPar, TimingData(), CountingData())
                     println("")
-                    @time bndiag_of_inv_pddrgf_inv_of_Schur_compl!(MbmInvNdiagPar, MbmPar, auxDataPar, TimingData(), CountingData())
+                    @time bndiag_of_inv_pddrgf_inv_of_Schur_compl!(MbmInvNdiagParPerm, MbmParPerm, auxDataPar, TimingData(), CountingData())
                     println("")
 
                     MbmPar_reord = bndiag_of_inv_pddrgf_create_permuted_matrix(MbmPar, auxDataPar.permVec)
