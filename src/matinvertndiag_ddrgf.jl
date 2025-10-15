@@ -1001,21 +1001,17 @@ function bndiag_of_inv_pddrgf_inv_Schur_compl!(Mout_::BlockMatrix, auxData::AuxD
 
     buffTHat22 = BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
         buffTHat.ndiag, buffTHat.nrsType, 0)
-    buffTHatMView = view(buffTHat.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
-    bm_reference!(buffTHat22, buffTHatMView)
+    bm_reference!(buffTHat22, buffTHat.M, 0, 0)
 
-    buffM1MView22 = view(buffM1.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
-    buffIdMView22 = view(buffId.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
     auxDataSeq22 = AuxDataDDRGF(BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
             buffM1.ndiag, buffM1.nrsType, 0), BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
             buffId.ndiag, buffId.nrsType, 0), 0, auxData.nrBLASThreadsOuter, auxData.nrBLASThreadsInner)
-    bm_reference!(auxDataSeq22.buffM, buffM1MView22)
-    bm_reference!(auxDataSeq22.bIdM, buffIdMView22)
+    bm_reference!(auxDataSeq22.buffM, buffM1.M, 0, 0)
+    bm_reference!(auxDataSeq22.bIdM, buffId.M, 0, 0)
 
     buffM222 = BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
         buffM2.ndiag, buffM2.nrsType, 0)
-    buffM2MView22 = view(buffM2.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
-    bm_reference!(buffM222, buffM2MView22)
+    bm_reference!(buffM222, buffM2.M, 0, 0)
 
     @time bndiag_of_inv_ddrgf_global!(buffM222, buffTHat22, auxDataSeq22, td, cd)
 end
