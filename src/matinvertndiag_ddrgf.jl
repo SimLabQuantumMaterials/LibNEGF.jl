@@ -964,6 +964,41 @@ function bndiag_of_inv_pddrgf_build_Schur_compl!(Min_::BlockMatrix, auxData::Aux
     LinearAlgebra.BLAS.set_num_threads(1)
 end
 
+function bndiag_of_inv_pddrgf_inv_Schur_compl!(Mout_::BlockMatrix, auxData::AuxDataPDDRGF, td::TimingData,
+    cd::CountingData)
+    # the blocks in the following matrices contain references to blocks
+    buffM1 = auxData.buffMPerm
+    buffId = auxData.bIdMPerm
+    buffTHat = auxData.buffTHatPerm
+    buffM2 = Mout_
+
+    # TODO : for the whole code in this function, change the code to make
+    #        use of memory pre-allocations (as in the T11 inverse function)
+
+    nrLayersSchurCompl = sum(auxData.sizeDomains[1:auxData.nrTasks])
+    blockSizesSchurCompl = buffTHat.blockSizes[1:nrLayersSchurCompl]
+
+    buffTHat22 = BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
+        buffTHat.ndiag, buffTHat.nrsType, 0)
+    buffTHatMView = view(buffTHat.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
+    bm_reference!(buffTHat22, buffTHatMView)
+
+    buffM1MView22 = view(buffM1.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
+    buffIdMView22 = view(buffId.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
+    auxDataSeq22 = AuxDataDDRGF(BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
+            buffM1.ndiag, buffM1.nrsType, 0), BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
+            buffId.ndiag, buffId.nrsType, 0), 0, auxData.nrBLASThreadsOuter, auxData.nrBLASThreadsInner)
+    bm_reference!(auxDataSeq22.buffM, buffM1MView22)
+    bm_reference!(auxDataSeq22.bIdM, buffIdMView22)
+
+    buffM222 = BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
+        buffM2.ndiag, buffM2.nrsType, 0)
+    buffM2MView22 = view(buffM2.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
+    bm_reference!(buffM222, buffM2MView22)
+
+    @time bndiag_of_inv_ddrgf_global!(buffM222, buffTHat22, auxDataSeq22, td, cd)
+end
+
 function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::AuxDataPDDRGF, td::TimingData,
     cd::CountingData)
 
@@ -983,34 +1018,7 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
     bndiag_of_inv_pddrgf_build_Schur_compl!(Min, auxData, td, cd)
 
     # call sequential RGF to compute the inverse of the Schur complement
-
-    # TODO : pack this whole following section in a separate function
-    begin
-        # TODO : for the whole code in this section, change the code to make
-        #        use of memory pre-allocations (as in the T11 inverse function)
-        nrLayersSchurCompl = sum(auxData.sizeDomains[1:auxData.nrTasks])
-        blockSizesSchurCompl = buffTHat.blockSizes[1:nrLayersSchurCompl]
-
-        buffTHat22 = BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
-            buffTHat.ndiag, buffTHat.nrsType, 0)
-        buffTHatMView = view(buffTHat.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
-        bm_reference!(buffTHat22, buffTHatMView)
-
-        buffM1MView22 = view(buffM1.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
-        buffIdMView22 = view(buffId.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
-        auxDataSeq22 = AuxDataDDRGF(BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
-                buffM1.ndiag, buffM1.nrsType, 0), BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
-                buffId.ndiag, buffId.nrsType, 0), 0, auxData.nrBLASThreadsOuter, auxData.nrBLASThreadsInner)
-        bm_reference!(auxDataSeq22.buffM, buffM1MView22)
-        bm_reference!(auxDataSeq22.bIdM, buffIdMView22)
-
-        buffM222 = BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
-            buffM2.ndiag, buffM2.nrsType, 0)
-        buffM2MView22 = view(buffM2.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
-        bm_reference!(buffM222, buffM2MView22)
-
-        @time bndiag_of_inv_ddrgf_global!(buffM222, buffTHat22, auxDataSeq22, td, cd)
-    end
+    bndiag_of_inv_pddrgf_inv_Schur_compl!(Mout_, auxData, td, cd)
 end
 
 """
