@@ -866,9 +866,6 @@ function bndiag_of_inv_pddrgf_build_Schur_compl!(Min_::BlockMatrix, auxData::Aux
 
             # copy the D2 part of Min into buffTHat
 
-            smallMViewIn = view(Min.M, jx2Start:jx2End, jx2Start:jx2End)
-            smallMViewBuffTHat = view(buffTHat.M, jx2Start:jx2End, jx2Start:jx2End)
-
             if ix < auxData.nrTasks
                 smallBlockSizes = auxData.smallBlockSizes22[ixo]
                 smallMbmIn = auxData.smallMbmIn22[ixo]
@@ -881,8 +878,8 @@ function bndiag_of_inv_pddrgf_build_Schur_compl!(Min_::BlockMatrix, auxData::Aux
                     buffTHat.ndiag, buffTHat.nrsType, 0)
             end
 
-            bm_reference!(smallMbmIn, smallMViewIn)
-            bm_reference!(smallMbmBuffTHat, smallMViewBuffTHat)
+            bm_reference!(smallMbmIn, Min.M, jx2Start - 1, jx2Start - 1)
+            bm_reference!(smallMbmBuffTHat, buffTHat.M, jx2Start - 1, jx2Start - 1)
 
             # copy THat22^k2 into THatS^k2
             bm_copy!(smallMbmBuffTHat, smallMbmIn)
@@ -891,17 +888,22 @@ function bndiag_of_inv_pddrgf_build_Schur_compl!(Min_::BlockMatrix, auxData::Aux
                 jx1Start = sum(auxData.sizeDomains[1:auxData.nrTasks+ix-1]) + 1
                 jx1End = sum(auxData.sizeDomains[1:auxData.nrTasks+ix])
 
-                # in the notation of the paper:
+                # # in the notation of the paper:
+                # # THatS^k2
+                # THatS_k2 = smallMbmBuffTHat.M
+                # # THat12_k2k2
+                # THat12_k2k2 = view(Min.M, jx1Start:jx1End, jx2Start:jx2End)
+                # # buffer for the product of THat21_k2k2 times ((THat_11)^-1)^k2
+                # THat21_k2k2_buff = view(buffTHat.M, jx2Start:jx2End, jx1Start:jx1End)
+                # be_gemm!('N', 'N', minusOneCmplx, THat21_k2k2_buff[auxData.sizeDomains[ix], 1], THat12_k2k2[1, auxData.sizeDomains[ix]],
+                #     plusOneCmplx, THatS_k2[auxData.sizeDomains[ix], auxData.sizeDomains[ix]], td, cd)
 
-                # THatS^k2
-                THatS_k2 = smallMbmBuffTHat.M
-                # THat12_k2k2
-                THat12_k2k2 = view(Min.M, jx1Start:jx1End, jx2Start:jx2End)
-                # buffer for the product of THat21_k2k2 times ((THat_11)^-1)^k2
-                THat21_k2k2_buff = view(buffTHat.M, jx2Start:jx2End, jx1Start:jx1End)
-
-                be_gemm!('N', 'N', minusOneCmplx, THat21_k2k2_buff[auxData.sizeDomains[ix], 1], THat12_k2k2[1, auxData.sizeDomains[ix]],
-                    plusOneCmplx, THatS_k2[auxData.sizeDomains[ix], auxData.sizeDomains[ix]], td, cd)
+                be_gemm!('N', 'N', minusOneCmplx,
+                    buffTHat.M[jx2Start-1+auxData.sizeDomains[ix], jx1Start-1+1],
+                    Min.M[jx1Start-1+1, jx2Start-1+auxData.sizeDomains[ix]],
+                    plusOneCmplx,
+                    smallMbmBuffTHat.M[auxData.sizeDomains[ix], auxData.sizeDomains[ix]],
+                    td, cd)
             end
 
             if ix > 1
@@ -913,17 +915,22 @@ function bndiag_of_inv_pddrgf_build_Schur_compl!(Min_::BlockMatrix, auxData::Aux
                 jx1Start = sum(auxData.sizeDomains[1:auxData.nrTasks+ixm1-1]) + 1
                 jx1End = sum(auxData.sizeDomains[1:auxData.nrTasks+ixm1])
 
-                # in the notation of the paper:
+                # # in the notation of the paper:
+                # # THatS^k2
+                # THatS_k2 = smallMbmBuffTHat.M
+                # # THat12_k2k2
+                # THat12_k2k2 = view(Min.M, jx1Start:jx1End, jx2Start:jx2End)
+                # # buffer for the product of THat21_k2k2 times ((THat_11)^-1)^k2
+                # THat21_k2k2_buff = view(buffTHat.M, jx2Start:jx2End, jx1Start:jx1End)
+                # be_gemm!('N', 'N', minusOneCmplx, THat21_k2k2_buff[1, auxData.sizeDomains[ixm1_s]], THat12_k2k2[auxData.sizeDomains[ixm1_s], 1],
+                #     plusOneCmplx, THatS_k2[1, 1], td, cd)
 
-                # THatS^k2
-                THatS_k2 = smallMbmBuffTHat.M
-                # THat12_k2k2
-                THat12_k2k2 = view(Min.M, jx1Start:jx1End, jx2Start:jx2End)
-                # buffer for the product of THat21_k2k2 times ((THat_11)^-1)^k2
-                THat21_k2k2_buff = view(buffTHat.M, jx2Start:jx2End, jx1Start:jx1End)
-
-                be_gemm!('N', 'N', minusOneCmplx, THat21_k2k2_buff[1, auxData.sizeDomains[ixm1_s]], THat12_k2k2[auxData.sizeDomains[ixm1_s], 1],
-                    plusOneCmplx, THatS_k2[1, 1], td, cd)
+                be_gemm!('N', 'N', minusOneCmplx,
+                    buffTHat.M[jx2Start-1+1, jx1Start-1+auxData.sizeDomains[ixm1_s]],
+                    Min.M[jx1Start-1+auxData.sizeDomains[ixm1_s], jx2Start-1+1],
+                    plusOneCmplx,
+                    smallMbmBuffTHat.M[1, 1],
+                    td, cd)
             end
 
             if ix < auxData.nrTasks
@@ -940,39 +947,44 @@ function bndiag_of_inv_pddrgf_build_Schur_compl!(Min_::BlockMatrix, auxData::Aux
 
                 # the right block
                 begin
-                    # in the notation of the paper:
+                    # # in the notation of the paper:
+                    # # THatS^k2k2p1
+                    # THatS_k2k2p1 = view(buffTHat.M, jx2Start:jx2End, jx2p1Start:jx2p1End)
+                    # # THat12_k2k2p1
+                    # THat12_k2k2p1 = view(Min.M, jx1Start:jx1End, jx2p1Start:jx2p1End)
+                    # # buffer for the product of THat21_k2k2 times ((THat_11)^-1)^k2
+                    # THat21_k2k2_buff = view(buffTHat.M, jx2Start:jx2End, jx1Start:jx1End)
+                    # be_gemm!('N', 'N', minusOneCmplx, THat21_k2k2_buff[auxData.sizeDomains[ix], auxData.sizeDomains[ix_s]],
+                    #     THat12_k2k2p1[auxData.sizeDomains[ix_s], 1],
+                    #     zeroCmplx, THatS_k2k2p1[auxData.sizeDomains[ix], 1], td, cd)
 
-                    # THatS^k2k2p1
-                    THatS_k2k2p1 = view(buffTHat.M, jx2Start:jx2End, jx2p1Start:jx2p1End)
-                    # THat21_k2k2_buff
-                    THat21_k2k2_buff = view(buffTHat.M, jx2Start:jx2End, jx1Start:jx1End)
-                    # THat12_k2k2p1
-                    THat12_k2k2p1 = view(Min.M, jx1Start:jx1End, jx2p1Start:jx2p1End)
-
-                    # THat12_k2k2
-                    THat12_k2k2 = view(Min.M, jx1Start:jx1End, jx2Start:jx2End)
-                    # buffer for the product of THat21_k2k2 times ((THat_11)^-1)^k2
-                    THat21_k2k2_buff = view(buffTHat.M, jx2Start:jx2End, jx1Start:jx1End)
-
-                    be_gemm!('N', 'N', minusOneCmplx, THat21_k2k2_buff[auxData.sizeDomains[ix], auxData.sizeDomains[ix_s]],
-                        THat12_k2k2p1[auxData.sizeDomains[ix_s], 1],
-                        zeroCmplx, THatS_k2k2p1[auxData.sizeDomains[ix], 1], td, cd)
+                    be_gemm!('N', 'N', minusOneCmplx,
+                        buffTHat.M[jx2Start-1+auxData.sizeDomains[ix], jx1Start-1+auxData.sizeDomains[ix_s]],
+                        Min.M[jx1Start-1+auxData.sizeDomains[ix_s], jx2p1Start-1+1],
+                        zeroCmplx,
+                        buffTHat.M[jx2Start-1+auxData.sizeDomains[ix], jx2p1Start-1+1],
+                        td, cd)
                 end
 
                 # the left block
                 begin
-                    # in the notation of the paper:
+                    # # in the notation of the paper:
+                    # # THatS^k2k2p1
+                    # THatS_k2p1k2 = view(buffTHat.M, jx2p1Start:jx2p1End, jx2Start:jx2End)
+                    # # THat21k2p1k2
+                    # THat21_k2p1k2 = view(Min.M, jx2p1Start:jx2p1End, jx1Start:jx1End)
+                    # # THat12_k2k2_buff
+                    # THat12_k2k2_buff = view(buffTHat.M, jx1Start:jx1End, jx2Start:jx2End)
+                    # be_gemm!('N', 'N', minusOneCmplx, THat21_k2p1k2[1, auxData.sizeDomains[ix_s]],
+                    #     THat12_k2k2_buff[auxData.sizeDomains[ix_s], auxData.sizeDomains[ix]],
+                    #     zeroCmplx, THatS_k2p1k2[1, auxData.sizeDomains[ix]], td, cd)
 
-                    # THatS^k2k2p1
-                    THatS_k2p1k2 = view(buffTHat.M, jx2p1Start:jx2p1End, jx2Start:jx2End)
-                    # THat21k2p1k2
-                    THat21_k2p1k2 = view(Min.M, jx2p1Start:jx2p1End, jx1Start:jx1End)
-                    # THat12_k2k2_buff
-                    THat12_k2k2_buff = view(buffTHat.M, jx1Start:jx1End, jx2Start:jx2End)
-
-                    be_gemm!('N', 'N', minusOneCmplx, THat21_k2p1k2[1, auxData.sizeDomains[ix_s]],
-                        THat12_k2k2_buff[auxData.sizeDomains[ix_s], auxData.sizeDomains[ix]],
-                        zeroCmplx, THatS_k2p1k2[1, auxData.sizeDomains[ix]], td, cd)
+                    be_gemm!('N', 'N', minusOneCmplx,
+                        Min.M[jx2p1Start-1+1, jx1Start-1+auxData.sizeDomains[ix_s]],
+                        buffTHat.M[jx1Start-1+auxData.sizeDomains[ix_s], jx2Start-1+auxData.sizeDomains[ix]],
+                        zeroCmplx,
+                        buffTHat.M[jx2p1Start-1+1, jx2Start-1+auxData.sizeDomains[ix]],
+                        td, cd)
                 end
             end
         end
