@@ -50,7 +50,8 @@ for systemx in systemNames
                 npl = 160
                 blockSize = 128
                 MbmSynth = bm_create_synthetic(MbmFromData, npl, blockSize)
-                # IMPORTANT : the recommended value for nrBlocksInNonPivots is four or less
+                # IMPORTANT : the recommended value for nrBlocksInNonPivots is 2, to reduce fill up
+                #             as much as possible
                 nrBlocksInNonPivots = 2
 
                 # -----------------------------
@@ -200,7 +201,7 @@ for systemx in systemNames
                         r1 = sum(MbmPar_reord.blockSizes[1:d1-1]) + 1
                         r2 = sum(MbmPar_reord.blockSizes[1:d2])
                         relErr = LinearAlgebra.norm(Array(approSC[r1:r2, r1:r2] - exactSC[r1:r2, r1:r2]), 2) /
-                            LinearAlgebra.norm(Array(exactSC[r1:r2, r1:r2]), 2)
+                                 LinearAlgebra.norm(Array(exactSC[r1:r2, r1:r2]), 2)
                         @test relErr < roundoffs[precx] * 1.E6
                     end
 
@@ -235,7 +236,7 @@ for systemx in systemNames
                         r1 = sum(MbmPar_reord.blockSizes[1:d1-1]) + 1
                         r2 = sum(MbmPar_reord.blockSizes[1:d2])
                         relErr = LinearAlgebra.norm(Array(MinvNdiagSeq_perm[r1:r2, r1:r2] - MinvNdiagPar_perm[r1:r2, r1:r2]), 2) /
-                            LinearAlgebra.norm(Array(MinvNdiagSeq_perm[r1:r2, r1:r2]), 2)
+                                 LinearAlgebra.norm(Array(MinvNdiagSeq_perm[r1:r2, r1:r2]), 2)
                         @test relErr < roundoffs[precx] * 1.E6
                     end
 

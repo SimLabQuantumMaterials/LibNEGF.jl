@@ -175,8 +175,8 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
     buffTHat22inv = BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
         buffTHatPerm.ndiag, buffTHatPerm.nrsType, 0)
     auxDataSeq22inv = AuxDataDDRGF(BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
-        buffMPerm.ndiag, buffMPerm.nrsType, 0), BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
-        bIdMPerm.ndiag, bIdMPerm.nrsType, 0), 0, nrBLASThreadsOuter, nrBLASThreadsInner)
+            buffMPerm.ndiag, buffMPerm.nrsType, 0), BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
+            bIdMPerm.ndiag, bIdMPerm.nrsType, 0), 0, nrBLASThreadsOuter, nrBLASThreadsInner)
     buffM222inv = BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
         buffTHatPerm.ndiag, buffTHatPerm.nrsType, 0)
 
@@ -1063,8 +1063,6 @@ function bndiag_of_inv_pddrgf!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::A
         return
     end
 
-    # PART (1,1)
-
     Min = bndiag_of_inv_pddrgf_create_permuted_matrix(Min_, auxData.permVec)
     Mout = bndiag_of_inv_pddrgf_create_permuted_matrix(Mout_, auxData.permVec)
     bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(Mout, Mout_, auxData)
@@ -1076,5 +1074,7 @@ function bndiag_of_inv_pddrgf!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::A
     # then invert it, stored in the D2 part of Mout_
     bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout, Min, auxData, td, cd)
 
-    # TODO : the rest of the implementation
+    # TODO #1 : compute the (1,2) and (2,1) parts of the global result
+
+    # TODO #2 : compute the (2,2) part of the global result
 end

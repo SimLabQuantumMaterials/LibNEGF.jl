@@ -47,6 +47,8 @@ if exists_in_list "$HWs" " " $1; then
     rm $BINS_JULIA
 
     # run the tests
+    # IMPORTANT : we recommend a large value for NUM_PRGF_DOMAINS, to increase parallelism while
+    #             at the same time reducing the size of the Schur complement
     export NUM_PRGF_DOMAINS=64
     export NUM_BLAS_THREADS_OUTER=$JULIA_NUM_THREADS
     export NUM_BLAS_THREADS_INNER=1
