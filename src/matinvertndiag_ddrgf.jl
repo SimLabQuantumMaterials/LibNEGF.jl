@@ -846,10 +846,6 @@ function bndiag_of_inv_pddrgf_build_Schur_compl!(Min_::BlockMatrix, auxData::Aux
     Min = Min_
 
     Threads.@threads for ixo = 1:auxData.nrThreads
-
-        # TODO : for the whole code in this for loop, change the code to make
-        #        use of memory pre-allocations (as in the T11 inverse function)
-
         if ixo < auxData.nrThreads
             nrTasksPerThread = auxData.maxNrTasksPerThread
         else
@@ -886,7 +882,6 @@ function bndiag_of_inv_pddrgf_build_Schur_compl!(Min_::BlockMatrix, auxData::Aux
 
             begin
                 jx1Start = sum(auxData.sizeDomains[1:auxData.nrTasks+ix-1]) + 1
-                jx1End = sum(auxData.sizeDomains[1:auxData.nrTasks+ix])
 
                 # # in the notation of the paper:
                 # # THatS^k2
@@ -913,7 +908,6 @@ function bndiag_of_inv_pddrgf_build_Schur_compl!(Min_::BlockMatrix, auxData::Aux
                 ixm1_s = auxData.nrTasks + ixm1
 
                 jx1Start = sum(auxData.sizeDomains[1:auxData.nrTasks+ixm1-1]) + 1
-                jx1End = sum(auxData.sizeDomains[1:auxData.nrTasks+ixm1])
 
                 # # in the notation of the paper:
                 # # THatS^k2
@@ -938,10 +932,7 @@ function bndiag_of_inv_pddrgf_build_Schur_compl!(Min_::BlockMatrix, auxData::Aux
                 # account the pre-computed THat_{11}^{-1} * THat_{12} and THat_{21} * THat_{11}^{-1}
 
                 jx2p1Start = sum(auxData.sizeDomains[1:ix+1-1]) + 1
-                jx2p1End = sum(auxData.sizeDomains[1:ix+1])
-
                 jx1Start = sum(auxData.sizeDomains[1:auxData.nrTasks+ix-1]) + 1
-                jx1End = sum(auxData.sizeDomains[1:auxData.nrTasks+ix])
 
                 ix_s = auxData.nrTasks + ix
 
@@ -1033,11 +1024,8 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
     cd::CountingData)
 
     # the blocks in the following matrices contain references to blocks
-    buffM1 = auxData.buffMPerm
-    buffId = auxData.bIdMPerm
     buffTHat = auxData.buffTHatPerm
     Min = Min_
-    buffM2 = Mout_
 
     # compute the nonzero blocks in THat_{11}^{-1} * THat_{12}, saving the output to the 12 and 21 parts of buffTHat
     @time bndiag_of_inv_pddrgf_compute_THat11Inv_x_THat12!(buffTHat, Min, auxData, td, cd)
