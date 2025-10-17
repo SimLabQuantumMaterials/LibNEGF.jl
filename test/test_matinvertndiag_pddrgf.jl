@@ -158,6 +158,7 @@ for systemx in systemNames
                     println("")
 
                     bndiag_of_inv_pddrgf_compute_minus_THat11Inv_x_THat12_x_THatSInv!(MbmInvNdiagParPerm, auxDataPar, TimingData(), CountingData())
+                    bndiag_of_inv_pddrgf_compute_minus_x_THatSInv_THat21_x_THat11Inv!(MbmInvNdiagParPerm, auxDataPar, TimingData(), CountingData())
 
                     MbmPar_reord = bndiag_of_inv_pddrgf_create_permuted_matrix(MbmPar, auxDataPar.permVec)
                     nb2 = sum(auxDataPar.sizeDomains[1:auxDataPar.nrTasks])
@@ -246,6 +247,14 @@ for systemx in systemNames
                     MinvNdiagSeq_perm12 = MinvNdiagSeq_perm[nx+1:nx+ny, 1:nx]
                     relErr = LinearAlgebra.norm(Array(MinvNdiagSeq_perm12 - MinvNdiagPar_perm12), 2) /
                         LinearAlgebra.norm(Array(MinvNdiagSeq_perm12), 2)
+                    @test relErr < roundoffs[precx] * 1.E6
+
+                    # check the correctness of the (2,1) part of the output
+
+                    MinvNdiagPar_perm21 = MinvNdiagPar_perm[1:nx, nx+1:nx+ny]
+                    MinvNdiagSeq_perm21 = MinvNdiagSeq_perm[1:nx, nx+1:nx+ny]
+                    relErr = LinearAlgebra.norm(Array(MinvNdiagSeq_perm21 - MinvNdiagPar_perm21), 2) /
+                        LinearAlgebra.norm(Array(MinvNdiagSeq_perm21), 2)
                     @test relErr < roundoffs[precx] * 1.E6
                 end
             end
