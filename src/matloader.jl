@@ -49,24 +49,30 @@ For the system in `systemName` and the energy indices in `E` and `k`, load
 the matrices listed in `whichMatsToLoad`. The matrix is loaded in ComplexF64
 and cast to the desired precision indicated via `baseType`.
 """
-function load_matrices(systemName::String, E::Int, k::Int,
-    whichMatsToLoad::Vector{String}, baseType::DataType)
-    if systemName != "3x3"
-        error("Supporting the 3x3 system only, for now.")
-    end
+function load_matrices(systemName::String, E::Int, k::Int, whichMatsToLoad::Vector{String},
+    baseType::DataType, whereFrom::Int)
+    # if whereFrom=1 from disk, if whereFrom=2 random
+    if whereFrom == 1
+        if systemName != "3x3"
+            error("Supporting the 3x3 system only, for now.")
+        end
 
-    # TODO : the following array should also be loaded from a file
-    if systemName == "3x3"
+        # TODO : the following array should also be loaded from a file
+        if systemName == "3x3"
+            blockSizes = [648, 648, 648, 648, 648, 648, 648, 648, 648, 648]
+        end
+
+        outMats = Vector{SparseArrays.SparseMatrixCSC{baseType,Int}}()
+        for matx in whichMatsToLoad
+            # loading matrix in ComplexF64, as they are all stored in F64
+            # for now
+            loadedMat = load_matrix(matx, systemName, E, k)
+            # then, a casting is done to baseType and pushed to outMats
+            push!(outMats, loadedMat)
+        end
+    elseif whereFrom==2
+        outMats = Vector{SparseArrays.SparseMatrixCSC{baseType,Int}}()
         blockSizes = [648, 648, 648, 648, 648, 648, 648, 648, 648, 648]
-    end
-
-    outMats = Vector{SparseArrays.SparseMatrixCSC{baseType,Int}}()
-    for matx in whichMatsToLoad
-        # loading matrix in ComplexF64, as they are all stored in F64
-        # for now
-        loadedMat = load_matrix(matx, systemName, E, k)
-        # then, a casting is done to baseType and pushed to outMats
-        push!(outMats, loadedMat)
     end
 
     return outMats, blockSizes

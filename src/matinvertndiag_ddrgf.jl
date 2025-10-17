@@ -1076,5 +1076,5 @@ function bndiag_of_inv_pddrgf!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::A
 
     # TODO #1 : compute the (1,2) and (2,1) parts of the global result
 
-    # TODO #2 : compute the (2,2) part of the global result
+    # TODO #2 : compute the (1,1) part of the global result
 end

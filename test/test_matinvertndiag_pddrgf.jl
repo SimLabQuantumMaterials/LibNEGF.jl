@@ -8,51 +8,49 @@ include("common_to_test.jl")
 
 using SparseArrays
 
+# 1 from disk, 2 is random
+whereFrom = 2
+# values for the synthetic matrix
+npl = 192
+blockSize = 128
+# IMPORTANT : the recommended value for nrBlocksInNonPivots is 2, to reduce fill up
+#             as much as possible
+nrBlocksInNonPivots = 2
+
 for systemx in systemNames
     for E in [Epoints[1]]
         for k in [kpoints[1]]
-            # pre-compute the condition number in double precision
-            # list of matrices to load
-            listMatsToLoad = ["H", "S", "Sc"]
-            loadedMats, blockSizes = load_matrices(systemx, E, k,
-                listMatsToLoad, ComplexF64)
-            H = loadedMats[1]
-            S = loadedMats[2]
-            Se = loadedMats[3]
-            M = build_M_from_HS(H, S, Se, energVals[E])
-
             for precx in [precs[2]]
-                # load matrices and build M
-                listMatsToLoad = ["H", "S", "Sc"]
-                loadedMats, blockSizes = load_matrices(systemx, E, k,
-                    listMatsToLoad, precx)
-                H = loadedMats[1]
-                S = loadedMats[2]
-                Se = loadedMats[3]
-                M = build_M_from_HS(H, S, Se, energVals[E])
+                if whereFrom == 1
+                    # load matrices and build M
+                    listMatsToLoad = ["H", "S", "Sc"]
+                    loadedMats, blockSizes = load_matrices(systemx, E, k,
+                        listMatsToLoad, precx)
+                    H = loadedMats[1]
+                    S = loadedMats[2]
+                    Se = loadedMats[3]
+                    M = build_M_from_HS(H, S, Se, energVals[E])
 
-                # load Gr
-                listMatsToLoad = ["Gr"]
-                loadedMats, blockSizes = load_matrices(systemx, E, k,
-                    listMatsToLoad, precx)
-                Gr = loadedMats[1]
+                    # load Gr
+                    listMatsToLoad = ["Gr"]
+                    loadedMats, blockSizes = load_matrices(systemx, E, k,
+                        listMatsToLoad, precx)
+                    Gr = loadedMats[1]
 
-                # loading blockSizes only - this is redundant, but illustrates
-                # that this can be done without any matrix loading
-                listMatsToLoad = Vector{String}()
-                loadedMats, blockSizes = load_matrices(systemx, E, k,
-                    listMatsToLoad, precx)
+                    # loading blockSizes only - this is redundant, but illustrates
+                    # that this can be done without any matrix loading
+                    listMatsToLoad = Vector{String}()
+                    loadedMats, blockSizes = load_matrices(systemx, E, k,
+                        listMatsToLoad, precx)
 
-                # convert to BlockMatrix
-                MbmFromData = bm_convert(M, blockSizes, Dict("in" => 3, "out" => 3))
+                    # convert to BlockMatrix
+                    MbmFromData = bm_convert(M, blockSizes, Dict("in" => 3, "out" => 3))
 
-                # crate synthetic matrix with more principal layers and smaller block size
-                npl = 160
-                blockSize = 128
-                MbmSynth = bm_create_synthetic(MbmFromData, npl, blockSize)
-                # IMPORTANT : the recommended value for nrBlocksInNonPivots is 2, to reduce fill up
-                #             as much as possible
-                nrBlocksInNonPivots = 2
+                    # crate synthetic matrix
+                    MbmSynth = bm_create_synthetic(MbmFromData, npl, blockSize)
+                else whereFrom == 2
+                    MbmSynth = bm_create_synthetic_random(npl, blockSize, precx)
+                end
 
                 # -----------------------------
 
