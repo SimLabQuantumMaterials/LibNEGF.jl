@@ -16,6 +16,7 @@ export bndiag_of_inv_pddrgf_error_inv_of_T11
 export bndiag_of_inv_pddrgf_inv_of_T11!
 export bndiag_of_inv_pddrgf_inv_of_Schur_compl!
 export bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!
+export bndiag_of_inv_pddrgf_compute_minus_THat11Inv_x_THat12_x_THatSInv!
 
 # from keldyshndiag.jl
 export keldyshndiag!

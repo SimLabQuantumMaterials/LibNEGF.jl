@@ -157,6 +157,8 @@ for systemx in systemNames
                     @time bndiag_of_inv_pddrgf_inv_of_Schur_compl!(MbmInvNdiagParPerm, MbmParPerm, auxDataPar, TimingData(), CountingData())
                     println("")
 
+                    bndiag_of_inv_pddrgf_compute_minus_THat11Inv_x_THat12_x_THatSInv!(MbmInvNdiagParPerm, auxDataPar, TimingData(), CountingData())
+
                     MbmPar_reord = bndiag_of_inv_pddrgf_create_permuted_matrix(MbmPar, auxDataPar.permVec)
                     nb2 = sum(auxDataPar.sizeDomains[1:auxDataPar.nrTasks])
                     nb1 = sum(auxDataPar.sizeDomains[auxDataPar.nrTasks+1:2*auxDataPar.nrTasks])
@@ -225,19 +227,26 @@ for systemx in systemNames
                     MinvNdiagSeq_perm = PermMat * (MinvNdiagSeq * PermMat')
                     MinvNdiagPar_perm = PermMat * (MinvNdiagPar * PermMat')
 
-                    MinvNdiagPar_perm = MinvNdiagPar_perm[1:nx, 1:nx]
-                    MinvNdiagSeq_perm = MinvNdiagSeq_perm[1:nx, 1:nx]
+                    MinvNdiagPar_perm22 = MinvNdiagPar_perm[1:nx, 1:nx]
+                    MinvNdiagSeq_perm22 = MinvNdiagSeq_perm[1:nx, 1:nx]
 
                     for ix = 1:auxDataPar.nrTasks
                         d1 = sum(auxDataPar.sizeDomains[1:ix-1]) + 1
                         d2 = sum(auxDataPar.sizeDomains[1:ix])
                         r1 = sum(MbmPar_reord.blockSizes[1:d1-1]) + 1
                         r2 = sum(MbmPar_reord.blockSizes[1:d2])
-                        relErr = LinearAlgebra.norm(Array(MinvNdiagSeq_perm[r1:r2, r1:r2] - MinvNdiagPar_perm[r1:r2, r1:r2]), 2) /
-                                 LinearAlgebra.norm(Array(MinvNdiagSeq_perm[r1:r2, r1:r2]), 2)
+                        relErr = LinearAlgebra.norm(Array(MinvNdiagSeq_perm22[r1:r2, r1:r2] - MinvNdiagPar_perm22[r1:r2, r1:r2]), 2) /
+                                 LinearAlgebra.norm(Array(MinvNdiagSeq_perm22[r1:r2, r1:r2]), 2)
                         @test relErr < roundoffs[precx] * 1.E6
                     end
 
+                    # check the correctness of the (1,2) part of the output
+
+                    MinvNdiagPar_perm12 = MinvNdiagPar_perm[nx+1:nx+ny, 1:nx]
+                    MinvNdiagSeq_perm12 = MinvNdiagSeq_perm[nx+1:nx+ny, 1:nx]
+                    relErr = LinearAlgebra.norm(Array(MinvNdiagSeq_perm12 - MinvNdiagPar_perm12), 2) /
+                        LinearAlgebra.norm(Array(MinvNdiagSeq_perm12), 2)
+                    @test relErr < roundoffs[precx] * 1.E6
                 end
             end
         end

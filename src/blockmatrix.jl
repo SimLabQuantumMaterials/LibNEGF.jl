@@ -451,12 +451,11 @@ function bm_blocks_define_complement22!(M::BlockMatrix, auxData, filling::Int)
 end
 
 # TODO : try to assign the type AuxDataDDRGF to auxData ?
-function bm_blocks_define_complement12!(auxData, filling::Int)
+function bm_blocks_define_complement12!(M_::BlockMatrix, auxData, filling::Int)
     blockSizeD1 = auxData.blockSizeD1
-    permVec = auxData.permVec
     permVecInv = auxData.permVecInv
-    buffTHat = auxData.buffTHat
-    blockSizes = buffTHat.blockSizes
+    M = M_
+    blockSizes = M.blockSizes
     nrTasks = auxData.nrTasks
     sizeDomains = auxData.sizeDomains
     sizeDomains22 = sizeDomains[1:nrTasks]
@@ -478,9 +477,9 @@ function bm_blocks_define_complement12!(auxData, filling::Int)
             jbeg = sum(blockSizes[1:jxL-1]) + 1
             jend = sum(blockSizes[1:jxL])
             if filling == 1
-                buffTHat.M[ixL, jxL] = be_zero_array(buffTHat.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+                M.M[ixL, jxL] = be_zero_array(M.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
             else
-                buffTHat.M[ixL, jxL] = be_random_array(buffTHat.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+                M.M[ixL, jxL] = be_random_array(M.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
             end
         end
 
@@ -498,9 +497,9 @@ function bm_blocks_define_complement12!(auxData, filling::Int)
                 jbeg = sum(blockSizes[1:jxL-1]) + 1
                 jend = sum(blockSizes[1:jxL])
                 if filling == 1
-                    buffTHat.M[ixL, jxL] = be_zero_array(buffTHat.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+                    M.M[ixL, jxL] = be_zero_array(M.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
                 else
-                    buffTHat.M[ixL, jxL] = be_random_array(buffTHat.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+                    M.M[ixL, jxL] = be_random_array(M.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
                 end
             end
         end
@@ -508,12 +507,11 @@ function bm_blocks_define_complement12!(auxData, filling::Int)
 end
 
 # TODO : try to assign the type AuxDataDDRGF to auxData ?
-function bm_blocks_define_complement21!(auxData, filling::Int)
+function bm_blocks_define_complement21!(M_::BlockMatrix, auxData, filling::Int)
     blockSizeD1 = auxData.blockSizeD1
-    permVec = auxData.permVec
     permVecInv = auxData.permVecInv
-    buffTHat = auxData.buffTHat
-    blockSizes = buffTHat.blockSizes
+    M = M_
+    blockSizes = M.blockSizes
     nrTasks = auxData.nrTasks
     sizeDomains = auxData.sizeDomains
     sizeDomains22 = sizeDomains[1:nrTasks]
@@ -535,9 +533,9 @@ function bm_blocks_define_complement21!(auxData, filling::Int)
             jbeg = sum(blockSizes[1:jxL-1]) + 1
             jend = sum(blockSizes[1:jxL])
             if filling == 1
-                buffTHat.M[ixL, jxL] = be_zero_array(buffTHat.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+                M.M[ixL, jxL] = be_zero_array(M.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
             else
-                buffTHat.M[ixL, jxL] = be_random_array(buffTHat.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+                M.M[ixL, jxL] = be_random_array(M.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
             end
         end
 
@@ -555,9 +553,9 @@ function bm_blocks_define_complement21!(auxData, filling::Int)
                 jbeg = sum(blockSizes[1:jxL-1]) + 1
                 jend = sum(blockSizes[1:jxL])
                 if filling == 1
-                    buffTHat.M[ixL, jxL] = be_zero_array(buffTHat.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+                    M.M[ixL, jxL] = be_zero_array(M.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
                 else
-                    buffTHat.M[ixL, jxL] = be_random_array(buffTHat.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+                    M.M[ixL, jxL] = be_random_array(M.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
                 end
             end
         end

@@ -192,8 +192,8 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
     # and we need those little blocks for the buffM buffer as well
     bm_blocks_define_complement22!(auxDataPar.auxDataSeq.buffM, auxDataPar, 2)
     # and extra allocations for THat_{11}^{-1} * THat_{12} and THat_{21} * THat_{11}^{-1}
-    bm_blocks_define_complement12!(auxDataPar, 2)
-    bm_blocks_define_complement21!(auxDataPar, 2)
+    bm_blocks_define_complement12!(auxDataPar.buffTHat, auxDataPar, 2)
+    bm_blocks_define_complement21!(auxDataPar.buffTHat, auxDataPar, 2)
 
     bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(auxDataPar.buffMPerm, auxDataPar.auxDataSeq.buffM, auxDataPar)
     # add block references, in buffTHat, for the D1 regions
@@ -202,12 +202,17 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
     bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(auxDataPar.buffTHatPerm, auxDataPar.buffTHat, auxDataPar)
     # add references to extra blocks related to hopping terms interactions, in particular
     # the computation of THat_{11}^{-1} * THat_{12} and THat_{21} * THat_{11}^{-1}
-    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix12!(auxDataPar.buffTHatPerm, auxDataPar)
-    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix21!(auxDataPar.buffTHatPerm, auxDataPar)
+    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix12!(auxDataPar.buffTHatPerm, auxDataPar.buffTHat, auxDataPar)
+    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix21!(auxDataPar.buffTHatPerm, auxDataPar.buffTHat, auxDataPar)
 
     bm_reference!(auxDataPar.buffTHat22inv, buffTHatPerm.M, 0, 0)
     bm_reference!(auxDataPar.auxDataSeq22inv.buffM, buffMPerm.M, 0, 0)
     bm_reference!(auxDataPar.auxDataSeq22inv.bIdM, bIdMPerm.M, 0, 0)
+
+    # the following is needed for storing -1 * THat11Inv * THat12 * THatSInv, but what is needed to
+    # compute ( THat11Inv * THat12 * THatSInv ) * THat21 * THat11Inv
+    bm_blocks_define_complement12!(auxDataPar.auxDataSeq.buffM, auxDataPar, 2)
+    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix12!(auxDataPar.buffMPerm, auxDataPar.auxDataSeq.buffM, auxDataPar)
 
     return auxDataPar
 end
@@ -564,9 +569,8 @@ function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(Mout::BlockMa
 
 end
 
-function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix12!(M::BlockMatrix, auxData::AuxDataPDDRGF)
+function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix12!(M1::BlockMatrix, M2::BlockMatrix, auxData::AuxDataPDDRGF)
     blockSizeD1 = auxData.blockSizeD1
-    permVec = auxData.permVec
     permVecInv = auxData.permVecInv
     nrTasks = auxData.nrTasks
     sizeDomains = auxData.sizeDomains
@@ -584,7 +588,7 @@ function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix12!(M::BlockMatri
             ixL = permVecInv[ixLperm]
             jxL = permVecInv[jxLperm]
 
-            M.M[ixLperm, jxLperm] = auxData.buffTHat.M[ixL, jxL]
+            M1.M[ixLperm, jxLperm] = M2.M[ixL, jxL]
         end
 
         if ix_ < nrTasks
@@ -596,13 +600,13 @@ function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix12!(M::BlockMatri
                 ixL = permVecInv[ixLperm]
                 jxL = permVecInv[jxLperm]
 
-                M.M[ixLperm, jxLperm] = auxData.buffTHat.M[ixL, jxL]
+                M1.M[ixLperm, jxLperm] = M2.M[ixL, jxL]
             end
         end
     end
 end
 
-function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix21!(M::BlockMatrix, auxData::AuxDataPDDRGF)
+function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix21!(M1::BlockMatrix, M2::BlockMatrix, auxData::AuxDataPDDRGF)
     blockSizeD1 = auxData.blockSizeD1
     permVecInv = auxData.permVecInv
     nrTasks = auxData.nrTasks
@@ -621,7 +625,7 @@ function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix21!(M::BlockMatri
             ixL = permVecInv[ixLperm]
             jxL = permVecInv[jxLperm]
 
-            M.M[ixLperm, jxLperm] = auxData.buffTHat.M[ixL, jxL]
+            M1.M[ixLperm, jxLperm] = M2.M[ixL, jxL]
         end
 
         if jx_ < nrTasks
@@ -633,13 +637,13 @@ function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix21!(M::BlockMatri
                 ixL = permVecInv[ixLperm]
                 jxL = permVecInv[jxLperm]
 
-                M.M[ixLperm, jxLperm] = auxData.buffTHat.M[ixL, jxL]
+                M1.M[ixLperm, jxLperm] = M2.M[ixL, jxL]
             end
         end
     end
 end
 
-function bndiag_of_inv_pddrgf_compute_THat11Inv_x_THat12!(buffTHat::BlockMatrix, Min::BlockMatrix, auxData::AuxDataPDDRGF,
+function bndiag_of_inv_pddrgf_compute_THat11Inv_x_THat12!(Min::BlockMatrix, auxData::AuxDataPDDRGF,
     td::TimingData, cd::CountingData)
     LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
 
@@ -649,8 +653,12 @@ function bndiag_of_inv_pddrgf_compute_THat11Inv_x_THat12!(buffTHat::BlockMatrix,
     sizeDomains22 = sizeDomains[1:nrTasks]
     sizeDomains11 = sizeDomains[nrTasks+1:2*nrTasks]
 
+    buffTHat = auxData.buffTHatPerm
+
     plusOneCmplx = convert(Min.nrsType, 1.0)
     zeroCmplx = convert(Min.nrsType, 0.0)
+
+    iOffset = sum(sizeDomains22)
 
     Threads.@threads for ixo = 1:auxData.nrThreads
         if ixo < auxData.nrThreads
@@ -659,14 +667,20 @@ function bndiag_of_inv_pddrgf_compute_THat11Inv_x_THat12!(buffTHat::BlockMatrix,
             nrTasksPerThread = auxData.lastNrTasksPerThread
         end
 
+        iAccum = sum(sizeDomains11[1:(ixo - 1)*auxData.maxNrTasksPerThread])
+        jAccum = sum(sizeDomains22[1:(ixo - 1)*auxData.maxNrTasksPerThread])
         for ixi = 1:nrTasksPerThread
             # index of each individual task
             ix_ = (ixo - 1) * auxData.maxNrTasksPerThread + ixi
 
-            ixLpermOffset = sum(sizeDomains22) + sum(sizeDomains11[1:ix_-1])
+            if ixi > 1
+                iAccum += sizeDomains11[ix_-1]
+            end
+            ixLpermOffset = iOffset + iAccum
 
             # first, the central sub-domain
-            jxLperm = sum(sizeDomains22[1:ix_])
+            jAccum += sizeDomains22[ix_]
+            jxLperm = jAccum
             for ix = 1:blockSizeD1
                 ixLperm = ixLpermOffset + ix
 
@@ -676,7 +690,7 @@ function bndiag_of_inv_pddrgf_compute_THat11Inv_x_THat12!(buffTHat::BlockMatrix,
 
             if ix_ < nrTasks
                 # then, the right sub-domain
-                jxLperm = sum(sizeDomains22[1:ix_]) + 1
+                jxLperm +=1
                 for ix = 1:blockSizeD1
                     ixLperm = ixLpermOffset + ix
 
@@ -690,7 +704,7 @@ function bndiag_of_inv_pddrgf_compute_THat11Inv_x_THat12!(buffTHat::BlockMatrix,
     LinearAlgebra.BLAS.set_num_threads(1)
 end
 
-function bndiag_of_inv_pddrgf_compute_THat21_x_THat11Inv!(buffTHat::BlockMatrix, Min::BlockMatrix, auxData::AuxDataPDDRGF,
+function bndiag_of_inv_pddrgf_compute_minus_THat11Inv_x_THat12_x_THatSInv!(Mout::BlockMatrix, auxData::AuxDataPDDRGF,
     td::TimingData, cd::CountingData)
     LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
 
@@ -700,8 +714,96 @@ function bndiag_of_inv_pddrgf_compute_THat21_x_THat11Inv!(buffTHat::BlockMatrix,
     sizeDomains22 = sizeDomains[1:nrTasks]
     sizeDomains11 = sizeDomains[nrTasks+1:2*nrTasks]
 
+    buffTHat = auxData.buffTHatPerm
+    buffM = auxData.buffMPerm
+
+    plusOneCmplx = convert(Mout.nrsType, 1.0)
+    minusOneCmplx = convert(Mout.nrsType, -1.0)
+    zeroCmplx = convert(Mout.nrsType, 0.0)
+
+    iOffset = sum(sizeDomains22)
+
+    Threads.@threads for ixo = 1:auxData.nrThreads
+        if ixo < auxData.nrThreads
+            nrTasksPerThread = auxData.maxNrTasksPerThread
+        else
+            nrTasksPerThread = auxData.lastNrTasksPerThread
+        end
+
+        iAccum = sum(sizeDomains11[1:(ixo - 1)*auxData.maxNrTasksPerThread])
+        jAccum = sum(sizeDomains22[1:(ixo - 1)*auxData.maxNrTasksPerThread])
+        for ixi = 1:nrTasksPerThread
+            # index of each individual task
+            ix_ = (ixo - 1) * auxData.maxNrTasksPerThread + ixi
+
+            if ixi > 1
+                iAccum += sizeDomains11[ix_-1]
+            end
+            ixLpermOffset = iOffset + iAccum
+
+            # first, the central sub-domain
+            jAccum += sizeDomains22[ix_]
+            jxLperm = jAccum
+            for ix = 1:blockSizeD1
+                ixLperm = ixLpermOffset + ix
+
+                # buffM.M[ixLperm, jxLperm] = - buffTHat.M[ixLperm, jxLperm] * buffTHat.M[jxLperm, jxLperm]
+                # buffM.M[ixLperm, jxLperm] -= buffTHat.M[ixLperm, jxLperm+1] * buffTHat.M[jxLperm+1, jxLperm]
+
+                be_gemm!('N', 'N', minusOneCmplx, buffTHat.M[ixLperm, jxLperm], Mout.M[jxLperm, jxLperm],
+                    zeroCmplx, buffM.M[ixLperm, jxLperm], td, cd)
+                if ix_ < nrTasks
+                    be_gemm!('N', 'N', minusOneCmplx, buffTHat.M[ixLperm, jxLperm+1], Mout.M[jxLperm+1, jxLperm],
+                        plusOneCmplx, buffM.M[ixLperm, jxLperm], td, cd)
+                end
+
+                # copy the element that goes directly to the output
+                if ix == 1
+                    be_copy_in_hw!(Mout.M[ixLperm, jxLperm], buffM.M[ixLperm, jxLperm])
+                end
+            end
+
+            if ix_ < nrTasks
+                # then, the right sub-domain
+                jxLperm += 1
+                for ix = 1:blockSizeD1
+                    ixLperm = ixLpermOffset + ix
+
+                    # buffM.M[ixLperm, jxLperm] = - buffTHat[ixLperm, jxLperm-1] * buffTHat[jxLperm-1, jxLperm]
+                    # buffM.M[ixLperm, jxLperm] -= buffTHat[ixLperm, jxLperm] * buffTHat[jxLperm, jxLperm]
+
+                    be_gemm!('N', 'N', minusOneCmplx, buffTHat.M[ixLperm, jxLperm-1], Mout.M[jxLperm-1, jxLperm],
+                        zeroCmplx, buffM.M[ixLperm, jxLperm], td, cd)
+                    be_gemm!('N', 'N', minusOneCmplx, buffTHat.M[ixLperm, jxLperm], Mout.M[jxLperm, jxLperm],
+                        plusOneCmplx, buffM.M[ixLperm, jxLperm], td, cd)
+
+                    if ix == blockSizeD1
+                        be_copy_in_hw!(Mout.M[ixLperm, jxLperm], buffM.M[ixLperm, jxLperm])
+                    end
+                end
+            end
+        end
+    end
+
+    LinearAlgebra.BLAS.set_num_threads(1)
+end
+
+function bndiag_of_inv_pddrgf_compute_THat21_x_THat11Inv!(Min::BlockMatrix, auxData::AuxDataPDDRGF,
+    td::TimingData, cd::CountingData)
+    LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
+
+    blockSizeD1 = auxData.blockSizeD1
+    nrTasks = auxData.nrTasks
+    sizeDomains = auxData.sizeDomains
+    sizeDomains22 = sizeDomains[1:nrTasks]
+    sizeDomains11 = sizeDomains[nrTasks+1:2*nrTasks]
+
+    buffTHat = auxData.buffTHatPerm
+
     plusOneCmplx = convert(Min.nrsType, 1.0)
     zeroCmplx = convert(Min.nrsType, 0.0)
+
+    jOffset = sum(sizeDomains22)
 
     Threads.@threads for jxo = 1:auxData.nrThreads
         if jxo < auxData.nrThreads
@@ -710,14 +812,20 @@ function bndiag_of_inv_pddrgf_compute_THat21_x_THat11Inv!(buffTHat::BlockMatrix,
             nrTasksPerThread = auxData.lastNrTasksPerThread
         end
 
+        jAccum = sum(sizeDomains11[1:(jxo - 1) * auxData.maxNrTasksPerThread])
+        iAccum = sum(sizeDomains22[1:(jxo - 1) * auxData.maxNrTasksPerThread])
         for jxi = 1:nrTasksPerThread
             # index of each individual task
             jx_ = (jxo - 1) * auxData.maxNrTasksPerThread + jxi
 
-            jxLpermOffset = sum(sizeDomains22) + sum(sizeDomains11[1:jx_-1])
+            if jxi > 1
+                jAccum += sizeDomains11[jx_-1]
+            end
+            jxLpermOffset = jOffset + jAccum
 
             # first, the central sub-domain
-            ixLperm = sum(sizeDomains22[1:jx_])
+            iAccum += sizeDomains22[jx_]
+            ixLperm = iAccum
             for jx = 1:blockSizeD1
                 jxLperm = jxLpermOffset + jx
 
@@ -727,7 +835,7 @@ function bndiag_of_inv_pddrgf_compute_THat21_x_THat11Inv!(buffTHat::BlockMatrix,
 
             if jx_ < nrTasks
                 # then, the right sub-domain
-                ixLperm = sum(sizeDomains22[1:jx_]) + 1
+                ixLperm += 1
                 for jx = 1:blockSizeD1
                     jxLperm = jxLpermOffset + jx
 
@@ -770,12 +878,18 @@ function bndiag_of_inv_pddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataPDD
         smallMbmIn = auxData.smallMbmIn11[ixo]
         smallMbmOut = auxData.smallMbmOut11[ixo]
 
+        jxStartAccum = sum(auxData.sizeDomains[1:auxData.nrTasks + (ixo - 1) * auxData.maxNrTasksPerThread])
+        jxEndAccum = jxStartAccum
         for ixi = 1:nrTasksPerThread
             # index of each individual task
             ix = auxData.nrTasks + (ixo - 1) * auxData.maxNrTasksPerThread + ixi
 
-            jxStart = sum(auxData.sizeDomains[1:ix-1]) + 1
-            jxEnd = sum(auxData.sizeDomains[1:ix])
+            if ixi > 1
+                jxStartAccum += auxData.sizeDomains[ix-1]
+            end
+            jxStart = jxStartAccum + 1
+            jxEndAccum += auxData.sizeDomains[ix]
+            jxEnd = jxEndAccum
 
             copy!(smallBlockSizes, Min.blockSizes[jxStart:jxEnd])
 
@@ -870,13 +984,18 @@ function bndiag_of_inv_pddrgf_build_Schur_compl!(Min_::BlockMatrix, auxData::Aux
             nrTasksPerThread = auxData.lastNrTasksPerThread
         end
 
+        jx2StartAccum = sum(auxData.sizeDomains[1:(ixo - 1) * auxData.maxNrTasksPerThread])
+        jx2EndAccum = jx2StartAccum
         for ixi = 1:nrTasksPerThread
             # index of each individual task
             ix = (ixo - 1) * auxData.maxNrTasksPerThread + ixi
 
-            # Threads.@threads for ix in 1:Threads.nthreads()
-            jx2Start = sum(auxData.sizeDomains[1:ix-1]) + 1
-            jx2End = sum(auxData.sizeDomains[1:ix])
+            if ixi > 1
+                jx2StartAccum += auxData.sizeDomains[ix-1]
+            end
+            jx2Start = jx2StartAccum + 1
+            jx2EndAccum += auxData.sizeDomains[ix]
+            jx2End = jx2EndAccum
 
             # copy the D2 part of Min into buffTHat
 
@@ -1021,14 +1140,13 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
     cd::CountingData)
 
     # the blocks in the following matrices contain references to blocks
-    buffTHat = auxData.buffTHatPerm
     Min = Min_
     Mout = Mout_
 
-    # compute the nonzero blocks in THat_{11}^{-1} * THat_{12}, saving the output to the 12 and 21 parts of buffTHat
-    @time bndiag_of_inv_pddrgf_compute_THat11Inv_x_THat12!(buffTHat, Min, auxData, td, cd)
-    # and then those of THat_{21} * THat_{11}^{-1}
-    @time bndiag_of_inv_pddrgf_compute_THat21_x_THat11Inv!(buffTHat, Min, auxData, td, cd)
+    # compute the nonzero blocks in THat_{11}^{-1} * THat_{12}, saving the output to the 12 part of buffTHat
+    @time bndiag_of_inv_pddrgf_compute_THat11Inv_x_THat12!(Min, auxData, td, cd)
+    # and then those of THat_{21} * THat_{11}^{-1}, saving the output to the 21 part of buffTHat
+    @time bndiag_of_inv_pddrgf_compute_THat21_x_THat11Inv!(Min, auxData, td, cd)
 
     # the D2 part of buffTHat contains the (approximated) Schur complement
     bndiag_of_inv_pddrgf_build_Schur_compl!(Min, auxData, td, cd)
@@ -1068,13 +1186,21 @@ function bndiag_of_inv_pddrgf!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::A
     bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(Mout, Mout_, auxData)
 
     # first, compute the inverse of \widehat{T}_{11}, storing it in the D1 part of auxData.buffTHat
+    # (this is used in both the (1,1) and (2,2) parts)
     bndiag_of_inv_pddrgf_inv_of_T11!(Min, auxData, td, cd)
 
     # with the inverse of \widehat{T}_{11} at hand, construct the Schur complement, and
     # then invert it, stored in the D2 part of Mout_
+    # (this is the (2,2) part)
     bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout, Min, auxData, td, cd)
 
     # TODO #1 : compute the (1,2) and (2,1) parts of the global result
+
+    # first, -1 * THat11Inv * THat12 * THatSInv
+    # (for this we have auxData.buffMPerm, where we put the whole needed object
+    # for THat11Inv * THat12 * THatSInv * THat21 * THat11Inv but also immediately
+    # copy what should go to the output Mout)
+    bndiag_of_inv_pddrgf_compute_minus_THat11Inv_x_THat12_x_THatSInv!(Mout, auxData, td, cd)
 
     # TODO #2 : compute the (1,1) part of the global result
 end
