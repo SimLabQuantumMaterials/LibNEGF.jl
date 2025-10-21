@@ -97,7 +97,6 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
     # this might change the number of threads to be used
     nrTasks, blockSizeD1, blockSizeD2, lastSizeD2 = bndiag_of_inv_pddrgf_check_nr_tasks(M, nrBlocksInNonPivots,
         nrTasks, splitType)
-    println("Actual number of tasks: " * string(nrTasks))
     if nrTasks == 1
         println("WARNING: nrTasks = 1, then calling sequential RGF.")
         # FIXME : the following call to the constructor AuxDataPDDRGF(..) is not really correct. Change and call/test
@@ -140,7 +139,6 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
 
     # the appropriate number of threads for good load balance and not wasting energy
     nrThreads, maxNrTasksPerThread, lastNrTasksPerThread = bndiag_of_inv_pddrgf_check_nr_threads(Threads.nthreads(), nrTasks)
-    println("Actual number of threads: " * string(nrThreads))
 
     buffMPerm = bndiag_of_inv_pddrgf_create_permuted_matrix(auxDataSeq.buffM, permVec)
     bIdMPerm = bndiag_of_inv_pddrgf_create_permuted_matrix(auxDataSeq.bIdM, permVec)
@@ -1299,7 +1297,7 @@ function bndiag_of_inv_pddrgf_inv_Schur_compl!(Mout_::BlockMatrix, auxData::AuxD
     # TODO : move this reference to a 'setup' stage
     bm_reference!(buffM222, buffM2.M, 0, 0)
 
-    @time bndiag_of_inv_ddrgf_global!(buffM222, buffTHat22, auxDataSeq22, td, cd)
+    bndiag_of_inv_ddrgf_global!(buffM222, buffTHat22, auxDataSeq22, td, cd)
 end
 
 function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::AuxDataPDDRGF, td::TimingData,
@@ -1370,6 +1368,6 @@ function bndiag_of_inv_pddrgf!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::A
     # then, -1 * THatSInv * THat11Inv * THat21
     bndiag_of_inv_pddrgf_compute_minus_x_THatSInv_THat21_x_THat11Inv!(Mout, auxData, td, cd)
 
-    # TODO #2 : compute the (1,1) part of the global result
+    # compute the (1,1) part of the global result
     bndiag_of_inv_pddrgf_compute_11_part!(Mout, auxData, td, cd)
 end
