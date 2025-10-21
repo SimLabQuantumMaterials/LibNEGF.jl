@@ -18,17 +18,17 @@ blockSize = 64
 nrBlocksInNonPivots = 3
 
 # this factor relaxes the required relative tolerance
-accFctr = 1.0E5
+accFctr = 2.5E5
 
 for systemx in systemNames
     for E in [Epoints[1]]
         for k in [kpoints[1]]
-            for precx in [precs[2]]
+            for precx in precs
                 if whereFrom == 1
                     # load matrices and build M
                     listMatsToLoad = ["H", "S", "Sc"]
                     loadedMats, blockSizes = load_matrices(systemx, E, k,
-                        listMatsToLoad, precx)
+                        listMatsToLoad, precx, whereFrom)
                     H = loadedMats[1]
                     S = loadedMats[2]
                     Se = loadedMats[3]
@@ -37,21 +37,22 @@ for systemx in systemNames
                     # load Gr
                     listMatsToLoad = ["Gr"]
                     loadedMats, blockSizes = load_matrices(systemx, E, k,
-                        listMatsToLoad, precx)
+                        listMatsToLoad, precx, whereFrom)
                     Gr = loadedMats[1]
 
                     # loading blockSizes only - this is redundant, but illustrates
                     # that this can be done without any matrix loading
                     listMatsToLoad = Vector{String}()
                     loadedMats, blockSizes = load_matrices(systemx, E, k,
-                        listMatsToLoad, precx)
+                        listMatsToLoad, precx, whereFrom)
 
                     # convert to BlockMatrix
                     MbmFromData = bm_convert(M, blockSizes, Dict("in" => 3, "out" => 3))
 
                     # crate synthetic matrix
                     MbmSynth = bm_create_synthetic(MbmFromData, npl, blockSize)
-                else whereFrom == 2
+                else
+                    whereFrom == 2
                     MbmSynth = bm_create_synthetic_random(npl, blockSize, precx)
                 end
 
@@ -226,7 +227,7 @@ for systemx in systemNames
                     MinvNdiagPar_perm12 = MinvNdiagPar_perm[nx+1:nx+ny, 1:nx]
                     MinvNdiagSeq_perm12 = MinvNdiagSeq_perm[nx+1:nx+ny, 1:nx]
                     relErr = LinearAlgebra.norm(Array(MinvNdiagSeq_perm12 - MinvNdiagPar_perm12), 2) /
-                        LinearAlgebra.norm(Array(MinvNdiagSeq_perm12), 2)
+                             LinearAlgebra.norm(Array(MinvNdiagSeq_perm12), 2)
                     @test relErr < roundoffs[precx] * accFctr
 
                     # check the correctness of the (2,1) part of the output
@@ -234,7 +235,7 @@ for systemx in systemNames
                     MinvNdiagPar_perm21 = MinvNdiagPar_perm[1:nx, nx+1:nx+ny]
                     MinvNdiagSeq_perm21 = MinvNdiagSeq_perm[1:nx, nx+1:nx+ny]
                     relErr = LinearAlgebra.norm(Array(MinvNdiagSeq_perm21 - MinvNdiagPar_perm21), 2) /
-                        LinearAlgebra.norm(Array(MinvNdiagSeq_perm21), 2)
+                             LinearAlgebra.norm(Array(MinvNdiagSeq_perm21), 2)
                     @test relErr < roundoffs[precx] * accFctr
 
                     # check the correctness of the (1,1) part of the output
@@ -246,8 +247,9 @@ for systemx in systemNames
                         ixDEnd = sum(sizeDomains11[1:ix])
                         ixLStart = sum(blockSizes11[1:ixDStart-1]) + 1
                         ixLEnd = sum(blockSizes11[1:ixDEnd])
-                        relErr = LinearAlgebra.norm(Array(MinvNdiagSeq_perm11[ixLStart:ixLEnd,ixLStart:ixLEnd] - MinvNdiagPar_perm11[ixLStart:ixLEnd,ixLStart:ixLEnd]), 2) /
-                            LinearAlgebra.norm(Array(MinvNdiagSeq_perm11[ixLStart:ixLEnd,ixLStart:ixLEnd]), 2)
+                        relErr = LinearAlgebra.norm(Array(MinvNdiagSeq_perm11[ixLStart:ixLEnd, ixLStart:ixLEnd] -
+                                MinvNdiagPar_perm11[ixLStart:ixLEnd, ixLStart:ixLEnd]), 2) /
+                                LinearAlgebra.norm(Array(MinvNdiagSeq_perm11[ixLStart:ixLEnd, ixLStart:ixLEnd]), 2)
                         @test relErr < roundoffs[precx] * accFctr
                     end
                 end

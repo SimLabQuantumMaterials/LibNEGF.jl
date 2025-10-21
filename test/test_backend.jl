@@ -3,6 +3,9 @@ module TestLibNEGFBackend
 using LibNEGF, Test
 import LinearAlgebra
 
+# 1 from disk, 2 is random
+whereFrom = 2
+
 # TODO : documentation
 # the two blocks passed live on the device
 function check_if_equal(B1, B2, roundoff, relxFctr::Float64)
@@ -30,18 +33,22 @@ end
             for E in [Epoints[1]]
                 for k in [kpoints[1]]
                     for precx in precs
-                        # list of matrices to load
-                        listMatsToLoad = ["H", "S", "Sc"]
-                        # load in the desired precision
-                        loadedMats, blockSizes = load_matrices(systemx, E, k,
-                            listMatsToLoad, precx)
-                        H = loadedMats[1]
-                        S = loadedMats[2]
-                        Se = loadedMats[3]
-                        M = build_M_from_HS(H, S, Se, energVals[E])
+                        if whereFrom == 1
+                            # list of matrices to load
+                            listMatsToLoad = ["H", "S", "Sc"]
+                            # load in the desired precision
+                            loadedMats, blockSizes = load_matrices(systemx, E, k,
+                                listMatsToLoad, precx, whereFrom)
+                            H = loadedMats[1]
+                            S = loadedMats[2]
+                            Se = loadedMats[3]
+                            M = build_M_from_HS(H, S, Se, energVals[E])
 
-                        # convert to BlockMatrix, this lives in the device always
-                        Abm = bm_convert(M, blockSizes, Dict("in" => 3, "out" => 3))
+                            # convert to BlockMatrix, this lives in the device always
+                            Abm = bm_convert(M, blockSizes, Dict("in" => 3, "out" => 3))
+                        else
+                            Abm = bm_create_synthetic_random(10, 64, precx)
+                        end
 
                         # performance is not a problem here, therefore we call the garbage
                         # collector after each test to make sure there are no memory issues

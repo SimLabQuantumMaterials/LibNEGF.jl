@@ -750,7 +750,7 @@ function bm_create_synthetic_random(nrLayers::Int, blocksDim::Int, nrsType::Data
             # left
             for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
                 # add a damping of 0.3
-                A.M[ix, jx] = 0.3*be_random_array(nrsType, (blocksDim, blocksDim))
+                A.M[ix, jx] = convert(nrsType, 0.3) * be_random_array(nrsType, (blocksDim, blocksDim))
             end
         end
         # center
@@ -759,7 +759,7 @@ function bm_create_synthetic_random(nrLayers::Int, blocksDim::Int, nrsType::Data
             # right
             for jx = (ix+1):1:min(nrLayers, ix + Int((ndiag["out"] - 1) / 2))
                 # add a damping of 0.3
-                A.M[ix, jx] = 0.3*be_random_array(nrsType, (blocksDim, blocksDim))
+                A.M[ix, jx] = convert(nrsType, 0.3) * be_random_array(nrsType, (blocksDim, blocksDim))
             end
         end
     end
