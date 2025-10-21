@@ -49,7 +49,7 @@ if exists_in_list "$HWs" " " $1; then
     # run the tests
     # IMPORTANT : we recommend a large value for NUM_PRGF_DOMAINS, to increase parallelism while
     #             at the same time reducing the size of the Schur complement
-    export NUM_PRGF_DOMAINS=64
+    export NUM_PRGF_DOMAINS=72
     export NUM_BLAS_THREADS_OUTER=$JULIA_NUM_THREADS
     export NUM_BLAS_THREADS_INNER=1
     julia --threads=$JULIA_NUM_THREADS test.jl $1 $NUM_PRGF_DOMAINS $NUM_BLAS_THREADS_OUTER $NUM_BLAS_THREADS_INNER
