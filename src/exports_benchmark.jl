@@ -7,10 +7,14 @@ export build_M_from_HS
 export bndiag_of_inv_direct
 export bndiag_of_inv_ddrgf!
 export allocate_aux_data_DDRGF
+export allocate_aux_data_PDDRGF
 export AuxDataDDRGF
+export AuxDataPDDRGF
 export bm_create_synthetic_random
 export bndiag_of_inv_ddrgf_global!
 export bndiag_of_inv_ddrgf_local!
+export bndiag_of_inv_pddrgf!
+export bm_blocks_define_complement22!
 
 # from keldyshndiag.jl
 export keldyshndiag!

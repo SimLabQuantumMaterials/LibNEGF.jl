@@ -1297,7 +1297,7 @@ function bndiag_of_inv_pddrgf_inv_Schur_compl!(Mout_::BlockMatrix, auxData::AuxD
     # TODO : move this reference to a 'setup' stage
     bm_reference!(buffM222, buffM2.M, 0, 0)
 
-    bndiag_of_inv_ddrgf_global!(buffM222, buffTHat22, auxDataSeq22, td, cd)
+    @timewrap td "_SeqInv" bndiag_of_inv_ddrgf_global!(buffM222, buffTHat22, auxDataSeq22, td, cd)
 end
 
 function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::AuxDataPDDRGF, td::TimingData,
@@ -1351,12 +1351,12 @@ function bndiag_of_inv_pddrgf!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::A
 
     # first, compute the inverse of \widehat{T}_{11}, storing it in the D1 part of auxData.buffTHat
     # (this is used in both the (1,1) and (2,2) parts)
-    bndiag_of_inv_pddrgf_inv_of_T11!(Min, auxData, td, cd)
+    @timewrap td "_T11inv" bndiag_of_inv_pddrgf_inv_of_T11!(Min, auxData, td, cd)
 
     # with the inverse of \widehat{T}_{11} at hand, construct the Schur complement, and
     # then invert it, stored in the D2 part of Mout_
     # (this is the (2,2) part)
-    bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout, Min, auxData, td, cd)
+    @timewrap td "_SCinv" bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout, Min, auxData, td, cd)
 
     # compute the (1,2) and (2,1) parts of the global result
 
@@ -1364,10 +1364,10 @@ function bndiag_of_inv_pddrgf!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::A
     # (for this we have auxData.buffMPerm, where we put the whole needed object
     # for THat11Inv * THat12 * THatSInv * THat21 * THat11Inv but also immediately
     # copy what should go to the output Mout)
-    bndiag_of_inv_pddrgf_compute_minus_THat11Inv_x_THat12_x_THatSInv!(Mout, auxData, td, cd)
+    @timewrap td "_Hopp12" bndiag_of_inv_pddrgf_compute_minus_THat11Inv_x_THat12_x_THatSInv!(Mout, auxData, td, cd)
     # then, -1 * THatSInv * THat11Inv * THat21
-    bndiag_of_inv_pddrgf_compute_minus_x_THatSInv_THat21_x_THat11Inv!(Mout, auxData, td, cd)
+    @timewrap td "_Hopp21" bndiag_of_inv_pddrgf_compute_minus_x_THatSInv_THat21_x_THat11Inv!(Mout, auxData, td, cd)
 
     # compute the (1,1) part of the global result
-    bndiag_of_inv_pddrgf_compute_11_part!(Mout, auxData, td, cd)
+    @timewrap td "_11" bndiag_of_inv_pddrgf_compute_11_part!(Mout, auxData, td, cd)
 end

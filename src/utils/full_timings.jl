@@ -35,43 +35,46 @@ end
 @ifdef "LIBNEGF_HW" begin
     if ENV["LIBNEGF_HW"] == "cpu"
         function flops_and_mems(whichKernel::String, cd::CountingData, A, B, C)
-            n::Int = 0
-            m::Int = 0
-            k::Int = 0
-            if whichKernel == "_gemm"
-                m = size(C)[1]
-                n = size(C)[2]
-                k = size(A)[2]
-                # 2 for complex add and 6 for complex mult?
-                cd.gemmFlops += (2 + 6) * m * n * k
-                cd.totalFlops += (2 + 6) * m * n * k
-                cd.gemmMems += 2 * (k * (m + n) + 2 * m * n)
-                cd.totalMems += 2 * (k * (m + n) + 2 * m * n)
-            elseif whichKernel == "_mldivide"
-                n = size(A)[1]
-                m = size(A)[2]
-                # 2 for complex add/sub and 6 for complex mult/div?
-                numAdds::Int = 2 * (n * n - n * (n + 1) / 2 - n)
-                numMuls::Int = 6 * (n * n - n * (n + 1) / 2)
-                numDivs::Int = 6 * n
-                numSubs::Int = 2 * n
-                cd.mldivideFlops += 2 * m * (numAdds + numMuls + numDivs + numSubs)
-                cd.totalFlops += 2 * m * (numAdds + numMuls + numDivs + numSubs)
-                cd.mldivideMems += 0
-                cd.totalMems += 0
-            elseif whichKernel == "_mrdivide"
-                cd.mrdivideFlops += 0
-                cd.totalFlops += 0
-                cd.mrdivideMems += 0
-                cd.totalMems += 0
-            elseif whichKernel == "_lu"
-                n = size(A)[1]
-                # 2 for complex add and 6 for complex mult?
-                cd.luFlops += ((2 + 6) / 3) * n * n * n
-                cd.totalFlops += ((2 + 6) / 3) * n * n * n
-                cd.luMems += 0
-                cd.totalMems += 0
-            end
+            # TODO : carefully restore the following (avoiding, e.g., InexactError)
+            # n::Int = 0
+            # m::Int = 0
+            # k::Int = 0
+            # if whichKernel == "_gemm"
+            #     m = size(C)[1]
+            #     n = size(C)[2]
+            #     k = size(A)[2]
+            #     # 2 for complex add and 6 for complex mult?
+            #     cd.gemmFlops += (2 + 6) * m * n * k
+            #     cd.totalFlops += (2 + 6) * m * n * k
+            #     cd.gemmMems += 2 * (k * (m + n) + 2 * m * n)
+            #     cd.totalMems += 2 * (k * (m + n) + 2 * m * n)
+            # elseif whichKernel == "_mldivide"
+            #     n = size(A)[1]
+            #     m = size(A)[2]
+            #     # 2 for complex add/sub and 6 for complex mult/div?
+            #     numAdds::Int = 2 * (n * n - n * (n + 1) / 2 - n)
+            #     numMuls::Int = 6 * (n * n - n * (n + 1) / 2)
+            #     numDivs::Int = 6 * n
+            #     numSubs::Int = 2 * n
+            #     cd.mldivideFlops += 2 * m * (numAdds + numMuls + numDivs + numSubs)
+            #     cd.totalFlops += 2 * m * (numAdds + numMuls + numDivs + numSubs)
+            #     cd.mldivideMems += 0
+            #     cd.totalMems += 0
+            # elseif whichKernel == "_mrdivide"
+            #     cd.mrdivideFlops += 0
+            #     cd.totalFlops += 0
+            #     cd.mrdivideMems += 0
+            #     cd.totalMems += 0
+            # elseif whichKernel == "_lu"
+            #     n = size(A)[1]
+            #     # 2 for complex add and 6 for complex mult?
+            #     println(n * n * n)
+            #     exit()
+            #     cd.luFlops += ((2 + 6) / 3) * n * n * n
+            #     cd.totalFlops += ((2 + 6) / 3) * n * n * n
+            #     cd.luMems += 0
+            #     cd.totalMems += 0
+            # end
         end
     elseif ENV["LIBNEGF_HW"] == "apple"
         # nothing yet
@@ -97,7 +100,8 @@ macro countwrap(cdx, suffx, A, B, C, codex)
     end
 end
 
-function print_flops_and_mems_(cd::CountingData, to::TimerOutput, prec::DataType, suffx::String, method::String)
+function print_flops_and_mems_(cd::CountingData, to::TimerOutput, prec::DataType, suffx::String, method::String,
+    isSeq::Bool)
     nrCalls = cd.nrCalls
     if suffx == "gemm"
         # in gigaflops
@@ -127,9 +131,36 @@ function print_flops_and_mems_(cd::CountingData, to::TimerOutput, prec::DataType
     end
 
     if suffx == "total"
-        totTimeAvg = (TimerOutputs.time(to[method*"_"*string(prec)]["thread1_wo_first_total"]) * 1.0E-9) / nrCalls
+        if isSeq == true
+            totTimeAvg = (TimerOutputs.time(to[method*"_"*string(prec)]["thread1_wo_first_total"]) * 1.0E-9) / nrCalls
+        else
+            totTimeAvg = (TimerOutputs.time(to[method*"_"*string(prec)]["wo_first_total"]) * 1.0E-9) / nrCalls
+        end
     else
-        totTimeAvg = (TimerOutputs.time(to[method*"_"*string(prec)]["thread1_wo_first_total"]["thread1_wo_first_"*suffx]) * 1.0E-9) / nrCalls
+        if isSeq == true
+            totTimeAvg = (TimerOutputs.time(to[method*"_"*string(prec)]["thread1_wo_first_total"]["thread1_wo_first_"*suffx]) * 1.0E-9) / nrCalls
+        else
+            totTimeAvg = 0
+            # avoiding KeyError with try/catch. This could be done better
+            try
+                totTimeAvg += (TimerOutputs.time(to[method*"_"*string(prec)]["wo_first_total"]["wo_first_T11inv"]["wo_first_"*suffx]) * 1.0E-9) / nrCalls
+            catch e end
+            try
+                totTimeAvg += (TimerOutputs.time(to[method*"_"*string(prec)]["wo_first_total"]["wo_first_SCinv"]["wo_first_"*suffx]) * 1.0E-9) / nrCalls
+            catch e end
+            try
+                totTimeAvg += (TimerOutputs.time(to[method*"_"*string(prec)]["wo_first_total"]["wo_first_SCinv"]["wo_first_SeqInv"]["wo_first_"*suffx]) * 1.0E-9) / nrCalls
+            catch e end
+            try
+                totTimeAvg += (TimerOutputs.time(to[method*"_"*string(prec)]["wo_first_total"]["wo_first_Hopp12"]["wo_first_"*suffx]) * 1.0E-9) / nrCalls
+            catch e end
+            try
+                totTimeAvg += (TimerOutputs.time(to[method*"_"*string(prec)]["wo_first_total"]["wo_first_Hopp21"]["wo_first_"*suffx]) * 1.0E-9) / nrCalls
+            catch e end
+            try
+                totTimeAvg += (TimerOutputs.time(to[method*"_"*string(prec)]["wo_first_total"]["wo_first_11"]["wo_first_"*suffx]) * 1.0E-9) / nrCalls
+            catch e end
+        end
     end
 
     println("\t -- kernel : " * suffx)
@@ -140,13 +171,14 @@ function print_flops_and_mems_(cd::CountingData, to::TimerOutput, prec::DataType
     println("\t\t -- mems/sec (avg) (GB/s) : " * string(memsAvg / totTimeAvg))
 end
 
-function print_flops_and_mems(cd::CountingData, to::TimerOutput, prec::DataType, method::String)
+function print_flops_and_mems(cd::CountingData, to::TimerOutput, prec::DataType, method::String,
+    isSeq::Bool)
     nrCalls = cd.nrCalls
 
     println("\nFlops and mems (" * string(prec) * " - master thread only):")
     println("\t -- nr calls : " * string(nrCalls))
-    print_flops_and_mems_(cd, to, prec, "gemm", method)
-    print_flops_and_mems_(cd, to, prec, "lu", method)
-    print_flops_and_mems_(cd, to, prec, "mldivide", method)
-    print_flops_and_mems_(cd, to, prec, "total", method)
+    print_flops_and_mems_(cd, to, prec, "gemm", method, isSeq)
+    print_flops_and_mems_(cd, to, prec, "lu", method, isSeq)
+    print_flops_and_mems_(cd, to, prec, "mldivide", method, isSeq)
+    print_flops_and_mems_(cd, to, prec, "total", method, isSeq)
 end
