@@ -94,6 +94,7 @@ for systemx in systemNames
                                 td = TimingData()
                             end
                             timerTagLocalTotal = timerTagLocal * "_total"
+                            LinearAlgebra.BLAS.set_num_threads(auxsPar[tId].nrBLASThreadsInner)
                             @timeit timers[tId] timerTagLocalTotal bndiag_of_inv_pddrgf!(Mouts[tId], Mins[tId], auxsPar[tId], td, cd)
                         end
                     end

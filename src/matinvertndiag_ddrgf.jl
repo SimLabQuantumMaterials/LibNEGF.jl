@@ -318,12 +318,16 @@ end
 function bndiag_of_inv_ddrgf_global!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxDataDDRGF, td::TimingData,
     cd::CountingData)
     # set the number of chosen BLAS threads
-    LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsOuter * auxData.nrBLASThreadsInner)
+    if auxData.nrBLASThreadsOuter * auxData.nrBLASThreadsInner > 1
+        LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsOuter * auxData.nrBLASThreadsInner)
+    end
 
     bndiag_of_inv_ddrgf_local!(Mout, Min, auxData, td, cd)
 
     # restore the number of BLAS threads to 1
-    LinearAlgebra.BLAS.set_num_threads(1)
+    if auxData.nrBLASThreadsOuter * auxData.nrBLASThreadsInner > 1
+        LinearAlgebra.BLAS.set_num_threads(1)
+    end
 end
 """
     bndiag_of_inv_pddrgf_check_nr_tasks(M::BlockMatrix, nrTasks::Int, nrBlocksInPivots::Int, splitType::Bool)
@@ -643,7 +647,9 @@ end
 
 function bndiag_of_inv_pddrgf_compute_THat11Inv_x_THat12!(Min::BlockMatrix, auxData::AuxDataPDDRGF,
     td::TimingData, cd::CountingData)
-    LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
+    if auxData.nrBLASThreadsInner > 1
+        LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
+    end
 
     blockSizeD1 = auxData.blockSizeD1
     nrTasks = auxData.nrTasks
@@ -699,12 +705,16 @@ function bndiag_of_inv_pddrgf_compute_THat11Inv_x_THat12!(Min::BlockMatrix, auxD
         end
     end
 
-    LinearAlgebra.BLAS.set_num_threads(1)
+    if auxData.nrBLASThreadsInner > 1
+        LinearAlgebra.BLAS.set_num_threads(1)
+    end
 end
 
 function bndiag_of_inv_pddrgf_compute_minus_THat11Inv_x_THat12_x_THatSInv!(Mout::BlockMatrix, auxData::AuxDataPDDRGF,
     td::TimingData, cd::CountingData)
-    LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
+    if auxData.nrBLASThreadsInner > 1
+        LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
+    end
 
     blockSizeD1 = auxData.blockSizeD1
     nrTasks = auxData.nrTasks
@@ -783,12 +793,16 @@ function bndiag_of_inv_pddrgf_compute_minus_THat11Inv_x_THat12_x_THatSInv!(Mout:
         end
     end
 
-    LinearAlgebra.BLAS.set_num_threads(1)
+    if auxData.nrBLASThreadsInner > 1
+        LinearAlgebra.BLAS.set_num_threads(1)
+    end
 end
 
 function bndiag_of_inv_pddrgf_compute_THat21_x_THat11Inv!(Min::BlockMatrix, auxData::AuxDataPDDRGF,
     td::TimingData, cd::CountingData)
-    LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
+    if auxData.nrBLASThreadsInner > 1
+        LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
+    end
 
     blockSizeD1 = auxData.blockSizeD1
     nrTasks = auxData.nrTasks
@@ -844,12 +858,16 @@ function bndiag_of_inv_pddrgf_compute_THat21_x_THat11Inv!(Min::BlockMatrix, auxD
         end
     end
 
-    LinearAlgebra.BLAS.set_num_threads(1)
+    if auxData.nrBLASThreadsInner > 1
+        LinearAlgebra.BLAS.set_num_threads(1)
+    end
 end
 
 function bndiag_of_inv_pddrgf_compute_minus_x_THatSInv_THat21_x_THat11Inv!(Mout::BlockMatrix, auxData::AuxDataPDDRGF,
     td::TimingData, cd::CountingData)
-    LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
+    if auxData.nrBLASThreadsInner > 1
+        LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
+    end
 
     # TODO : based on analyzing this function a bit more, can we reduce the cost of the
     #        function bndiag_of_inv_pddrgf_compute_THat21_x_THat11Inv!(...) ?
@@ -919,12 +937,16 @@ function bndiag_of_inv_pddrgf_compute_minus_x_THatSInv_THat21_x_THat11Inv!(Mout:
         end
     end
 
-    LinearAlgebra.BLAS.set_num_threads(1)
+    if auxData.nrBLASThreadsInner > 1
+        LinearAlgebra.BLAS.set_num_threads(1)
+    end
 end
 
 function bndiag_of_inv_pddrgf_compute_11_part!(Mout::BlockMatrix, auxData::AuxDataPDDRGF,
     td::TimingData, cd::CountingData)
-    LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
+    if auxData.nrBLASThreadsInner > 1
+        LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
+    end
 
     blockSizeD1 = auxData.blockSizeD1
     nrTasks = auxData.nrTasks
@@ -1007,12 +1029,16 @@ function bndiag_of_inv_pddrgf_compute_11_part!(Mout::BlockMatrix, auxData::AuxDa
         end
     end
 
-    LinearAlgebra.BLAS.set_num_threads(1)
+    if auxData.nrBLASThreadsInner > 1
+        LinearAlgebra.BLAS.set_num_threads(1)
+    end
 end
 
 function bndiag_of_inv_pddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataPDDRGF, td::TimingData,
     cd::CountingData)
-    LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
+    if auxData.nrBLASThreadsInner > 1
+        LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
+    end
 
     # the blocks in the following matrices contain references to blocks
     buffM1 = auxData.buffMPerm
@@ -1073,7 +1099,9 @@ function bndiag_of_inv_pddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataPDD
         end
     end
 
-    LinearAlgebra.BLAS.set_num_threads(1)
+    if auxData.nrBLASThreadsInner > 1
+        LinearAlgebra.BLAS.set_num_threads(1)
+    end
 end
 
 function bndiag_of_inv_pddrgf_error_inv_of_T11(Min_::BlockMatrix, Mout_::BlockMatrix,
@@ -1128,7 +1156,9 @@ end
 
 function bndiag_of_inv_pddrgf_build_Schur_compl!(Min_::BlockMatrix, auxData::AuxDataPDDRGF, td::TimingData,
     cd::CountingData)
-    LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
+    if auxData.nrBLASThreadsInner > 1
+        LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
+    end
 
     minusOneCmplx = convert(Min_.nrsType, -1.0)
     plusOneCmplx = convert(Min_.nrsType, 1.0)
@@ -1281,8 +1311,9 @@ function bndiag_of_inv_pddrgf_build_Schur_compl!(Min_::BlockMatrix, auxData::Aux
         end
 
     end
-
-    LinearAlgebra.BLAS.set_num_threads(1)
+    if auxData.nrBLASThreadsInner > 1
+        LinearAlgebra.BLAS.set_num_threads(1)
+    end
 end
 
 function bndiag_of_inv_pddrgf_inv_Schur_compl!(Mout_::BlockMatrix, auxData::AuxDataPDDRGF, td::TimingData,

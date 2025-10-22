@@ -1,8 +1,8 @@
 # 1 from disk, 2 is random
 whereFrom = 2
 # values for the synthetic matrix
-npl = 288
-blockSize = 64
+npl = 128
+blockSize = 256
 # IMPORTANT : the recommended value for nrBlocksInNonPivots is 2, to reduce fill up
 #             as much as possible
 nrBlocksInNonPivots = 3
