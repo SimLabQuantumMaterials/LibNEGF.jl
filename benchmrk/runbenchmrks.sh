@@ -40,7 +40,7 @@ if exists_in_list "$HWs" " " $1; then
     # create usable copy of Project_common.toml
     cp ../Project_common.toml ../Project.toml
     # export OPENBLAS_NUM_THREADS=1
-    export JULIA_NUM_THREADS=3
+    export JULIA_NUM_THREADS=1
 
     # variables used to mimic C's ifdef
     export LIBNEGF_HW=$1
@@ -58,7 +58,7 @@ if exists_in_list "$HWs" " " $1; then
     export NUM_PRGF_DOMAINS=72
     # the outer threads is used only by DDRGF
     export NUM_BLAS_THREADS_OUTER=$JULIA_NUM_THREADS
-    export NUM_BLAS_THREADS_INNER=2
+    export NUM_BLAS_THREADS_INNER=1
 
     julia --threads=$JULIA_NUM_THREADS runbenchmrks.jl $1 $2 $NUM_PRGF_DOMAINS $NUM_BLAS_THREADS_OUTER $NUM_BLAS_THREADS_INNER
 else

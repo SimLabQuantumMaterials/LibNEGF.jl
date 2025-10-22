@@ -1,12 +1,5 @@
 Printf.@printf("Benchmarking bndiag_of_inv_ddrgf!(...)\n")
 
-nrEPoints = size(Epoints)[1]
-
-# 1 from disk, 2 is random
-whereFrom = 2
-
-useFinerTimings = Int(parse(Float64, ARGS[2]))
-
 LinearAlgebra.BLAS.set_num_threads(Int(parse(Float64, ARGS[5])))
 
 # first, check if the number of threads divides the number of energy points,
@@ -117,7 +110,7 @@ for systemx in systemNames
 
         # print flops and mems counts for thread1 only
         if useFinerTimings == 1
-            print_flops_and_mems(counters[1], to, precx, "bndiag_of_inv_ddrgf")
+            print_flops_and_mems(counters[1], to, precx, "bndiag_of_inv_ddrgf", true)
         end
     end
 end
