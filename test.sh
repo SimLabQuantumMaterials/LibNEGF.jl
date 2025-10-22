@@ -52,6 +52,7 @@ if exists_in_list "$HWs" " " $1; then
     export NUM_PRGF_DOMAINS=72
     export NUM_BLAS_THREADS_OUTER=$JULIA_NUM_THREADS
     export NUM_BLAS_THREADS_INNER=1
+
     julia --threads=$JULIA_NUM_THREADS test.jl $1 $NUM_PRGF_DOMAINS $NUM_BLAS_THREADS_OUTER $NUM_BLAS_THREADS_INNER
 else
     echo "The hardware $1 is not in the list, not running the tests"

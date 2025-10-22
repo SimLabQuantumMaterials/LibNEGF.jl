@@ -8,6 +8,9 @@ export bndiag_of_inv_direct
 export bndiag_of_inv_ddrgf!
 export allocate_aux_data_DDRGF
 export AuxDataDDRGF
+export bm_create_synthetic_random
+export bndiag_of_inv_ddrgf_global!
+export bndiag_of_inv_ddrgf_local!
 
 # from keldyshndiag.jl
 export keldyshndiag!

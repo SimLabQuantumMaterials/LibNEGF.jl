@@ -52,7 +52,6 @@ for systemx in systemNames
                     # crate synthetic matrix
                     MbmSynth = bm_create_synthetic(MbmFromData, npl, blockSize)
                 else
-                    whereFrom == 2
                     MbmSynth = bm_create_synthetic_random(npl, blockSize, precx)
                 end
 
