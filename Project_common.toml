@@ -4,6 +4,7 @@ authors = ["Christoph Conrads", "Edoardo di Napoli", "Gustavo Ramirez-Hidalgo"]
 version = "0.1.0-DEV"
 
 [deps]
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MAT = "23992714-dd62-5051-b70f-ba57cb901cac"
@@ -15,6 +16,7 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 
 [compat]
+BenchmarkTools = "1.6.0"
 CSV = "0.10.15"
 LinearAlgebra = "1.11.0"
 MAT = "0.10.7"

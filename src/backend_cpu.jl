@@ -15,7 +15,9 @@ end
 Contains a CPU `Array`, CPU `LU factor` and/or `undef`, with blocks stored
 in the (CPU) device. This is at the base of BlockMatrix.
 """
-ArrayOrLU_ = Matrix{Union{Array,CpuLU,Nothing}}
+ArrayOrLUUnder_ = Union{Array,CpuLU,Nothing}
+ArrayOrLU_ = Matrix{ArrayOrLUUnder_}
+ArrayOrLUView_ = SubArray{ArrayOrLUUnder_,2,ArrayOrLU_,Tuple{UnitRange{Int},UnitRange{Int}},false}
 
 # ----------------------------------------------------
 # 'base' types first e.g. Array and Metal.MtlArray
@@ -53,8 +55,16 @@ function be_identity(nrsType::DataType, n::Int)::Array
     return Array(LinearAlgebra.Diagonal(ones(nrsType, (n, n))))
 end
 
-function be_ctranspose!(Mout::Array, Min::Array)
-    adjoint!(Mout, Min)
+function be_ctranspose!(Mout::Array, Min::Array, td::TimingData, cd::CountingData)
+    if Threads.nthreads() > 1
+        adjoint!(Mout, Min)
+    else
+        @timewrap td "_ctranspose" begin
+            @countwrap cd "_ctranspose" Min Min Min begin
+                adjoint!(Mout, Min)
+            end
+        end
+    end
 end
 
 function be_random_array(nrsType::DataType, dimsOfArr::Tuple{Int,Int})::Array
@@ -122,20 +132,44 @@ function be_inv(M::Array)::Array
     return inv(M)
 end
 
-function be_lu!(Mout::CpuLU, Min::Array)
-    copy!(Mout.A, Min)
-    Mout.A, Mout.piv, info = LinearAlgebra.LAPACK.getrf!(Mout.A, Mout.piv)
-    if info != 0
-        println("ERROR: LAPACK lu returned an error info")
-        @code_location
-        exit()
+function be_lu!(Mout::CpuLU, Min::Array, td::TimingData, cd::CountingData)
+    if Threads.nthreads() > 1
+        copy!(Mout.A, Min)
+        Mout.A, Mout.piv, info = LinearAlgebra.LAPACK.getrf!(Mout.A, Mout.piv)
+        if info != 0
+            println("ERROR: LAPACK lu returned an error info")
+            @code_location
+            exit()
+        end
+    else
+        @timewrap td "_lu" begin
+            @countwrap cd "_lu" Min Min Min begin
+                copy!(Mout.A, Min)
+                Mout.A, Mout.piv, info = LinearAlgebra.LAPACK.getrf!(Mout.A, Mout.piv)
+                if info != 0
+                    println("ERROR: LAPACK lu returned an error info")
+                    @code_location
+                    exit()
+                end
+            end
+        end
     end
 end
 
-function be_lu(M::Array)::CpuLU
-    Mlu = be_zero_lu(typeof(M[1, 1]), size(M)[1])
-    be_lu!(Mlu, M)
-    return Mlu
+function be_lu(M::Array, td::TimingData, cd::CountingData)::CpuLU
+    if Threads.nthreads() > 1
+        Mlu = be_zero_lu(typeof(M[1, 1]), size(M)[1])
+        be_lu!(Mlu, M, td, cd)
+        return Mlu
+    else
+        @timewrap td "_lu" begin
+            @countwrap cd "_lu" M M M begin
+                Mlu = be_zero_lu(typeof(M[1, 1]), size(M)[1])
+                be_lu!(Mlu, M, td, cd)
+                return Mlu
+            end
+        end
+    end
 end
 
 function be_inv_from_lu!(Mout::Array, Min::CpuLU)
@@ -144,14 +178,32 @@ function be_inv_from_lu!(Mout::Array, Min::CpuLU)
 end
 
 # this corresponds to mldivide, but using a precomputed LU
-function be_mldivide!(trans::Char, Mout::Array, Min::Array, Mlu::CpuLU)
-    copy!(Mout, Min)
-    LinearAlgebra.LAPACK.getrs!(trans, Mlu.A, Mlu.piv, Mout)
+function be_mldivide!(trans::Char, Mout::Array, Min::Array, Mlu::CpuLU,
+    td::TimingData, cd::CountingData)
+    if Threads.nthreads() > 1
+        copy!(Mout, Min)
+        LinearAlgebra.LAPACK.getrs!(trans, Mlu.A, Mlu.piv, Mout)
+    else
+        @timewrap td "_mldivide" begin
+            @countwrap cd "_mldivide" Min Min Min begin
+                copy!(Mout, Min)
+                LinearAlgebra.LAPACK.getrs!(trans, Mlu.A, Mlu.piv, Mout)
+            end
+        end
+    end
 end
 
 function be_gemm!(tA::Char, tB::Char, alpha::Number, A::Array,
-    B::Array, beta::Number, C::Array)
-    LinearAlgebra.BLAS.gemm!(tA, tB, alpha, A, B, beta, C)
+    B::Array, beta::Number, C::Array, td::TimingData, cd::CountingData)
+    if Threads.nthreads() > 1
+        LinearAlgebra.BLAS.gemm!(tA, tB, alpha, A, B, beta, C)
+    else
+        @timewrap td "_gemm" begin
+            @countwrap cd "_gemm" A B C begin
+                LinearAlgebra.BLAS.gemm!(tA, tB, alpha, A, B, beta, C)
+            end
+        end
+    end
 end
 
 function be_mul(M1::Array, M2::Array)::Array

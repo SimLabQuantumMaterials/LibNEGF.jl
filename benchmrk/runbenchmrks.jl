@@ -20,17 +20,23 @@ using LibNEGF, LinearAlgebra, Printf, TimerOutputs, .Threads
 
 include("common_to_benchmrks.jl")
 
-to = TimerOutput()
-
 Printf.@printf("\nBenchmarking, common info:\n")
 Printf.@printf("  -- hardware: %s\n", ARGS[1])
-Printf.@printf("  -- nr of BLAS threads: %d\n", LinearAlgebra.BLAS.get_num_threads())
+Printf.@printf("  -- nr of BLAS threads outer: %d\n", parse(Int, ARGS[4]))
+Printf.@printf("  -- nr of BLAS threads inner: %d\n", parse(Int, ARGS[5]))
 Printf.@printf("  -- nr of outer threads: %d\n", Threads.nthreads())
 Printf.@printf("  -- nr of energy points: %d\n\n", size(Epoints)[1])
 
 # benchmarks common to all of the supported hardwares
 # include("benchmrk_matinvertndiag_direct.jl")
-include("benchmrk_matinvertndiag_ddrgf.jl")
-include("benchmrk_keldyshndiag.jl")
-
+# to = TimerOutput()
+# include("benchmrk_matinvertndiag_ddrgf.jl")
+# println(to)
+# println("")
+# to = TimerOutput()
+# include("benchmrk_keldyshndiag.jl")
+# println(to)
+# println("")
+to = TimerOutput()
+include("benchmrk_matinvertndiag_pddrgf.jl")
 println(to)

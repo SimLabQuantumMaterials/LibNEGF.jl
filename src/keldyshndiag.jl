@@ -36,36 +36,40 @@ Computes C = A * Binv * A^{H}, where Binv is the block tridiagonal of
 level but further within Keldysh and RGF.
 - `vsn:String`: the version of the implementation, currently available "v1" and "v2".
 """
-function keldyshndiag!(C::BlockMatrix, Binv::BlockMatrix, B::BlockMatrix, A::BlockMatrix, auxData::AuxDataKeldysh, td::TimingData, vsn::String)
+function keldyshndiag!(C::BlockMatrix, Binv::BlockMatrix, B::BlockMatrix, A::BlockMatrix, auxData::AuxDataKeldysh, td::TimingData, cd::CountingData, vsn::String)
     if vsn == "v1"
-        keldyshndiag_v1!(C, Binv, B, A, auxData, td)
+        keldyshndiag_v1!(C, Binv, B, A, auxData, td, cd)
     elseif vsn == "v2"
-        keldyshndiag_v2!(C, Binv, B, A, auxData, td)
+        keldyshndiag_v2!(C, Binv, B, A, auxData, td, cd)
     else
         println("ERROR: Keldysh implementation version not available")
     end
 end
 
 # first version, naive, inefficient
-function keldyshndiag_v1!(C::BlockMatrix, Binv::BlockMatrix, B::BlockMatrix, A::BlockMatrix, auxData::AuxDataKeldysh, td::TimingData)
-    bndiag_of_inv_ddrgf!(Binv, B, auxData.auxDataRGF, td)
+function keldyshndiag_v1!(C::BlockMatrix, Binv::BlockMatrix, B::BlockMatrix, A::BlockMatrix, auxData::AuxDataKeldysh, td::TimingData, cd::CountingData)
+    bndiag_of_inv_ddrgf!(Binv, B, auxData.auxDataRGF, td, cd)
 
     Binvsp = bm_convert(Binv)
     Asp = bm_convert(A)
-    @timewrap td "_sp_symm_gemm" Csp = Binvsp * (Asp * Binvsp')
+    @timewrap td "_sp_symm_gemm" begin
+        @countwrap cd "_sp_symm_gemm" Asp Binvsp Binvsp begin
+            Csp = Binvsp * (Asp * Binvsp')
+        end
+    end
     Cbm = bm_convert(Csp, B.blockSizes, B.ndiag)
     bm_copy!(C, Cbm)
 end
 
 # a more efficient version
-function keldyshndiag_v2!(C::BlockMatrix, Binv::BlockMatrix, B::BlockMatrix, A::BlockMatrix, auxData::AuxDataKeldysh, td::TimingData)
-    bndiag_of_inv_ddrgf!(Binv, B, auxData.auxDataRGF, td)
+function keldyshndiag_v2!(C::BlockMatrix, Binv::BlockMatrix, B::BlockMatrix, A::BlockMatrix, auxData::AuxDataKeldysh, td::TimingData, cd::CountingData)
+    bndiag_of_inv_ddrgf_local!(Binv, B, auxData.auxDataRGF, td, cd)
 
     # the (block) indices ix and jx are running over auxData.bmLargeBuff
 
     # do auxData.bmLargeBuff = A * Binv'
-    bm_gemm!('N', 'C', convert(Binv.nrsType, 1.0), A, Binv, convert(Binv.nrsType, 0.0), auxData.bmLargeBuff)
+    bm_gemm!('N', 'C', convert(Binv.nrsType, 1.0), A, Binv, convert(Binv.nrsType, 0.0), auxData.bmLargeBuff, td, cd)
 
     # do C = Binv * auxData.bmLargeBuff
-    bm_gemm!('N', 'N', convert(A.nrsType, 1.0), Binv, auxData.bmLargeBuff, convert(Binv.nrsType, 0.0), C)
+    bm_gemm!('N', 'N', convert(A.nrsType, 1.0), Binv, auxData.bmLargeBuff, convert(Binv.nrsType, 0.0), C, td, cd)
 end
