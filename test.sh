@@ -44,6 +44,8 @@ if exists_in_list "$HWs" " " $1; then
     BINS_JULIA=$(ls ~/.julia/compiled/v$JULIA_MAJOR_VERSION/LibNEGF/*.ji)
     rm $BINS_JULIA
 
+    export JULIA_NUM_THREADS=4
+
     # run the tests
     julia test.jl $1
 else

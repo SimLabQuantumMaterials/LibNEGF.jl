@@ -71,6 +71,7 @@ export get_rcIndexAt
 export get_blockSizes
 export full
 export set_sparse_Block
+export show_sparse
 
 # from selected_inverse.jl
 export blockMatrix_factorization

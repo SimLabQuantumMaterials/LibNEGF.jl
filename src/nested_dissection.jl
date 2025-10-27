@@ -93,6 +93,43 @@ In place version.
 # Arguments
 - `A::Matrix` : The target matrix to factorize.
 """
+# function nd_factorization!(A::Matrix)::Matrix
+#     Dagger.spawn_datadeps() do
+#         npl = size(A, 1)
+#         for i = 1:npl
+#             # Step 1 : create L(i,i) U(i,i)
+#             Dagger.@spawn LAPACK.potrf!('L', InOut(A[i, i].Full))
+
+#             idx = []
+#             for j = i+1:npl
+#                 # Warning : supposing matrix is symmetric
+#                 if isassigned(A, j, i)
+#                     # Step 2 : Generate L(i+1,i)
+#                     Dagger.@spawn BLAS.trsm!('R', 'U', 'N', 'N', 1.0, In(A[i, i].Full), InOut(A[j, i].Full))
+#                     # Step 3 : Generate U(i,i+1)
+#                     Dagger.@spawn BLAS.trsm!('L', 'L', 'N', 'U', 1.0, In(A[i, i].Full), InOut(A[i, j].Full))
+#                     Dagger.@spawn BLAS.gemm!('N', 'T', -1.0, In(A[j, i].Full), In(A[j, i].Full), 1.0, InOut(A[j, j].Full))
+#                     # Step 4 : Update A(i+1:,i+1:)
+#                     for k in idx
+#                         if isassigned(A, j, k)
+#                             Dagger.@spawn BLAS.gemm!('N', 'T', -1.0, In(A[j, i].Full), In(A[k, i].Full), 1.0, InOut(A[j, k].Full))
+#                             Dagger.@spawn BLAS.gemm!('N', 'T', -1.0, In(A[k, i].Full), In(A[j, i].Full), 1.0, InOut(A[k, j].Full))
+#                         else
+#                             A[j, k] = Block(zeros(A[j, i].row, A[i, k].col)) # Should be support later on Dagger (ongoing work).
+#                             A[k, j] = Block(zeros(A[k, i].row, A[i, j].col)) # Should be support later on Dagger (ongoing work).
+#                             Dagger.@spawn BLAS.gemm!('N', 'T', -1.0, In(A[j, i].Full), In(A[k, i].Full), 1.0, InOut(A[j, k].Full))
+#                             Dagger.@spawn BLAS.gemm!('N', 'T', -1.0, In(A[k, i].Full), In(A[j, i].Full), 1.0, InOut(A[k, j].Full))
+#                         end
+#                     end
+#                     push!(idx, j)
+#                 end
+#             end
+#         end
+#     end
+
+#     return A
+# end
+
 function nd_factorization!(A::Matrix)::Matrix
     Dagger.spawn_datadeps() do
         npl = size(A, 1)
@@ -104,24 +141,23 @@ function nd_factorization!(A::Matrix)::Matrix
             for j = i+1:npl
                 # Warning : supposing matrix is symmetric
                 if isassigned(A, j, i)
-                    # Step 2 : Generate L(i+1,i)
-                    Dagger.@spawn BLAS.trsm!('R', 'U', 'N', 'N', 1.0, In(A[i, i].Full), InOut(A[j, i].Full))
-                    # Step 3 : Generate U(i,i+1)
-                    Dagger.@spawn BLAS.trsm!('L', 'L', 'N', 'U', 1.0, In(A[i, i].Full), InOut(A[i, j].Full))
-                    Dagger.@spawn BLAS.gemm!('N', 'T', -1.0, In(A[j, i].Full), In(A[j, i].Full), 1.0, InOut(A[j, j].Full))
-                    # Step 4 : Update A(i+1:,i+1:)
-                    for k in idx
-                        if isassigned(A, j, k)
-                            Dagger.@spawn BLAS.gemm!('N', 'T', -1.0, In(A[j, i].Full), In(A[k, i].Full), 1.0, InOut(A[j, k].Full))
-                            Dagger.@spawn BLAS.gemm!('N', 'T', -1.0, In(A[k, i].Full), In(A[j, i].Full), 1.0, InOut(A[k, j].Full))
-                        else
-                            A[j, k] = Block(zeros(A[j, i].row, A[i, k].col)) # Should be support later on Dagger (ongoing work).
-                            A[k, j] = Block(zeros(A[k, i].row, A[i, j].col)) # Should be support later on Dagger (ongoing work).
-                            Dagger.@spawn BLAS.gemm!('N', 'T', -1.0, In(A[j, i].Full), In(A[k, i].Full), 1.0, InOut(A[j, k].Full))
-                            Dagger.@spawn BLAS.gemm!('N', 'T', -1.0, In(A[k, i].Full), In(A[j, i].Full), 1.0, InOut(A[k, j].Full))
-                        end
-                    end
                     push!(idx, j)
+                    # Step 2 : Generate L(i+1,i)
+                    Dagger.@spawn BLAS.trsm!('R', 'L', 'T', 'N', 1.0, In(A[i, i].Full), InOut(A[j, i].Full))
+                end
+                if isassigned(A, i, j)
+                    # Step 3 : Generate U(i,i+1)
+                    Dagger.@spawn BLAS.trsm!('L', 'L', 'N', 'N', 1.0, In(A[i, i].Full), InOut(A[i, j].Full))
+                end
+            end
+            # Step 4 : Update A(i+1:,i+1:)
+            for k in collect(Iterators.product(idx, idx))
+                k = CartesianIndex(k)
+                if isassigned(A, k[1], k[2])
+                    Dagger.@spawn BLAS.gemm!('N', 'T', -1.0, In(A[k[1], i].Full), In(A[k[2], i].Full), 1.0, InOut(A[k[1], k[2]].Full))
+                else
+                    A[k] = Block(zeros(A[k[1], i].row, A[i, k[2]].col)) # Should be support later on Threads (ongoing work).
+                    Dagger.@spawn BLAS.gemm!('N', 'T', -1.0, In(A[k[1], i].Full), In(A[k[2], i].Full), 1.0, InOut(A[k[1], k[2]].Full))
                 end
             end
         end
@@ -147,7 +183,7 @@ The computation is done block by block along the diagonal starting from the firs
 - `A::MAtrix` : The target matrix
 """
 function nd_factorization(A::Matrix)::Matrix
-    B = copy_bm(A)
+    B = bm_copy(A)
 
     return nd_factorization!(B)
 end

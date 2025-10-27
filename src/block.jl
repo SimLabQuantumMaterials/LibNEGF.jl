@@ -121,7 +121,6 @@ end
 # prod operator
 ###
 
-
 """
 	Base.prod(A::Block, B::Block)::Array
 
@@ -645,4 +644,23 @@ function set_sparse_Block(B::Array, npl::Int, s_flag::Bool=false)::Matrix
     end
 
     return A
+end
+
+####
+# To visualize the matrix
+####
+
+"""
+	show_sparse(A::Array[, tol::Float64=1e-18])
+
+Print in IO the sparsity of the matrix `A`.
+
+Dot represent nonzeros values.
+
+# Arguments
+- `A::Array`: a matrix.
+- `tol::Float64`: the threshold to show values.
+"""
+function show_sparse(A::Array, tol::Float64=1e-18)
+	println(SparseArrays._show_with_braille_patterns(stdout, droptol!(sparse(A),tol)));
 end

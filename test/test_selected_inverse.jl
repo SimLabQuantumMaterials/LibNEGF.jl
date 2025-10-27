@@ -17,7 +17,7 @@ using LibNEGF, Test, LinearAlgebra
 	    luT = lu(full(T), NoPivot())
 	    T_LU_Matrix = full(T_LU)
 	    appT_LU = UnitLowerTriangular(T_LU_Matrix) * UpperTriangular(T_LU_Matrix)
-	    @test norm(full(T_LU) - luT.factors) / norm(full(T_LU)) <= 1e-15
+	    @test norm(T_LU_Matrix - luT.factors) / norm(T_LU_Matrix) <= 1e-15
 	    @test norm(appT_LU - full(T)) / norm(appT_LU) <= 1e-15
     end
     @testset "blockMatrix_inverse" begin
