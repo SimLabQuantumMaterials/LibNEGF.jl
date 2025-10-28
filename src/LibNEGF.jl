@@ -70,6 +70,7 @@ export get_rcIndex
 export get_rcIndexAt
 export get_blockSizes
 export full
+export bm_transpose
 export set_sparse_Block
 export show_sparse
 

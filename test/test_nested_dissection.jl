@@ -65,13 +65,15 @@ BLAS.set_num_threads(1)
 	    end
 		reorder = bm_get_reorder_recTer(npl, nb_level=2)
 		T = bm_reorder(T, reorder)
-	    original = lu(full(T), NoPivot())
+		T = T * bm_transpose(T)
+		T_full = full(T)
+	    original = lu(T_full, NoPivot())
 	    T_LU = nd_factorization(T)
 		
-		# lT = full(LowerTriangular(T_LU))
-	    # T_LU_Matrix = lT*transpose(lT)
-	    # appT = UnitLowerTriangular(T_LU_Matrix) * UpperTriangular(T_LU_Matrix)
-	    # @test norm(T_LU_Matrix - original.factors) / norm(original.factors) <= 1e-15
+		fT = full(T_LU)
+	    appT = UnitLowerTriangular(fT) * UpperTriangular(fT)
+	    @test norm(T_full - original.L*original.U) / norm(T_full) <= 1e-15
+		@test norm(T_full - appT) / norm(T_full) <= 1e-15
     end
     # @testset "nd_inverse" begin
 	#     npl = 5

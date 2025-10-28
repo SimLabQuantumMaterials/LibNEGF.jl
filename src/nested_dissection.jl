@@ -147,7 +147,7 @@ function nd_factorization!(A::Matrix)::Matrix
                 end
                 if isassigned(A, i, j)
                     # Step 3 : Generate U(i,i+1)
-                    Dagger.@spawn BLAS.trsm!('L', 'L', 'N', 'N', 1.0, In(A[i, i].Full), InOut(A[i, j].Full))
+                    Dagger.@spawn BLAS.trsm!('L', 'U', 'N', 'N', 1.0, In(A[i, i].Full), InOut(A[i, j].Full))
                 end
             end
             # Step 4 : Update A(i+1:,i+1:)

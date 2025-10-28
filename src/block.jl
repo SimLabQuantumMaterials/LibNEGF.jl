@@ -477,7 +477,6 @@ Convert a block matrix of type `Matrix` to full matrix.
 - `cind::Vector{Int}` : column indeces vector.
 """
 function full(A::Matrix, rind::Vector{Int}, cind::Vector{Int})::Array
-    npl = size(A, 1)
     b = get_rowSizes(A)
     m = sum(b)
     B = zeros(Float64, m, m)
@@ -521,6 +520,32 @@ function full(A::Matrix)::Array
                 else
                     B[idx, idy] = A[i, j].Full
                 end
+            end
+        end
+    end
+
+    return B
+end
+
+"""
+	bm_transpose(A::Matrix)::Array
+
+Transpose a block matrix.
+
+**Warning : Working only if the diagonal is no empty.**
+	
+# Arguments
+- `A::Matrix`: A block matrix.
+"""
+function bm_transpose(A::Matrix)::Array
+    npl = size(A, 1)
+    B = bm_similar(A)
+
+    for i = 1:npl
+        B[i,i] = Block(full(transpose(A[i,i].Full)))
+        for j = 1:npl
+            if isassigned(A, i, j)
+                B[i,j] = Block(full(transpose(A[j,i].Full)))
             end
         end
     end
