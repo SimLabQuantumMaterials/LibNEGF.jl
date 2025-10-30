@@ -52,12 +52,12 @@ for systemx in systemNames
                         push!(Mins, Min)
                         push!(Mouts, bm_copy(Min))
                     end
-                    auxsSeq = Vector{AuxDataDDRGF}()
-                    auxsPar = Vector{AuxDataPDDRGF}()
+                    auxsSeq = Vector{AuxDataRGF}()
+                    auxsPar = Vector{AuxDataDDRGF}()
                     for ix = 1:1
                         push!(auxsSeq, allocate_aux_data_RGF(Mins[ix], parse(Int, ARGS[4]), parse(Int, ARGS[5])))
                         splitType::Bool = 0
-                        push!(auxsPar, allocate_aux_data_PDDRGF(Mins[ix], nrBlocksInNonPivots, splitType, auxsSeq[ix],
+                        push!(auxsPar, allocate_aux_data_DDRGF(Mins[ix], nrBlocksInNonPivots, splitType, auxsSeq[ix],
                             parse(Int, ARGS[3]), parse(Int, ARGS[4]), parse(Int, ARGS[5])))
                         bm_blocks_define_complement22!(Mouts[ix], auxsPar[ix], 2)
                     end

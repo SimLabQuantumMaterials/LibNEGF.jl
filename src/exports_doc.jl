@@ -21,7 +21,7 @@ export bm_create_synthetic
 export bm_create_synthetic_random
 export bm_reference!
 export bm_reference!
-export AuxDataDDRGF
+export AuxDataRGF
 export allocate_aux_data_RGF
 export bndiag_of_inv_rgf_local!
 export ArrayOrLUView_

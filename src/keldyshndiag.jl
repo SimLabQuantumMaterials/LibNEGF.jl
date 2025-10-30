@@ -5,11 +5,11 @@ Buffers used by Keldysh. The data in `auxDataRGF` are used for supporting
 RGF operations, and `bmLargeBuff` to do the further GEMM.
 """
 struct AuxDataKeldysh
-    auxDataRGF::AuxDataDDRGF
+    auxDataRGF::AuxDataRGF
     bmLargeBuff::BlockMatrix
 end
 
-function allocate_aux_data_Keldysh(M::BlockMatrix, auxDataRGF::AuxDataDDRGF)::AuxDataKeldysh
+function allocate_aux_data_Keldysh(M::BlockMatrix, auxDataRGF::AuxDataRGF)::AuxDataKeldysh
     npl = size(M.blockSizes)[1]
     # the number of block diagonals
     m = 1 + 2 * (M.ndiag["in"] - 1)

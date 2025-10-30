@@ -54,7 +54,7 @@ for systemx in systemNames
                         push!(Mins, Min)
                         push!(Mouts, bm_copy(Min))
                     end
-                    auxs = Vector{AuxDataDDRGF}()
+                    auxs = Vector{AuxDataRGF}()
                     for ix = 1:Threads.nthreads()
                         push!(auxs, allocate_aux_data_RGF(Mins[ix], parse(Int, ARGS[4]), parse(Int, ARGS[5])))
                     end

@@ -7,9 +7,9 @@ export build_M_from_HS
 export bndiag_of_inv_direct
 export bndiag_of_inv_rgf!
 export allocate_aux_data_RGF
-export allocate_aux_data_PDDRGF
+export allocate_aux_data_DDRGF
+export AuxDataRGF
 export AuxDataDDRGF
-export AuxDataPDDRGF
 export bm_create_synthetic_random
 export bndiag_of_inv_rgf_global!
 export bndiag_of_inv_rgf_local!

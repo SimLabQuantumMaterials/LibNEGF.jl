@@ -79,7 +79,7 @@ for systemx in systemNames
                     #        (throw an error in the code if the last else is not being caught)
                     # 0 is open-end, 1 is closed-end
                     splitType::Bool = 0
-                    auxDataPar = allocate_aux_data_PDDRGF(MbmSeq, nrBlocksInNonPivots, splitType, auxDataSeq,
+                    auxDataPar = allocate_aux_data_DDRGF(MbmSeq, nrBlocksInNonPivots, splitType, auxDataSeq,
                         parse(Int, ARGS[2]), parse(Int, ARGS[3]), parse(Int, ARGS[4]))
 
                     # the blocks in the following matrices are references to the blocks in Min
@@ -134,7 +134,7 @@ for systemx in systemNames
                     #        (throw an error in the code if the last else is not being caught)
                     # 0 is open-end, 1 is closed-end
                     splitType = 0
-                    auxDataPar = allocate_aux_data_PDDRGF(MbmPar, nrBlocksInNonPivots, splitType, auxDataSeq,
+                    auxDataPar = allocate_aux_data_DDRGF(MbmPar, nrBlocksInNonPivots, splitType, auxDataSeq,
                         parse(Int, ARGS[2]), parse(Int, ARGS[3]), parse(Int, ARGS[4]))
                     bm_blocks_define_complement22!(MbmInvNdiagPar, auxDataPar, 2)
 

@@ -33,8 +33,8 @@ bm_create_synthetic(A_::BlockMatrix, nrLayers::Int, blocksDim::Int)
 bm_create_synthetic_random(nrLayers::Int, blocksDim::Int, nrsType::DataType)
 bm_reference!(M::BlockMatrix, B::ArrayOrLUView_)
 bm_reference!(M::BlockMatrix, B::ArrayOrLU_, iOffset::Int, jOffset::Int)
-AuxDataDDRGF
+AuxDataRGF
 allocate_aux_data_RGF(M::BlockMatrix, nrBLASThreadsOuter::Int, nrBLASThreadsInner::Int)
-bndiag_of_inv_rgf_local!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxDataDDRGF, td::TimingData,
+bndiag_of_inv_rgf_local!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxDataRGF, td::TimingData,
     cd::CountingData)
 ```

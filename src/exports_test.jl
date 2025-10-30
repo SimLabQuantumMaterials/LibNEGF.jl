@@ -8,8 +8,8 @@ export bndiag_of_inv_direct
 export bndiag_of_inv_rgf_local!
 export bndiag_of_inv_rgf_global!
 export allocate_aux_data_RGF
-export allocate_aux_data_PDDRGF
-export AuxDataDDRGF
+export allocate_aux_data_DDRGF
+export AuxDataRGF
 export bndiag_of_inv_ddrgf!
 export bndiag_of_inv_ddrgf_create_permuted_matrix
 export bndiag_of_inv_ddrgf_error_inv_of_T11
