@@ -61,11 +61,11 @@ function allocate_aux_data_DDRGF(M::BlockMatrix, nrBLASThreadsOuter::Int, nrBLAS
 
     # in general, these type of auxiliary block matrices will contain
     # Array-like object and not LU-like, as specified by the last param
-    buffM = BlockMatrix(M.blockSizes, ArrayOrLU_(undef, npl, npl),
+    buffM = BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl),
         M.ndiag, M.nrsType, 1)
     bm_blocks_define!(buffM, 1)
 
-    bIdM = BlockMatrix(M.blockSizes, ArrayOrLU_(undef, npl, npl),
+    bIdM = BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl),
         Dict("in" => 1, "out" => 1), M.nrsType, 0)
     bm_blocks_define_identity!(bIdM)
 
@@ -129,9 +129,9 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
             # slice the sub-matrix with views
             smallMViewBuffTHat = view(buffTHat.M, jxStart:jxEnd, jxStart:jxEnd)
             # build a small BlockMatrix to pass to the defining function
-            smallBlockSizes = buffTHat.blockSizes[jxStart:jxEnd]
+            smallBlockSizes = copy(buffTHat.blockSizes[jxStart:jxEnd])
             nrDiags::Int = blockSizeD1 + (blockSizeD1 - 1)
-            smallMbmBuffTHat = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
+            smallMbmBuffTHat = BlockMatrix(copy(smallBlockSizes), ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
                 Dict("in" => 3, "out" => nrDiags), buffTHat.nrsType, 0)
             bm_blocks_define_complement11!(smallMbmBuffTHat, smallMViewBuffTHat, 2)
         end
@@ -152,30 +152,30 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
     smallMbmIn22 = Vector{BlockMatrix}()
     smallMbmBuffTHat22 = Vector{BlockMatrix}()
     for ix = 1:nrThreads
-        push!(smallBlockSizes11, M.blockSizes[1:blockSizeD1])
-        push!(smallAuxDataSeq11, AuxDataDDRGF(BlockMatrix(smallBlockSizes11[ix], ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
-                buffMPerm.ndiag, buffMPerm.nrsType, 0), BlockMatrix(smallBlockSizes11[ix], ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
+        push!(smallBlockSizes11, copy(M.blockSizes[1:blockSizeD1]))
+        push!(smallAuxDataSeq11, AuxDataDDRGF(BlockMatrix(copy(smallBlockSizes11[ix]), ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
+                buffMPerm.ndiag, buffMPerm.nrsType, 0), BlockMatrix(copy(smallBlockSizes11[ix]), ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
                 bIdMPerm.ndiag, bIdMPerm.nrsType, 0), 1, auxDataSeq.nrBLASThreadsOuter, auxDataSeq.nrBLASThreadsInner))
-        push!(smallMbmIn11, BlockMatrix(smallBlockSizes11[ix], ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
+        push!(smallMbmIn11, BlockMatrix(copy(smallBlockSizes11[ix]), ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
             M.ndiag, M.nrsType, 0))
-        push!(smallMbmOut11, BlockMatrix(smallBlockSizes11[ix], ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
+        push!(smallMbmOut11, BlockMatrix(copy(smallBlockSizes11[ix]), ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
             buffTHatPerm.ndiag, buffTHatPerm.nrsType, 0))
-        push!(smallBlockSizes22, M.blockSizes[1:blockSizeD2])
-        push!(smallMbmIn22, BlockMatrix(smallBlockSizes22[ix], ArrayOrLU_(undef, blockSizeD2, blockSizeD2),
+        push!(smallBlockSizes22, copy(M.blockSizes[1:blockSizeD2]))
+        push!(smallMbmIn22, BlockMatrix(copy(smallBlockSizes22[ix]), ArrayOrLU_(undef, blockSizeD2, blockSizeD2),
             M.ndiag, M.nrsType, 0))
-        push!(smallMbmBuffTHat22, BlockMatrix(smallBlockSizes22[ix], ArrayOrLU_(undef, blockSizeD2, blockSizeD2),
+        push!(smallMbmBuffTHat22, BlockMatrix(copy(smallBlockSizes22[ix]), ArrayOrLU_(undef, blockSizeD2, blockSizeD2),
             buffTHatPerm.ndiag, buffTHatPerm.nrsType, 0))
     end
 
     # pre-allocations needed for the inverse of the Schur complement
     nrLayersSchurCompl = sum(sizeDomains[1:nrTasks])
-    blockSizesSchurCompl = buffTHatPerm.blockSizes[1:nrLayersSchurCompl]
-    buffTHat22inv = BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
+    blockSizesSchurCompl = copy(buffTHatPerm.blockSizes[1:nrLayersSchurCompl])
+    buffTHat22inv = BlockMatrix(copy(blockSizesSchurCompl), ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
         buffTHatPerm.ndiag, buffTHatPerm.nrsType, 0)
-    auxDataSeq22inv = AuxDataDDRGF(BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
-            buffMPerm.ndiag, buffMPerm.nrsType, 0), BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
+    auxDataSeq22inv = AuxDataDDRGF(BlockMatrix(copy(blockSizesSchurCompl), ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
+            buffMPerm.ndiag, buffMPerm.nrsType, 0), BlockMatrix(copy(blockSizesSchurCompl), ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
             bIdMPerm.ndiag, bIdMPerm.nrsType, 0), 0, nrBLASThreadsOuter, nrBLASThreadsInner)
-    buffM222inv = BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
+    buffM222inv = BlockMatrix(copy(blockSizesSchurCompl), ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
         buffTHatPerm.ndiag, buffTHatPerm.nrsType, 0)
 
     # the final struct with the buffers
@@ -347,8 +347,6 @@ do sequential RGF).
 function bndiag_of_inv_pddrgf_check_nr_tasks(M::BlockMatrix, nrBlocksInNonPivots::Int, nrTasks::Int,
     splitType::Bool)::Tuple{Int,Int,Int,Int}
 
-    # println(nrTasks)
-
     if nrTasks == 1
         # if nrTasks = 1, the other two values are irrelevant
         return nrTasks, 0, 0
@@ -485,7 +483,7 @@ end
 function bndiag_of_inv_pddrgf_create_permuted_matrix(M::BlockMatrix, permVec::Vector{Int})::BlockMatrix
     npl = size(M.blockSizes)[1]
     ndiag = M.ndiag
-    Mhat = BlockMatrix(M.blockSizes, ArrayOrLU_(undef, npl, npl), M.ndiag, M.nrsType, 0)
+    Mhat = BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl), M.ndiag, M.nrsType, 0)
     pv = permVec
 
     # loop over the block sizes, conversely over the block rows
@@ -1196,9 +1194,9 @@ function bndiag_of_inv_pddrgf_build_Schur_compl!(Min_::BlockMatrix, auxData::Aux
                 smallMbmBuffTHat = auxData.smallMbmBuffTHat22[ixo]
             else
                 smallBlockSizes = Min.blockSizes[jx2Start:jx2End]
-                smallMbmIn = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jx2End - jx2Start + 1, jx2End - jx2Start + 1),
+                smallMbmIn = BlockMatrix(copy(smallBlockSizes), ArrayOrLU_(undef, jx2End - jx2Start + 1, jx2End - jx2Start + 1),
                     Min.ndiag, Min.nrsType, 0)
-                smallMbmBuffTHat = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jx2End - jx2Start + 1, jx2End - jx2Start + 1),
+                smallMbmBuffTHat = BlockMatrix(copy(smallBlockSizes), ArrayOrLU_(undef, jx2End - jx2Start + 1, jx2End - jx2Start + 1),
                     buffTHat.ndiag, buffTHat.nrsType, 0)
             end
 

@@ -18,12 +18,20 @@ blockSize = 64
 nrBlocksInNonPivots = 3
 
 # this factor relaxes the required relative tolerance
-accFctr = 2.5E5
+accFctrBare = 2.5E5
+accFctr = 0.0
 
 for systemx in systemNames
     for E in [Epoints[1]]
         for k in [kpoints[1]]
             for precx in precs
+                if precx == ComplexF64
+                    global accFctr = accFctrBare
+                else
+                    # extra relaxation in lower precision
+                    global accFctr = 2.0*accFctrBare
+                end
+
                 if whereFrom == 1
                     # load matrices and build M
                     listMatsToLoad = ["H", "S", "Sc"]
@@ -100,7 +108,6 @@ for systemx in systemNames
                 # then, the main operations:
 
                 begin
-
                     # FIRST, sequential
 
                     # reference to the block matrix coming from data

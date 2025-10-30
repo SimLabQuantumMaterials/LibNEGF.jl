@@ -16,7 +16,7 @@ function allocate_aux_data_Keldysh(M::BlockMatrix, auxDataRGF::AuxDataDDRGF)::Au
 
     # in general, these type of auxiliary block matrices will contain
     # Array-like object and not LU-like, as specified by the last param
-    bmLargeBuff = BlockMatrix(M.blockSizes, ArrayOrLU_(undef, npl, npl),
+    bmLargeBuff = BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl),
         Dict("in" => m, "out" => m), M.nrsType, 0)
     bm_blocks_define!(bmLargeBuff, 1)
 
