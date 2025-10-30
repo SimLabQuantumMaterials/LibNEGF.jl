@@ -166,7 +166,7 @@ function bm_convert(M::BlockMatrix, permVec::Vector{Int})::SparseArrays.SparseMa
 end
 
 # create sparse matrix that implements permutations from the permVec vector
-function bndiag_of_inv_pddrgf_create_sparse_permutator(permVec::Vector{Int}, blockSizes::Vector{Int},
+function bndiag_of_inv_ddrgf_create_sparse_permutator(permVec::Vector{Int}, blockSizes::Vector{Int},
     nrsType::DataType)::SparseArrays.SparseMatrixCSC
 
     n = sum(blockSizes)

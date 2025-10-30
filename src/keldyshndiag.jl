@@ -48,7 +48,7 @@ end
 
 # first version, naive, inefficient
 function keldyshndiag_v1!(C::BlockMatrix, Binv::BlockMatrix, B::BlockMatrix, A::BlockMatrix, auxData::AuxDataKeldysh, td::TimingData, cd::CountingData)
-    bndiag_of_inv_ddrgf!(Binv, B, auxData.auxDataRGF, td, cd)
+    bndiag_of_inv_rgf_local!(Binv, B, auxData.auxDataRGF, td, cd)
 
     Binvsp = bm_convert(Binv)
     Asp = bm_convert(A)
@@ -63,7 +63,7 @@ end
 
 # a more efficient version
 function keldyshndiag_v2!(C::BlockMatrix, Binv::BlockMatrix, B::BlockMatrix, A::BlockMatrix, auxData::AuxDataKeldysh, td::TimingData, cd::CountingData)
-    bndiag_of_inv_ddrgf_local!(Binv, B, auxData.auxDataRGF, td, cd)
+    bndiag_of_inv_rgf_local!(Binv, B, auxData.auxDataRGF, td, cd)
 
     # the (block) indices ix and jx are running over auxData.bmLargeBuff
 
