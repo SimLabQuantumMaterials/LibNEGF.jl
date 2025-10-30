@@ -35,7 +35,8 @@ bm_reference!(M::BlockMatrix, B::ArrayOrLUView_)
 bm_reference!(M::BlockMatrix, B::ArrayOrLU_, iOffset::Int, jOffset::Int)
 AuxDataRGF
 allocate_aux_data_RGF(M::BlockMatrix, nrBLASThreadsOuter::Int, nrBLASThreadsInner::Int)
-allocate_aux_data_DDRGF(M::BlockMatrix, auxDataSeq::AuxDataRGF)
+allocate_aux_data_DDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, splitType::Bool,
+    auxDataSeq::AuxDataRGF, nrTasksBare::Int, nrBLASThreadsOuter::Int, nrBLASThreadsInner::Int)
 bndiag_of_inv_rgf_local!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxDataRGF, td::TimingData,
     cd::CountingData)
 bndiag_of_inv_ddrgf!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::AuxDataDDRGF, td::TimingData,

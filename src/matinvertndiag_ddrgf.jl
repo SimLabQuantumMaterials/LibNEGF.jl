@@ -78,7 +78,8 @@ function allocate_aux_data_RGF(M::BlockMatrix, nrBLASThreadsOuter::Int, nrBLASTh
 end
 
 """
-	allocate_aux_data_DDRGF(M::BlockMatrix, auxDataSeq::AuxDataRGF)
+	allocate_aux_data_DDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, splitType::Bool,
+        auxDataSeq::AuxDataRGF, nrTasksBare::Int, nrBLASThreadsOuter::Int, nrBLASThreadsInner::Int)
 
 Allocate some extra buffers in `AuxDataDDRGF` useful for parallel RGF.
 
