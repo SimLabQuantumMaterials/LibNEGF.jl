@@ -1352,8 +1352,8 @@ function bndiag_of_inv_ddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Block
 end
 
 """
-    bndiag_of_inv_pddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxDataDDRGF, td::TimingData,
-    cd::CountingData)
+    bndiag_of_inv_ddrgf!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::AuxDataDDRGF, td::TimingData,
+        cd::CountingData)
 
 For an input matrix `M`, possibly but not necessarily block n-diagonal,
 where n is 3, 5, etc., compute the block n-diagonal part of the inverse
