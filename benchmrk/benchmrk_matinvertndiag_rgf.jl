@@ -56,7 +56,7 @@ for systemx in systemNames
                     end
                     auxs = Vector{AuxDataDDRGF}()
                     for ix = 1:Threads.nthreads()
-                        push!(auxs, allocate_aux_data_DDRGF(Mins[ix], parse(Int, ARGS[4]), parse(Int, ARGS[5])))
+                        push!(auxs, allocate_aux_data_RGF(Mins[ix], parse(Int, ARGS[4]), parse(Int, ARGS[5])))
                     end
 
                     # (?) force the garbage collector before doing the core computations

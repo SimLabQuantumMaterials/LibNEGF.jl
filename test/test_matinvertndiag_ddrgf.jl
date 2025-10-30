@@ -72,7 +72,7 @@ for systemx in systemNames
                     # reference to the block matrix coming from data
                     MbmSeq = MbmSynth
                     # pre-allocate buffer data for sequential RGF
-                    auxDataSeq = allocate_aux_data_DDRGF(MbmSeq, parse(Int, ARGS[3]), parse(Int, ARGS[4]))
+                    auxDataSeq = allocate_aux_data_RGF(MbmSeq, parse(Int, ARGS[3]), parse(Int, ARGS[4]))
                     # pre-allocate buffer data for parallel RGF
                     # TODO : move the following param inside the check_nr_tasks function,
                     #        and with this decide based on the criteria explained in the paper
@@ -115,7 +115,7 @@ for systemx in systemNames
                     # pre-allocate the output matrix
                     MbmInvNdiagSeq = bm_similar(MbmSeq, 1)
                     # pre-allocate buffer data for sequential RGF
-                    auxDataSeq = allocate_aux_data_DDRGF(MbmSeq, parse(Int, ARGS[3]), parse(Int, ARGS[4]))
+                    auxDataSeq = allocate_aux_data_RGF(MbmSeq, parse(Int, ARGS[3]), parse(Int, ARGS[4]))
 
                     # call sequential RGF
                     bndiag_of_inv_rgf_global!(MbmInvNdiagSeq, MbmSeq, auxDataSeq, TimingData(), CountingData())

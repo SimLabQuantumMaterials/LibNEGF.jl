@@ -119,7 +119,16 @@ function bm_convert(M::BlockMatrix)::SparseArrays.SparseMatrixCSC
     return A
 end
 
-# this allows us converting a permuted block matrix to sparse
+"""
+	bm_convert(M::BlockMatrix, permVec::Vector{Int})
+
+Converts the input matrix `M` of type `BlockMatrix` to sparse.
+This allows us converting a permuted block matrix to sparse.
+
+# Arguments
+- `M::BlockMatrix`: the matrix to be converted.
+- `permVec::Vector{Int}`: the DDRGF permutation vector.
+"""
 function bm_convert(M::BlockMatrix, permVec::Vector{Int})::SparseArrays.SparseMatrixCSC
     n = sum(M.blockSizes)
     ndiag = M.ndiag
@@ -165,7 +174,17 @@ function bm_convert(M::BlockMatrix, permVec::Vector{Int})::SparseArrays.SparseMa
     return A
 end
 
-# create sparse matrix that implements permutations from the permVec vector
+"""
+	bndiag_of_inv_ddrgf_create_sparse_permutator(permVec::Vector{Int}, blockSizes::Vector{Int},
+        nrsType::DataType)
+
+Create sparse matrix that implements permutations from the `permVec` vector.
+
+# Arguments
+- `permVec::Vector{Int}`: the permutation vector.
+- `blockSizes::Vector{Int}`: the sizes of the principal layers.
+- `nrsType::DataType`: the type of the underlying data.
+"""
 function bndiag_of_inv_ddrgf_create_sparse_permutator(permVec::Vector{Int}, blockSizes::Vector{Int},
     nrsType::DataType)::SparseArrays.SparseMatrixCSC
 
@@ -197,7 +216,7 @@ function bndiag_of_inv_ddrgf_create_sparse_permutator(permVec::Vector{Int}, bloc
 end
 
 """
-	copy_BM(M::BlockMatrix)
+	bm_copy(M::BlockMatrix)
 
 Receives a BlockMatrix object and returns a deep copy of it.
 
@@ -266,7 +285,7 @@ function bm_copy!(Mout::BlockMatrix, Min::BlockMatrix)
 end
 
 """
-	bm_similar(M::BlockMatrix)
+	bm_similar(M::BlockMatrix, filling::Int)
 
 Receives a BlockMatrix object and returns a BlockMatrix with the same properties
 (block n-diagonal wise), but the dense blocks filled according to the value in
@@ -297,7 +316,7 @@ end
 """
 	bm_blocks_define!(M::BlockMatrix, filling::Int)
 
-Receives a BlockMatrix object, and set its dense blocks to either zero or random.
+Receives a BlockMatrix object, and sets its dense blocks to either zero or random.
 
 # Arguments
 - `M::BlockMatrix`: the matrix to be modified.
@@ -403,6 +422,17 @@ function bm_blocks_define_complement11!(M::BlockMatrix, A::ArrayOrLUView_, filli
 end
 
 # TODO : try to assign the type AuxDataDDRGF to auxData ?
+"""
+	bm_blocks_define_complement22!(M::BlockMatrix, auxData, filling::Int)
+
+Sets/pre-allocates all those blocks that are beyond block tridiagonal in
+the matrix `M`.
+
+# Arguments
+- `M::BlockMatrix`: the matrix in which the extra allocations will be placed.
+- `auxData`: some metadata.
+- `filling:Int`: 1 for zero blocks, 2 for random.
+"""
 function bm_blocks_define_complement22!(M::BlockMatrix, auxData, filling::Int)
     blockSizeD2 = auxData.blockSizeD2
     permVecInv = auxData.permVecInv
@@ -442,6 +472,16 @@ function bm_blocks_define_complement22!(M::BlockMatrix, auxData, filling::Int)
 end
 
 # TODO : try to assign the type AuxDataDDRGF to auxData ?
+"""
+	bm_blocks_define_complement12!(M_::BlockMatrix, auxData, filling::Int)
+
+Sets/pre-allocates, within `M`, the extra `12` part for DDRGF.
+
+# Arguments
+- `M_::BlockMatrix`: the matrix in which the extra allocations will be placed.
+- `auxData`: some metadata.
+- `filling:Int`: 1 for zero blocks, 2 for random.
+"""
 function bm_blocks_define_complement12!(M_::BlockMatrix, auxData, filling::Int)
     blockSizeD1 = auxData.blockSizeD1
     permVecInv = auxData.permVecInv
@@ -494,6 +534,16 @@ function bm_blocks_define_complement12!(M_::BlockMatrix, auxData, filling::Int)
 end
 
 # TODO : try to assign the type AuxDataDDRGF to auxData ?
+"""
+	bm_blocks_define_complement21!(M_::BlockMatrix, auxData, filling::Int)
+
+Sets/pre-allocates, within `M`, the extra `21` part for DDRGF.
+
+# Arguments
+- `M_::BlockMatrix`: the matrix in which the extra allocations will be placed.
+- `auxData`: some metadata.
+- `filling:Int`: 1 for zero blocks, 2 for random.
+"""
 function bm_blocks_define_complement21!(M_::BlockMatrix, auxData, filling::Int)
     blockSizeD1 = auxData.blockSizeD1
     permVecInv = auxData.permVecInv
@@ -574,6 +624,7 @@ function bm_blocks_define_identity!(M::BlockMatrix)
     end
 end
 
+# TODO : is documentation deployment needed for this one?
 # tB can be either 'C' (for adjoint) or 'N' for no adjoint
 function bm_local_gemm!(tA::Char, tB::Char, alpha::Number, A_::BlockMatrix, B_::BlockMatrix, beta::Number,
     C_::BlockMatrix, ix::Int, jx::Int, td::TimingData, cd::CountingData)
@@ -606,17 +657,7 @@ function bm_local_gemm!(tA::Char, tB::Char, alpha::Number, A_::BlockMatrix, B_::
     end
 end
 
-"""
-	bm_local_gemm!(tA::Char, tB::Char, alpha::Number, A_::BlockMatrix, B_::BlockMatrix, beta::Number, C_::BlockMatrix, ix::Int, jx::Int)
-
-GEMM for BlockMatrix type matrices. The signature of the function
-follows closely that being used in BLAS. This function does
-C = beta*C + alpha*A*B.
-
-# Arguments
-- `tA::Char`: whether we take the adjoint of A ('C') or not ('N').
-- `tB::Char`: whether we take the adjoint of B ('C') or not ('N').
-"""
+# TODO : is documentation deployment needed for this one?
 function bm_gemm!(tA::Char, tB::Char, alpha::Number, A::BlockMatrix, B::BlockMatrix, beta::Number, C::BlockMatrix,
     td::TimingData, cd::CountingData)
     ndiag = C.ndiag
@@ -642,6 +683,17 @@ function bm_gemm!(tA::Char, tB::Char, alpha::Number, A::BlockMatrix, B::BlockMat
     end
 end
 
+"""
+	bm_create_synthetic(A_::BlockMatrix, nrLayers::Int, blocksDim::Int)
+
+Create a semi-synthetic block tridiagonal matrix, based on the data in
+the matrix `A_`.
+
+# Arguments
+- `A_::BlockMatrix`: where the data comes from.
+- `nrLayers::Int`: the number of principal layers.
+- `blocksDim::Int`: the size of the principal layers (i.e., blocks).
+"""
 function bm_create_synthetic(A_::BlockMatrix, nrLayers::Int, blocksDim::Int)::BlockMatrix
     # IMPORTANT : this function assumes that all of the principal layers are of
     #             the same size
@@ -716,6 +768,16 @@ function bm_create_synthetic(A_::BlockMatrix, nrLayers::Int, blocksDim::Int)::Bl
     return A
 end
 
+"""
+	bm_create_synthetic_random(nrLayers::Int, blocksDim::Int, nrsType::DataType)
+
+Create a random synthetic block tridiagonal matrix.
+
+# Arguments
+- `nrLayers::Int`: the number of principal layers.
+- `blocksDim::Int`: the average size of the principal layers (i.e., blocks).
+- `nrsType::DataType`: the type of the underlying data.
+"""
 function bm_create_synthetic_random(nrLayers::Int, blocksDim::Int, nrsType::DataType)::BlockMatrix
     # IMPORTANT : this function assumes that all of the principal layers are of
     #             the same size
@@ -757,7 +819,15 @@ function bm_create_synthetic_random(nrLayers::Int, blocksDim::Int, nrsType::Data
     return A
 end
 
-# assign references in A.M to the blocks in B
+"""
+	bm_reference!(M::BlockMatrix, B::ArrayOrLUView_)
+
+Assign references in `A.M` to the blocks in `B`, using views.
+
+# Arguments
+- `M::BlockMatrix`: output.
+- `B::ArrayOrLUView_`: input.
+"""
 function bm_reference!(M::BlockMatrix, B::ArrayOrLUView_)
     npl = size(M.blockSizes)[1]
     ndiag = M.ndiag
@@ -782,7 +852,17 @@ function bm_reference!(M::BlockMatrix, B::ArrayOrLUView_)
     end
 end
 
-# assign references in A.M to the blocks in B
+"""
+	bm_reference!(M::BlockMatrix, B::ArrayOrLU_, iOffset::Int, jOffset::Int)
+
+Assign references in `A.M` to the blocks in `B`, avoids using views.
+
+# Arguments
+- `M::BlockMatrix`: output.
+- `B::ArrayOrLUView_`: input.
+- `iOffset::Int`: to point to the sub-matrix to reference to.
+- `jOffset::Int`: to point to the sub-matrix to reference to.
+"""
 function bm_reference!(M::BlockMatrix, B::ArrayOrLU_, iOffset::Int, jOffset::Int)
     npl = size(M.blockSizes)[1]
     ndiag = M.ndiag

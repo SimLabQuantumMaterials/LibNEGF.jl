@@ -7,7 +7,7 @@ export build_M_from_HS
 export bndiag_of_inv_direct
 export bndiag_of_inv_rgf_local!
 export bndiag_of_inv_rgf_global!
-export allocate_aux_data_DDRGF
+export allocate_aux_data_RGF
 export allocate_aux_data_PDDRGF
 export AuxDataDDRGF
 export bndiag_of_inv_ddrgf!

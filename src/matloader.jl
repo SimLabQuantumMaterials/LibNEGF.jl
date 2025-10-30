@@ -43,7 +43,8 @@ end
 
 """
     load_matrices(systemName::String, E::Int, k::Int,
-       whichMatsToLoad::Vector{String}, baseType::DataType)
+       whichMatsToLoad::Vector{String}, baseType::DataType,
+       whereFrom::Int)
 
 For the system in `systemName` and the energy indices in `E` and `k`, load
 the matrices listed in `whichMatsToLoad`. The matrix is loaded in ComplexF64

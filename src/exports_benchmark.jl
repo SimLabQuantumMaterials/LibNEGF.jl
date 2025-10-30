@@ -6,7 +6,7 @@ export build_M_from_HS
 # from matinvertndiag_*.jl
 export bndiag_of_inv_direct
 export bndiag_of_inv_rgf!
-export allocate_aux_data_DDRGF
+export allocate_aux_data_RGF
 export allocate_aux_data_PDDRGF
 export AuxDataDDRGF
 export AuxDataPDDRGF

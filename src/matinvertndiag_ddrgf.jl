@@ -48,15 +48,17 @@ struct AuxDataPDDRGF
 end
 
 """
-	allocate_aux_data_DDRGF(M::BlockMatrix)
+	allocate_aux_data_RGF(M::BlockMatrix, nrBLASThreadsOuter::Int, nrBLASThreadsInner::Int)
 
 Based on the block-sparsity pattern of the input matrix `M`, allocate the
 buffers in `AuxDataDDRGF`.
 
 # Arguments
 - `M::BlockMatrix`: the matrix used as reference.
+- `nrBLASThreadsOuter::Int`.
+- `nrBLASThreadsInner::Int`.
 """
-function allocate_aux_data_DDRGF(M::BlockMatrix, nrBLASThreadsOuter::Int, nrBLASThreadsInner::Int)::AuxDataDDRGF
+function allocate_aux_data_RGF(M::BlockMatrix, nrBLASThreadsOuter::Int, nrBLASThreadsInner::Int)::AuxDataDDRGF
     npl = size(M.blockSizes)[1]
 
     # in general, these type of auxiliary block matrices will contain
@@ -216,7 +218,8 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
 end
 
 """
-    bndiag_of_inv_ddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxDataDDRGF, td::TimingData)
+    bndiag_of_inv_rgf_local!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxDataDDRGF, td::TimingData,
+        cd::CountingData)
 
 For an input matrix `M`, possibly but not necessarily block n-diagonal,
 where n is 3, 5, etc., compute the block n-diagonal part of the inverse

@@ -55,7 +55,7 @@ for systemx in systemNames
                     auxsSeq = Vector{AuxDataDDRGF}()
                     auxsPar = Vector{AuxDataPDDRGF}()
                     for ix = 1:1
-                        push!(auxsSeq, allocate_aux_data_DDRGF(Mins[ix], parse(Int, ARGS[4]), parse(Int, ARGS[5])))
+                        push!(auxsSeq, allocate_aux_data_RGF(Mins[ix], parse(Int, ARGS[4]), parse(Int, ARGS[5])))
                         splitType::Bool = 0
                         push!(auxsPar, allocate_aux_data_PDDRGF(Mins[ix], nrBlocksInNonPivots, splitType, auxsSeq[ix],
                             parse(Int, ARGS[3]), parse(Int, ARGS[4]), parse(Int, ARGS[5])))
