@@ -5,20 +5,20 @@ export build_M_from_HS
 
 # from matinvertndiag_*.jl
 export bndiag_of_inv_direct
-export bndiag_of_inv_ddrgf_local!
-export bndiag_of_inv_ddrgf_global!
+export bndiag_of_inv_rgf_local!
+export bndiag_of_inv_rgf_global!
+export allocate_aux_data_RGF
 export allocate_aux_data_DDRGF
-export allocate_aux_data_PDDRGF
-export AuxDataDDRGF
-export bndiag_of_inv_pddrgf!
-export bndiag_of_inv_pddrgf_create_permuted_matrix
-export bndiag_of_inv_pddrgf_error_inv_of_T11
-export bndiag_of_inv_pddrgf_inv_of_T11!
-export bndiag_of_inv_pddrgf_inv_of_Schur_compl!
-export bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!
-export bndiag_of_inv_pddrgf_compute_minus_THat11Inv_x_THat12_x_THatSInv!
-export bndiag_of_inv_pddrgf_compute_minus_x_THatSInv_THat21_x_THat11Inv!
-export bndiag_of_inv_pddrgf_compute_11_part!
+export AuxDataRGF
+export bndiag_of_inv_ddrgf!
+export bndiag_of_inv_ddrgf_create_permuted_matrix
+export bndiag_of_inv_ddrgf_error_inv_of_T11
+export bndiag_of_inv_ddrgf_inv_of_T11!
+export bndiag_of_inv_ddrgf_inv_of_Schur_compl!
+export bndiag_of_inv_ddrgf_add_block_refs_to_permuted_matrix22!
+export bndiag_of_inv_ddrgf_compute_minus_THat11Inv_x_THat12_x_THatSInv!
+export bndiag_of_inv_ddrgf_compute_minus_x_THatSInv_THat21_x_THat11Inv!
+export bndiag_of_inv_ddrgf_compute_11_part!
 
 # from keldyshndiag.jl
 export keldyshndiag!
@@ -34,7 +34,7 @@ export set_blocks_to_zero!
 export set_blocks_to_identity!
 export bm_create_synthetic
 export bm_create_synthetic_random
-export bndiag_of_inv_pddrgf_create_sparse_permutator
+export bndiag_of_inv_ddrgf_create_sparse_permutator
 export bm_reference!
 export bm_blocks_define_complement22!
 export bm_empty

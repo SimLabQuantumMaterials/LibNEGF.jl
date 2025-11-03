@@ -42,7 +42,7 @@ import LinearAlgebra
                     # convert to BlockMatrix
                     Mbm = bm_convert(M, blockSizes, Dict("in" => 3, "out" => 3))
                     # pre-allocate buffer data for DD-RGF
-                    auxDataRGF = allocate_aux_data_DDRGF(Mbm)
+                    auxDataRGF = allocate_aux_data_RGF(Mbm)
                     # pre-allocate the output matrix
                     MbmInvNdiag = bm_similar(Mbm, 1)
                     # get the block n-diagonal of M^-1 via RGF

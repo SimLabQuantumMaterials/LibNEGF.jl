@@ -64,7 +64,7 @@ for systemx in systemNames
                     end
                     auxs = Vector{AuxDataKeldysh}()
                     for ix = 1:Threads.nthreads()
-                        auxLoc = allocate_aux_data_DDRGF(Mins[ix], parse(Int, ARGS[4]), parse(Int, ARGS[5]))
+                        auxLoc = allocate_aux_data_RGF(Mins[ix], parse(Int, ARGS[4]), parse(Int, ARGS[5]))
                         bmLoc = bm_similar(Mins[ix], 1)
                         push!(auxs, allocate_aux_data_Keldysh(bmLoc, auxLoc))
                     end

@@ -1,13 +1,13 @@
 using TimerOutputs
 
 """
-	AuxDataDDRGF
+	AuxDataRGF
 
 Buffers used by RGF. The matrix `buffM` is used at the RGF level,
 while `bIdM` is the identity in block 1-diagonal form whic his used
 for explicit inversions via `getrs!(..)`.
 """
-struct AuxDataDDRGF
+struct AuxDataRGF
     buffM::BlockMatrix
     bIdM::BlockMatrix
     buildFullInv::Bool
@@ -15,9 +15,9 @@ struct AuxDataDDRGF
     nrBLASThreadsInner::Int
 end
 
-struct AuxDataPDDRGF
+struct AuxDataDDRGF
     # the sequential data
-    auxDataSeq::AuxDataDDRGF
+    auxDataSeq::AuxDataRGF
     # the extra (parallel-related) params
     nrTasks::Int
     permVec::Vector{Int}
@@ -34,7 +34,7 @@ struct AuxDataPDDRGF
     bIdMPerm::BlockMatrix
     buffTHatPerm::BlockMatrix
     smallBlockSizes11::Vector{Vector{Int}}
-    smallAuxDataSeq11::Vector{AuxDataDDRGF}
+    smallAuxDataSeq11::Vector{AuxDataRGF}
     smallMbmIn11::Vector{BlockMatrix}
     smallMbmOut11::Vector{BlockMatrix}
     nrBLASThreadsOuter::Int
@@ -43,49 +43,52 @@ struct AuxDataPDDRGF
     smallMbmIn22::Vector{BlockMatrix}
     smallMbmBuffTHat22::Vector{BlockMatrix}
     buffTHat22inv::BlockMatrix
-    auxDataSeq22inv::AuxDataDDRGF
+    auxDataSeq22inv::AuxDataRGF
     buffM222inv::BlockMatrix
 end
 
 """
-	allocate_aux_data_DDRGF(M::BlockMatrix)
+	allocate_aux_data_RGF(M::BlockMatrix, nrBLASThreadsOuter::Int, nrBLASThreadsInner::Int)
 
 Based on the block-sparsity pattern of the input matrix `M`, allocate the
-buffers in `AuxDataDDRGF`.
+buffers in `AuxDataRGF`.
 
 # Arguments
 - `M::BlockMatrix`: the matrix used as reference.
+- `nrBLASThreadsOuter::Int`.
+- `nrBLASThreadsInner::Int`.
 """
-function allocate_aux_data_DDRGF(M::BlockMatrix, nrBLASThreadsOuter::Int, nrBLASThreadsInner::Int)::AuxDataDDRGF
+function allocate_aux_data_RGF(M::BlockMatrix, nrBLASThreadsOuter::Int, nrBLASThreadsInner::Int)::AuxDataRGF
     npl = size(M.blockSizes)[1]
 
     # in general, these type of auxiliary block matrices will contain
     # Array-like object and not LU-like, as specified by the last param
-    buffM = BlockMatrix(M.blockSizes, ArrayOrLU_(undef, npl, npl),
+    buffM = BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl),
         M.ndiag, M.nrsType, 1)
     bm_blocks_define!(buffM, 1)
 
-    bIdM = BlockMatrix(M.blockSizes, ArrayOrLU_(undef, npl, npl),
+    bIdM = BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl),
         Dict("in" => 1, "out" => 1), M.nrsType, 0)
     bm_blocks_define_identity!(bIdM)
 
     # the final struct with the buffers
-    auxData = AuxDataDDRGF(buffM, bIdM, 0, nrBLASThreadsOuter, nrBLASThreadsInner)
+    auxData = AuxDataRGF(buffM, bIdM, 0, nrBLASThreadsOuter, nrBLASThreadsInner)
 
     return auxData
 end
 
 """
-	allocate_aux_data_PDDRGF(M::BlockMatrix, auxDataSeq::AuxDataDDRGF)
+	allocate_aux_data_DDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, splitType::Bool,
+        auxDataSeq::AuxDataRGF, nrTasksBare::Int, nrBLASThreadsOuter::Int, nrBLASThreadsInner::Int)
 
-Allocate some extra buffers in `AuxDataPDDRGF` useful for parallel RGF.
+Allocate some extra buffers in `AuxDataDDRGF` useful for parallel RGF.
 
 # Arguments
 - `M::BlockMatrix`: the matrix used as reference.
-- `auxDataSeq::AuxDataDDRGF`: reference to the data pre-allocated already for sequential RGF.
+- `auxDataSeq::AuxDataRGF`: reference to the data pre-allocated already for sequential RGF.
 """
-function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, splitType::Bool,
-    auxDataSeq::AuxDataDDRGF, nrTasksBare::Int, nrBLASThreadsOuter::Int, nrBLASThreadsInner::Int)::AuxDataPDDRGF
+function allocate_aux_data_DDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, splitType::Bool,
+    auxDataSeq::AuxDataRGF, nrTasksBare::Int, nrBLASThreadsOuter::Int, nrBLASThreadsInner::Int)::AuxDataDDRGF
     nrTasks = nrTasksBare
 
     if splitType != 0
@@ -95,18 +98,18 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
     end
 
     # this might change the number of threads to be used
-    nrTasks, blockSizeD1, blockSizeD2, lastSizeD2 = bndiag_of_inv_pddrgf_check_nr_tasks(M, nrBlocksInNonPivots,
+    nrTasks, blockSizeD1, blockSizeD2, lastSizeD2 = bndiag_of_inv_ddrgf_check_nr_tasks(M, nrBlocksInNonPivots,
         nrTasks, splitType)
     if nrTasks == 1
         println("WARNING: nrTasks = 1, then calling sequential RGF.")
-        # FIXME : the following call to the constructor AuxDataPDDRGF(..) is not really correct. Change and call/test
-        return AuxDataPDDRGF(auxDataSeq, nrTasks, Vector{Int}(), Vector{Int}(), Vector{Int}(),
+        # FIXME : the following call to the constructor AuxDataDDRGF(..) is not really correct. Change and call/test
+        return AuxDataDDRGF(auxDataSeq, nrTasks, Vector{Int}(), Vector{Int}(), Vector{Int}(),
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     end
 
-    permVecInv, sizeDomains = bndiag_of_inv_pddrgf_create_permutation_vector(M, nrTasks, nrBlocksInNonPivots, splitType)
+    permVecInv, sizeDomains = bndiag_of_inv_ddrgf_create_permutation_vector(M, nrTasks, nrBlocksInNonPivots, splitType)
 
-    permVec = bndiag_of_inv_pddrgf_transpose_permutation_vector(permVecInv)
+    permVec = bndiag_of_inv_ddrgf_transpose_permutation_vector(permVecInv)
 
     # pre-allocate the data for the inverse of \widehat{T}_{11}
     buffTHat = bm_copy(M)
@@ -129,57 +132,57 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
             # slice the sub-matrix with views
             smallMViewBuffTHat = view(buffTHat.M, jxStart:jxEnd, jxStart:jxEnd)
             # build a small BlockMatrix to pass to the defining function
-            smallBlockSizes = buffTHat.blockSizes[jxStart:jxEnd]
+            smallBlockSizes = copy(buffTHat.blockSizes[jxStart:jxEnd])
             nrDiags::Int = blockSizeD1 + (blockSizeD1 - 1)
-            smallMbmBuffTHat = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
+            smallMbmBuffTHat = BlockMatrix(copy(smallBlockSizes), ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
                 Dict("in" => 3, "out" => nrDiags), buffTHat.nrsType, 0)
             bm_blocks_define_complement11!(smallMbmBuffTHat, smallMViewBuffTHat, 2)
         end
     end
 
     # the appropriate number of threads for good load balance and not wasting energy
-    nrThreads, maxNrTasksPerThread, lastNrTasksPerThread = bndiag_of_inv_pddrgf_check_nr_threads(Threads.nthreads(), nrTasks)
+    nrThreads, maxNrTasksPerThread, lastNrTasksPerThread = bndiag_of_inv_ddrgf_check_nr_threads(Threads.nthreads(), nrTasks)
 
-    buffMPerm = bndiag_of_inv_pddrgf_create_permuted_matrix(auxDataSeq.buffM, permVec)
-    bIdMPerm = bndiag_of_inv_pddrgf_create_permuted_matrix(auxDataSeq.bIdM, permVec)
-    buffTHatPerm = bndiag_of_inv_pddrgf_create_permuted_matrix(buffTHat, permVec)
+    buffMPerm = bndiag_of_inv_ddrgf_create_permuted_matrix(auxDataSeq.buffM, permVec)
+    bIdMPerm = bndiag_of_inv_ddrgf_create_permuted_matrix(auxDataSeq.bIdM, permVec)
+    buffTHatPerm = bndiag_of_inv_ddrgf_create_permuted_matrix(buffTHat, permVec)
 
     smallBlockSizes11 = Vector{Vector{Int}}()
-    smallAuxDataSeq11 = Vector{AuxDataDDRGF}()
+    smallAuxDataSeq11 = Vector{AuxDataRGF}()
     smallMbmIn11 = Vector{BlockMatrix}()
     smallMbmOut11 = Vector{BlockMatrix}()
     smallBlockSizes22 = Vector{Vector{Int}}()
     smallMbmIn22 = Vector{BlockMatrix}()
     smallMbmBuffTHat22 = Vector{BlockMatrix}()
     for ix = 1:nrThreads
-        push!(smallBlockSizes11, M.blockSizes[1:blockSizeD1])
-        push!(smallAuxDataSeq11, AuxDataDDRGF(BlockMatrix(smallBlockSizes11[ix], ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
-                buffMPerm.ndiag, buffMPerm.nrsType, 0), BlockMatrix(smallBlockSizes11[ix], ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
+        push!(smallBlockSizes11, copy(M.blockSizes[1:blockSizeD1]))
+        push!(smallAuxDataSeq11, AuxDataRGF(BlockMatrix(copy(smallBlockSizes11[ix]), ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
+                buffMPerm.ndiag, buffMPerm.nrsType, 0), BlockMatrix(copy(smallBlockSizes11[ix]), ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
                 bIdMPerm.ndiag, bIdMPerm.nrsType, 0), 1, auxDataSeq.nrBLASThreadsOuter, auxDataSeq.nrBLASThreadsInner))
-        push!(smallMbmIn11, BlockMatrix(smallBlockSizes11[ix], ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
+        push!(smallMbmIn11, BlockMatrix(copy(smallBlockSizes11[ix]), ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
             M.ndiag, M.nrsType, 0))
-        push!(smallMbmOut11, BlockMatrix(smallBlockSizes11[ix], ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
+        push!(smallMbmOut11, BlockMatrix(copy(smallBlockSizes11[ix]), ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
             buffTHatPerm.ndiag, buffTHatPerm.nrsType, 0))
-        push!(smallBlockSizes22, M.blockSizes[1:blockSizeD2])
-        push!(smallMbmIn22, BlockMatrix(smallBlockSizes22[ix], ArrayOrLU_(undef, blockSizeD2, blockSizeD2),
+        push!(smallBlockSizes22, copy(M.blockSizes[1:blockSizeD2]))
+        push!(smallMbmIn22, BlockMatrix(copy(smallBlockSizes22[ix]), ArrayOrLU_(undef, blockSizeD2, blockSizeD2),
             M.ndiag, M.nrsType, 0))
-        push!(smallMbmBuffTHat22, BlockMatrix(smallBlockSizes22[ix], ArrayOrLU_(undef, blockSizeD2, blockSizeD2),
+        push!(smallMbmBuffTHat22, BlockMatrix(copy(smallBlockSizes22[ix]), ArrayOrLU_(undef, blockSizeD2, blockSizeD2),
             buffTHatPerm.ndiag, buffTHatPerm.nrsType, 0))
     end
 
     # pre-allocations needed for the inverse of the Schur complement
     nrLayersSchurCompl = sum(sizeDomains[1:nrTasks])
-    blockSizesSchurCompl = buffTHatPerm.blockSizes[1:nrLayersSchurCompl]
-    buffTHat22inv = BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
+    blockSizesSchurCompl = copy(buffTHatPerm.blockSizes[1:nrLayersSchurCompl])
+    buffTHat22inv = BlockMatrix(copy(blockSizesSchurCompl), ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
         buffTHatPerm.ndiag, buffTHatPerm.nrsType, 0)
-    auxDataSeq22inv = AuxDataDDRGF(BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
-            buffMPerm.ndiag, buffMPerm.nrsType, 0), BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
+    auxDataSeq22inv = AuxDataRGF(BlockMatrix(copy(blockSizesSchurCompl), ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
+            buffMPerm.ndiag, buffMPerm.nrsType, 0), BlockMatrix(copy(blockSizesSchurCompl), ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
             bIdMPerm.ndiag, bIdMPerm.nrsType, 0), 0, nrBLASThreadsOuter, nrBLASThreadsInner)
-    buffM222inv = BlockMatrix(blockSizesSchurCompl, ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
+    buffM222inv = BlockMatrix(copy(blockSizesSchurCompl), ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
         buffTHatPerm.ndiag, buffTHatPerm.nrsType, 0)
 
     # the final struct with the buffers
-    auxDataPar = AuxDataPDDRGF(auxDataSeq, nrTasks, permVec, permVecInv, sizeDomains, blockSizeD1,
+    auxDataPar = AuxDataDDRGF(auxDataSeq, nrTasks, permVec, permVecInv, sizeDomains, blockSizeD1,
         blockSizeD2, lastSizeD2, buffTHat, nrThreads, maxNrTasksPerThread, lastNrTasksPerThread, buffMPerm,
         bIdMPerm, buffTHatPerm, smallBlockSizes11, smallAuxDataSeq11, smallMbmIn11, smallMbmOut11, nrBLASThreadsOuter,
         nrBLASThreadsInner, smallBlockSizes22, smallMbmIn22, smallMbmBuffTHat22, buffTHat22inv, auxDataSeq22inv, buffM222inv)
@@ -193,15 +196,15 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
     bm_blocks_define_complement12!(auxDataPar.buffTHat, auxDataPar, 2)
     bm_blocks_define_complement21!(auxDataPar.buffTHat, auxDataPar, 2)
 
-    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(auxDataPar.buffMPerm, auxDataPar.auxDataSeq.buffM, auxDataPar)
+    bndiag_of_inv_ddrgf_add_block_refs_to_permuted_matrix22!(auxDataPar.buffMPerm, auxDataPar.auxDataSeq.buffM, auxDataPar)
     # add block references, in buffTHat, for the D1 regions
-    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix11!(auxDataPar.buffTHatPerm, auxDataPar)
+    bndiag_of_inv_ddrgf_add_block_refs_to_permuted_matrix11!(auxDataPar.buffTHatPerm, auxDataPar)
     # add references to extra Schur complement blocks, those that make it non embarrasingly parallel
-    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(auxDataPar.buffTHatPerm, auxDataPar.buffTHat, auxDataPar)
+    bndiag_of_inv_ddrgf_add_block_refs_to_permuted_matrix22!(auxDataPar.buffTHatPerm, auxDataPar.buffTHat, auxDataPar)
     # add references to extra blocks related to hopping terms interactions, in particular
     # the computation of THat_{11}^{-1} * THat_{12} and THat_{21} * THat_{11}^{-1}
-    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix12!(auxDataPar.buffTHatPerm, auxDataPar.buffTHat, auxDataPar)
-    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix21!(auxDataPar.buffTHatPerm, auxDataPar.buffTHat, auxDataPar)
+    bndiag_of_inv_ddrgf_add_block_refs_to_permuted_matrix12!(auxDataPar.buffTHatPerm, auxDataPar.buffTHat, auxDataPar)
+    bndiag_of_inv_ddrgf_add_block_refs_to_permuted_matrix21!(auxDataPar.buffTHatPerm, auxDataPar.buffTHat, auxDataPar)
 
     bm_reference!(auxDataPar.buffTHat22inv, buffTHatPerm.M, 0, 0)
     bm_reference!(auxDataPar.auxDataSeq22inv.buffM, buffMPerm.M, 0, 0)
@@ -210,13 +213,14 @@ function allocate_aux_data_PDDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, spli
     # the following is needed for storing -1 * THat11Inv * THat12 * THatSInv, but what is needed to
     # compute ( THat11Inv * THat12 * THatSInv ) * THat21 * THat11Inv
     bm_blocks_define_complement12!(auxDataPar.auxDataSeq.buffM, auxDataPar, 2)
-    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix12!(auxDataPar.buffMPerm, auxDataPar.auxDataSeq.buffM, auxDataPar)
+    bndiag_of_inv_ddrgf_add_block_refs_to_permuted_matrix12!(auxDataPar.buffMPerm, auxDataPar.auxDataSeq.buffM, auxDataPar)
 
     return auxDataPar
 end
 
 """
-    bndiag_of_inv_ddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxDataDDRGF, td::TimingData)
+    bndiag_of_inv_rgf_local!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxDataRGF, td::TimingData,
+        cd::CountingData)
 
 For an input matrix `M`, possibly but not necessarily block n-diagonal,
 where n is 3, 5, etc., compute the block n-diagonal part of the inverse
@@ -229,7 +233,7 @@ of `M`. This function uses the RGF method (soon to be extended to DD-RGF).
 - `td`: struct for fine-level (i.e. of the backend kernels) timing. The user can choose no timing,
 in which case `td` is an empty `TimingData` struct.
 """
-function bndiag_of_inv_ddrgf_local!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxDataDDRGF, td::TimingData,
+function bndiag_of_inv_rgf_local!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxDataRGF, td::TimingData,
     cd::CountingData)
     # TODO : extend this code to n-diagonal, otherwise rename this function
     #        to keep it as the simple traditional RGF
@@ -315,14 +319,14 @@ function bndiag_of_inv_ddrgf_local!(Mout::BlockMatrix, Min::BlockMatrix, auxData
     end
 end
 
-function bndiag_of_inv_ddrgf_global!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxDataDDRGF, td::TimingData,
+function bndiag_of_inv_rgf_global!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxDataRGF, td::TimingData,
     cd::CountingData)
     # set the number of chosen BLAS threads
     if auxData.nrBLASThreadsOuter * auxData.nrBLASThreadsInner > 1
         LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsOuter * auxData.nrBLASThreadsInner)
     end
 
-    bndiag_of_inv_ddrgf_local!(Mout, Min, auxData, td, cd)
+    bndiag_of_inv_rgf_local!(Mout, Min, auxData, td, cd)
 
     # restore the number of BLAS threads to 1
     if auxData.nrBLASThreadsOuter * auxData.nrBLASThreadsInner > 1
@@ -344,10 +348,8 @@ do sequential RGF).
 - `nrBlocksInPivots::Int`: number of principal layers in each of the subdomains of domain 2.
 - `splitType::Int`: whether we add an extra pivot at the very end or not.
 """
-function bndiag_of_inv_pddrgf_check_nr_tasks(M::BlockMatrix, nrBlocksInNonPivots::Int, nrTasks::Int,
+function bndiag_of_inv_ddrgf_check_nr_tasks(M::BlockMatrix, nrBlocksInNonPivots::Int, nrTasks::Int,
     splitType::Bool)::Tuple{Int,Int,Int,Int}
-
-    # println(nrTasks)
 
     if nrTasks == 1
         # if nrTasks = 1, the other two values are irrelevant
@@ -372,19 +374,19 @@ function bndiag_of_inv_pddrgf_check_nr_tasks(M::BlockMatrix, nrBlocksInNonPivots
     restOfTotalSizeD2 = totalSizeD2 - ceilOfTotalSizeD2
 
     if restOfTotalSizeD2 <= 0
-        nrTasks, blockSizeD1, blockSizeD2, restOfTotalSizeD2 = bndiag_of_inv_pddrgf_check_nr_tasks(M, nrBlocksInNonPivots,
+        nrTasks, blockSizeD1, blockSizeD2, restOfTotalSizeD2 = bndiag_of_inv_ddrgf_check_nr_tasks(M, nrBlocksInNonPivots,
             nrTasks - 1, splitType)
     end
 
     return nrTasks, blockSizeD1, blockSizeD2, restOfTotalSizeD2
 end
 
-function bndiag_of_inv_pddrgf_check_nr_threads(nrThreads::Int, nrTasks::Int)::Tuple{Int,Int,Int}
+function bndiag_of_inv_ddrgf_check_nr_threads(nrThreads::Int, nrTasks::Int)::Tuple{Int,Int,Int}
     maxNrTasksPerThread = Int(ceil(nrTasks / nrThreads))
     ceilOfTotalNrTasksPerThread = (nrThreads - 1) * maxNrTasksPerThread
     restOfTotalNrTasksPerThread = nrTasks - ceilOfTotalNrTasksPerThread
     if restOfTotalNrTasksPerThread <= 0
-        nrThreads, maxNrTasksPerThread, restOfTotalNrTasksPerThread = bndiag_of_inv_pddrgf_check_nr_threads(nrThreads - 1, nrTasks)
+        nrThreads, maxNrTasksPerThread, restOfTotalNrTasksPerThread = bndiag_of_inv_ddrgf_check_nr_threads(nrThreads - 1, nrTasks)
     end
 
     return nrThreads, maxNrTasksPerThread, restOfTotalNrTasksPerThread
@@ -401,7 +403,7 @@ Creates the permutation vector for later parallel RGF computations.
 - `nrBlocksInPivots::Int`: number of principal layers in each of the subdomains of domain 2.
 - `splitType::Int`: whether we add an extra pivot at the very end or not.
 """
-function bndiag_of_inv_pddrgf_create_permutation_vector(M::BlockMatrix, nrTasks::Int,
+function bndiag_of_inv_ddrgf_create_permutation_vector(M::BlockMatrix, nrTasks::Int,
     nrBlocksInNonPivots::Int, splitType::Bool)::Tuple{Vector{Int},Vector{Int}}
     npl = size(M.blockSizes)[1]
     nrSubdomains::Int = 0
@@ -470,7 +472,7 @@ end
 
 # this function returns the permutation vector corresponding to the transpose of the
 # permutation matrix
-function bndiag_of_inv_pddrgf_transpose_permutation_vector(permVec::Vector{Int})::Vector{Int}
+function bndiag_of_inv_ddrgf_transpose_permutation_vector(permVec::Vector{Int})::Vector{Int}
     permVecInv = copy(permVec)
 
     for ix = 1:size(permVec)[1]
@@ -482,10 +484,10 @@ end
 
 # this function applies the permutation, specified via permVec, on the input matrix M, but
 # returning a matrix whose blocks are references to the blocks in M
-function bndiag_of_inv_pddrgf_create_permuted_matrix(M::BlockMatrix, permVec::Vector{Int})::BlockMatrix
+function bndiag_of_inv_ddrgf_create_permuted_matrix(M::BlockMatrix, permVec::Vector{Int})::BlockMatrix
     npl = size(M.blockSizes)[1]
     ndiag = M.ndiag
-    Mhat = BlockMatrix(M.blockSizes, ArrayOrLU_(undef, npl, npl), M.ndiag, M.nrsType, 0)
+    Mhat = BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl), M.ndiag, M.nrsType, 0)
     pv = permVec
 
     # loop over the block sizes, conversely over the block rows
@@ -517,7 +519,7 @@ end
 
 # these are references to the extra blocks in the sub-domains in D1, because there we
 # need to compute full inverses and not only block tridiagonals
-function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix11!(M::BlockMatrix, auxData::AuxDataPDDRGF)
+function bndiag_of_inv_ddrgf_add_block_refs_to_permuted_matrix11!(M::BlockMatrix, auxData::AuxDataDDRGF)
     if auxData.blockSizeD1 > 2
         jx1::Int = (auxData.nrTasks - 1) * auxData.blockSizeD2 + auxData.lastSizeD2
         jx2::Int = 0
@@ -544,7 +546,7 @@ function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix11!(M::BlockMatri
     end
 end
 
-function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxDataPDDRGF)
+function bndiag_of_inv_ddrgf_add_block_refs_to_permuted_matrix22!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxDataDDRGF)
     blockSizeD2 = auxData.blockSizeD2
     nrTasks = auxData.nrTasks
     permVecInv = auxData.permVecInv
@@ -571,7 +573,7 @@ function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(Mout::BlockMa
 
 end
 
-function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix12!(M1::BlockMatrix, M2::BlockMatrix, auxData::AuxDataPDDRGF)
+function bndiag_of_inv_ddrgf_add_block_refs_to_permuted_matrix12!(M1::BlockMatrix, M2::BlockMatrix, auxData::AuxDataDDRGF)
     blockSizeD1 = auxData.blockSizeD1
     permVecInv = auxData.permVecInv
     nrTasks = auxData.nrTasks
@@ -608,7 +610,7 @@ function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix12!(M1::BlockMatr
     end
 end
 
-function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix21!(M1::BlockMatrix, M2::BlockMatrix, auxData::AuxDataPDDRGF)
+function bndiag_of_inv_ddrgf_add_block_refs_to_permuted_matrix21!(M1::BlockMatrix, M2::BlockMatrix, auxData::AuxDataDDRGF)
     blockSizeD1 = auxData.blockSizeD1
     permVecInv = auxData.permVecInv
     nrTasks = auxData.nrTasks
@@ -645,7 +647,7 @@ function bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix21!(M1::BlockMatr
     end
 end
 
-function bndiag_of_inv_pddrgf_compute_THat11Inv_x_THat12!(Min::BlockMatrix, auxData::AuxDataPDDRGF,
+function bndiag_of_inv_ddrgf_compute_THat11Inv_x_THat12!(Min::BlockMatrix, auxData::AuxDataDDRGF,
     td::TimingData, cd::CountingData)
     if auxData.nrBLASThreadsInner > 1
         LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
@@ -710,7 +712,7 @@ function bndiag_of_inv_pddrgf_compute_THat11Inv_x_THat12!(Min::BlockMatrix, auxD
     end
 end
 
-function bndiag_of_inv_pddrgf_compute_minus_THat11Inv_x_THat12_x_THatSInv!(Mout::BlockMatrix, auxData::AuxDataPDDRGF,
+function bndiag_of_inv_ddrgf_compute_minus_THat11Inv_x_THat12_x_THatSInv!(Mout::BlockMatrix, auxData::AuxDataDDRGF,
     td::TimingData, cd::CountingData)
     if auxData.nrBLASThreadsInner > 1
         LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
@@ -798,7 +800,7 @@ function bndiag_of_inv_pddrgf_compute_minus_THat11Inv_x_THat12_x_THatSInv!(Mout:
     end
 end
 
-function bndiag_of_inv_pddrgf_compute_THat21_x_THat11Inv!(Min::BlockMatrix, auxData::AuxDataPDDRGF,
+function bndiag_of_inv_ddrgf_compute_THat21_x_THat11Inv!(Min::BlockMatrix, auxData::AuxDataDDRGF,
     td::TimingData, cd::CountingData)
     if auxData.nrBLASThreadsInner > 1
         LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
@@ -863,14 +865,14 @@ function bndiag_of_inv_pddrgf_compute_THat21_x_THat11Inv!(Min::BlockMatrix, auxD
     end
 end
 
-function bndiag_of_inv_pddrgf_compute_minus_x_THatSInv_THat21_x_THat11Inv!(Mout::BlockMatrix, auxData::AuxDataPDDRGF,
+function bndiag_of_inv_ddrgf_compute_minus_x_THatSInv_THat21_x_THat11Inv!(Mout::BlockMatrix, auxData::AuxDataDDRGF,
     td::TimingData, cd::CountingData)
     if auxData.nrBLASThreadsInner > 1
         LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
     end
 
     # TODO : based on analyzing this function a bit more, can we reduce the cost of the
-    #        function bndiag_of_inv_pddrgf_compute_THat21_x_THat11Inv!(...) ?
+    #        function bndiag_of_inv_ddrgf_compute_THat21_x_THat11Inv!(...) ?
 
     blockSizeD1 = auxData.blockSizeD1
     nrTasks = auxData.nrTasks
@@ -942,7 +944,7 @@ function bndiag_of_inv_pddrgf_compute_minus_x_THatSInv_THat21_x_THat11Inv!(Mout:
     end
 end
 
-function bndiag_of_inv_pddrgf_compute_11_part!(Mout::BlockMatrix, auxData::AuxDataPDDRGF,
+function bndiag_of_inv_ddrgf_compute_11_part!(Mout::BlockMatrix, auxData::AuxDataDDRGF,
     td::TimingData, cd::CountingData)
     if auxData.nrBLASThreadsInner > 1
         LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
@@ -1034,7 +1036,7 @@ function bndiag_of_inv_pddrgf_compute_11_part!(Mout::BlockMatrix, auxData::AuxDa
     end
 end
 
-function bndiag_of_inv_pddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataPDDRGF, td::TimingData,
+function bndiag_of_inv_ddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataDDRGF, td::TimingData,
     cd::CountingData)
     if auxData.nrBLASThreadsInner > 1
         LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
@@ -1094,7 +1096,7 @@ function bndiag_of_inv_pddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataPDD
 
             # note that RGF has been modified to give us the little extra blocks in the beyond-2x2 cases
             # (i.e., for the number of layers within each sub-domain in D1)
-            bndiag_of_inv_ddrgf_local!(smallMbmOut, smallMbmIn, smallAuxDataSeq, td, cd)
+            bndiag_of_inv_rgf_local!(smallMbmOut, smallMbmIn, smallAuxDataSeq, td, cd)
 
         end
     end
@@ -1104,8 +1106,8 @@ function bndiag_of_inv_pddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataPDD
     end
 end
 
-function bndiag_of_inv_pddrgf_error_inv_of_T11(Min_::BlockMatrix, Mout_::BlockMatrix,
-    auxData::AuxDataPDDRGF, td::TimingData, cd::CountingData)::Float64
+function bndiag_of_inv_ddrgf_error_inv_of_T11(Min_::BlockMatrix, Mout_::BlockMatrix,
+    auxData::AuxDataDDRGF, td::TimingData, cd::CountingData)::Float64
     plusOneCmplx = convert(Min_.nrsType, 1.0)
     zeroCmplx = convert(Min_.nrsType, 0.0)
     # 'multiply' the D1 part of Min_ and auxData.buffTHat
@@ -1114,9 +1116,9 @@ function bndiag_of_inv_pddrgf_error_inv_of_T11(Min_::BlockMatrix, Mout_::BlockMa
     # TODO : the following assignment of accBlk needs to be changed when the blocks are
     #        not all of the same size
     accBlk = Mout_.M[1, 1]
-    Min = bndiag_of_inv_pddrgf_create_permuted_matrix(Min_, auxData.permVec)
-    buffTHat = bndiag_of_inv_pddrgf_create_permuted_matrix(auxData.buffTHat, auxData.permVec)
-    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix11!(buffTHat, auxData)
+    Min = bndiag_of_inv_ddrgf_create_permuted_matrix(Min_, auxData.permVec)
+    buffTHat = bndiag_of_inv_ddrgf_create_permuted_matrix(auxData.buffTHat, auxData.permVec)
+    bndiag_of_inv_ddrgf_add_block_refs_to_permuted_matrix11!(buffTHat, auxData)
     jx::Int = (auxData.nrTasks - 1) * auxData.blockSizeD2 + auxData.lastSizeD2
     numErr::Float64 = 0.0
     denErr::Float64 = 0.0
@@ -1154,7 +1156,7 @@ function bndiag_of_inv_pddrgf_error_inv_of_T11(Min_::BlockMatrix, Mout_::BlockMa
     return sqrt(numErr / denErr)
 end
 
-function bndiag_of_inv_pddrgf_build_Schur_compl!(Min_::BlockMatrix, auxData::AuxDataPDDRGF, td::TimingData,
+function bndiag_of_inv_ddrgf_build_Schur_compl!(Min_::BlockMatrix, auxData::AuxDataDDRGF, td::TimingData,
     cd::CountingData)
     if auxData.nrBLASThreadsInner > 1
         LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
@@ -1196,9 +1198,9 @@ function bndiag_of_inv_pddrgf_build_Schur_compl!(Min_::BlockMatrix, auxData::Aux
                 smallMbmBuffTHat = auxData.smallMbmBuffTHat22[ixo]
             else
                 smallBlockSizes = Min.blockSizes[jx2Start:jx2End]
-                smallMbmIn = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jx2End - jx2Start + 1, jx2End - jx2Start + 1),
+                smallMbmIn = BlockMatrix(copy(smallBlockSizes), ArrayOrLU_(undef, jx2End - jx2Start + 1, jx2End - jx2Start + 1),
                     Min.ndiag, Min.nrsType, 0)
-                smallMbmBuffTHat = BlockMatrix(smallBlockSizes, ArrayOrLU_(undef, jx2End - jx2Start + 1, jx2End - jx2Start + 1),
+                smallMbmBuffTHat = BlockMatrix(copy(smallBlockSizes), ArrayOrLU_(undef, jx2End - jx2Start + 1, jx2End - jx2Start + 1),
                     buffTHat.ndiag, buffTHat.nrsType, 0)
             end
 
@@ -1316,7 +1318,7 @@ function bndiag_of_inv_pddrgf_build_Schur_compl!(Min_::BlockMatrix, auxData::Aux
     end
 end
 
-function bndiag_of_inv_pddrgf_inv_Schur_compl!(Mout_::BlockMatrix, auxData::AuxDataPDDRGF, td::TimingData,
+function bndiag_of_inv_ddrgf_inv_Schur_compl!(Mout_::BlockMatrix, auxData::AuxDataDDRGF, td::TimingData,
     cd::CountingData)
     # the blocks in the following matrices contain references to blocks
     buffM2 = Mout_
@@ -1328,10 +1330,10 @@ function bndiag_of_inv_pddrgf_inv_Schur_compl!(Mout_::BlockMatrix, auxData::AuxD
     # TODO : move this reference to a 'setup' stage
     bm_reference!(buffM222, buffM2.M, 0, 0)
 
-    @timewrap td "_SeqInv" bndiag_of_inv_ddrgf_global!(buffM222, buffTHat22, auxDataSeq22, td, cd)
+    @timewrap td "_SeqInv" bndiag_of_inv_rgf_global!(buffM222, buffTHat22, auxDataSeq22, td, cd)
 end
 
-function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::AuxDataPDDRGF, td::TimingData,
+function bndiag_of_inv_ddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::AuxDataDDRGF, td::TimingData,
     cd::CountingData)
 
     # the blocks in the following matrices contain references to blocks
@@ -1339,20 +1341,20 @@ function bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Bloc
     Mout = Mout_
 
     # compute the nonzero blocks in THat_{11}^{-1} * THat_{12}, saving the output to the 12 part of buffTHat
-    bndiag_of_inv_pddrgf_compute_THat11Inv_x_THat12!(Min, auxData, td, cd)
+    bndiag_of_inv_ddrgf_compute_THat11Inv_x_THat12!(Min, auxData, td, cd)
     # and then those of THat_{21} * THat_{11}^{-1}, saving the output to the 21 part of buffTHat
-    bndiag_of_inv_pddrgf_compute_THat21_x_THat11Inv!(Min, auxData, td, cd)
+    bndiag_of_inv_ddrgf_compute_THat21_x_THat11Inv!(Min, auxData, td, cd)
 
     # the D2 part of buffTHat contains the (approximated) Schur complement
-    bndiag_of_inv_pddrgf_build_Schur_compl!(Min, auxData, td, cd)
+    bndiag_of_inv_ddrgf_build_Schur_compl!(Min, auxData, td, cd)
 
     # call sequential RGF to compute the inverse of the Schur complement
-    bndiag_of_inv_pddrgf_inv_Schur_compl!(Mout, auxData, td, cd)
+    bndiag_of_inv_ddrgf_inv_Schur_compl!(Mout, auxData, td, cd)
 end
 
 """
-    bndiag_of_inv_pddrgf!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxDataPDDRGF, td::TimingData,
-    cd::CountingData)
+    bndiag_of_inv_ddrgf!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::AuxDataDDRGF, td::TimingData,
+        cd::CountingData)
 
 For an input matrix `M`, possibly but not necessarily block n-diagonal,
 where n is 3, 5, etc., compute the block n-diagonal part of the inverse
@@ -1365,29 +1367,29 @@ of `M`. This function uses the paralle RGF method (soon to be extended to DD-RGF
 - `td`: struct for fine-level (i.e. of the backend kernels) timing. The user can choose no timing,
 in which case `td` is an empty `TimingData` struct.
 """
-function bndiag_of_inv_pddrgf!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::AuxDataPDDRGF, td::TimingData,
+function bndiag_of_inv_ddrgf!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::AuxDataDDRGF, td::TimingData,
     cd::CountingData)
     # TODO : extend this code to n-diagonal, otherwise rename this function
     #        to keep it as the simple traditional RGF
 
     # call sequential RGF if nrTasks = 1
     if auxData.nrTasks == 1
-        bndiag_of_inv_ddrgf_global!(Mout_, Min_, auxData.auxDataSeq, td, cd)
+        bndiag_of_inv_rgf_global!(Mout_, Min_, auxData.auxDataSeq, td, cd)
         return
     end
 
-    Min = bndiag_of_inv_pddrgf_create_permuted_matrix(Min_, auxData.permVec)
-    Mout = bndiag_of_inv_pddrgf_create_permuted_matrix(Mout_, auxData.permVec)
-    bndiag_of_inv_pddrgf_add_block_refs_to_permuted_matrix22!(Mout, Mout_, auxData)
+    Min = bndiag_of_inv_ddrgf_create_permuted_matrix(Min_, auxData.permVec)
+    Mout = bndiag_of_inv_ddrgf_create_permuted_matrix(Mout_, auxData.permVec)
+    bndiag_of_inv_ddrgf_add_block_refs_to_permuted_matrix22!(Mout, Mout_, auxData)
 
     # first, compute the inverse of \widehat{T}_{11}, storing it in the D1 part of auxData.buffTHat
     # (this is used in both the (1,1) and (2,2) parts)
-    @timewrap td "_T11inv" bndiag_of_inv_pddrgf_inv_of_T11!(Min, auxData, td, cd)
+    @timewrap td "_T11inv" bndiag_of_inv_ddrgf_inv_of_T11!(Min, auxData, td, cd)
 
     # with the inverse of \widehat{T}_{11} at hand, construct the Schur complement, and
     # then invert it, stored in the D2 part of Mout_
     # (this is the (2,2) part)
-    @timewrap td "_SCinv" bndiag_of_inv_pddrgf_inv_of_Schur_compl!(Mout, Min, auxData, td, cd)
+    @timewrap td "_SCinv" bndiag_of_inv_ddrgf_inv_of_Schur_compl!(Mout, Min, auxData, td, cd)
 
     # compute the (1,2) and (2,1) parts of the global result
 
@@ -1395,10 +1397,10 @@ function bndiag_of_inv_pddrgf!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::A
     # (for this we have auxData.buffMPerm, where we put the whole needed object
     # for THat11Inv * THat12 * THatSInv * THat21 * THat11Inv but also immediately
     # copy what should go to the output Mout)
-    @timewrap td "_Hopp12" bndiag_of_inv_pddrgf_compute_minus_THat11Inv_x_THat12_x_THatSInv!(Mout, auxData, td, cd)
+    @timewrap td "_Hopp12" bndiag_of_inv_ddrgf_compute_minus_THat11Inv_x_THat12_x_THatSInv!(Mout, auxData, td, cd)
     # then, -1 * THatSInv * THat11Inv * THat21
-    @timewrap td "_Hopp21" bndiag_of_inv_pddrgf_compute_minus_x_THatSInv_THat21_x_THat11Inv!(Mout, auxData, td, cd)
+    @timewrap td "_Hopp21" bndiag_of_inv_ddrgf_compute_minus_x_THatSInv_THat21_x_THat11Inv!(Mout, auxData, td, cd)
 
     # compute the (1,1) part of the global result
-    @timewrap td "_11" bndiag_of_inv_pddrgf_compute_11_part!(Mout, auxData, td, cd)
+    @timewrap td "_11" bndiag_of_inv_ddrgf_compute_11_part!(Mout, auxData, td, cd)
 end

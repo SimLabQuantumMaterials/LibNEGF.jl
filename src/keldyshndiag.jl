@@ -5,18 +5,18 @@ Buffers used by Keldysh. The data in `auxDataRGF` are used for supporting
 RGF operations, and `bmLargeBuff` to do the further GEMM.
 """
 struct AuxDataKeldysh
-    auxDataRGF::AuxDataDDRGF
+    auxDataRGF::AuxDataRGF
     bmLargeBuff::BlockMatrix
 end
 
-function allocate_aux_data_Keldysh(M::BlockMatrix, auxDataRGF::AuxDataDDRGF)::AuxDataKeldysh
+function allocate_aux_data_Keldysh(M::BlockMatrix, auxDataRGF::AuxDataRGF)::AuxDataKeldysh
     npl = size(M.blockSizes)[1]
     # the number of block diagonals
     m = 1 + 2 * (M.ndiag["in"] - 1)
 
     # in general, these type of auxiliary block matrices will contain
     # Array-like object and not LU-like, as specified by the last param
-    bmLargeBuff = BlockMatrix(M.blockSizes, ArrayOrLU_(undef, npl, npl),
+    bmLargeBuff = BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl),
         Dict("in" => m, "out" => m), M.nrsType, 0)
     bm_blocks_define!(bmLargeBuff, 1)
 
@@ -48,7 +48,7 @@ end
 
 # first version, naive, inefficient
 function keldyshndiag_v1!(C::BlockMatrix, Binv::BlockMatrix, B::BlockMatrix, A::BlockMatrix, auxData::AuxDataKeldysh, td::TimingData, cd::CountingData)
-    bndiag_of_inv_ddrgf!(Binv, B, auxData.auxDataRGF, td, cd)
+    bndiag_of_inv_rgf_local!(Binv, B, auxData.auxDataRGF, td, cd)
 
     Binvsp = bm_convert(Binv)
     Asp = bm_convert(A)
@@ -63,7 +63,7 @@ end
 
 # a more efficient version
 function keldyshndiag_v2!(C::BlockMatrix, Binv::BlockMatrix, B::BlockMatrix, A::BlockMatrix, auxData::AuxDataKeldysh, td::TimingData, cd::CountingData)
-    bndiag_of_inv_ddrgf_local!(Binv, B, auxData.auxDataRGF, td, cd)
+    bndiag_of_inv_rgf_local!(Binv, B, auxData.auxDataRGF, td, cd)
 
     # the (block) indices ix and jx are running over auxData.bmLargeBuff
 

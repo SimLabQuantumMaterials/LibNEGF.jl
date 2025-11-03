@@ -37,7 +37,7 @@ function bm_convert(M::SparseArrays.SparseMatrixCSC, blockSizes::Vector{Int},
     # npl stands for number of principal layers
     npl = size(blockSizes)[1]
     # in general, these type of block matrices will contain Array-like object and not LU-like
-    A = BlockMatrix(blockSizes, ArrayOrLU_(undef, npl, npl), ndiag, typeof(M[1, 1]), 0)
+    A = BlockMatrix(copy(blockSizes), ArrayOrLU_(undef, npl, npl), ndiag, typeof(M[1, 1]), 0)
 
     # loop over the block sizes, conversely over the block rows
     for ix = 1:npl
@@ -59,7 +59,7 @@ function bm_convert(M::SparseArrays.SparseMatrixCSC, blockSizes::Vector{Int},
         A.M[ix, ix] = be_copy_to_hw(Array(M[ibeg:iend, jbeg:jend]))
         if ix < npl
             # right
-            for jx = (ix+1):1:min(size(blockSizes)[1], ix + Int((ndiag["out"] - 1) / 2))
+            for jx = (ix+1):1:min(npl, ix + Int((ndiag["out"] - 1) / 2))
                 jbeg = sum(blockSizes[1:jx-1]) + 1
                 jend = sum(blockSizes[1:jx])
                 A.M[ix, jx] = be_copy_to_hw(Array(M[ibeg:iend, jbeg:jend]))
@@ -82,13 +82,14 @@ function bm_convert(M::BlockMatrix)::SparseArrays.SparseMatrixCSC
     n = sum(M.blockSizes)
     ndiag = M.ndiag
     nrsType = M.nrsType
+    npl = size(M.blockSizes)[1]
 
     # create the empty sparse matrix to be the output, with the
     # appropriate underlying data type in nrsType
     A = SparseArrays.SparseMatrixCSC{nrsType,Int}(undef, n, n)
 
     # loop over the block sizes, conversely over the block rows
-    for ix = 1:size(M.blockSizes)[1]
+    for ix = 1:npl
         # indices for the rows
         ibeg = sum(M.blockSizes[1:ix-1]) + 1
         iend = sum(M.blockSizes[1:ix])
@@ -105,9 +106,9 @@ function bm_convert(M::BlockMatrix)::SparseArrays.SparseMatrixCSC
         jbeg = ibeg
         jend = iend
         A[ibeg:iend, jbeg:jend] = sparse(be_copy_from_hw(M.M[ix, ix]))
-        if ix < size(M.blockSizes)[1]
+        if ix < npl
             # right
-            for jx = (ix+1):1:min(size(M.blockSizes)[1], ix + Int((ndiag["out"] - 1) / 2))
+            for jx = (ix+1):1:min(npl, ix + Int((ndiag["out"] - 1) / 2))
                 jbeg = sum(M.blockSizes[1:jx-1]) + 1
                 jend = sum(M.blockSizes[1:jx])
                 A[ibeg:iend, jbeg:jend] = sparse(be_copy_from_hw(M.M[ix, jx]))
@@ -118,19 +119,29 @@ function bm_convert(M::BlockMatrix)::SparseArrays.SparseMatrixCSC
     return A
 end
 
-# this allows us converting a permuted block matrix to sparse
+"""
+	bm_convert(M::BlockMatrix, permVec::Vector{Int})
+
+Converts the input matrix `M` of type `BlockMatrix` to sparse.
+This allows us converting a permuted block matrix to sparse.
+
+# Arguments
+- `M::BlockMatrix`: the matrix to be converted.
+- `permVec::Vector{Int}`: the DDRGF permutation vector.
+"""
 function bm_convert(M::BlockMatrix, permVec::Vector{Int})::SparseArrays.SparseMatrixCSC
     n = sum(M.blockSizes)
     ndiag = M.ndiag
     nrsType = M.nrsType
     pv = permVec
+    npl = size(M.blockSizes)[1]
 
     # create the empty sparse matrix to be the output, with the
     # appropriate underlying data type in nrsType
     A = SparseArrays.SparseMatrixCSC{nrsType,Int}(undef, n, n)
 
     # loop over the block sizes, conversely over the block rows
-    for ix = 1:size(M.blockSizes)[1]
+    for ix = 1:npl
         ixPerm = pv[ix]
         # indices for the rows
         ibeg = sum(M.blockSizes[1:ixPerm-1]) + 1
@@ -149,9 +160,9 @@ function bm_convert(M::BlockMatrix, permVec::Vector{Int})::SparseArrays.SparseMa
         jbeg = ibeg
         jend = iend
         A[ibeg:iend, jbeg:jend] = sparse(be_copy_from_hw(M.M[ixPerm, ixPerm]))
-        if ix < size(M.blockSizes)[1]
+        if ix < npl
             # right
-            for jx = (ix+1):1:min(size(M.blockSizes)[1], ix + Int((ndiag["out"] - 1) / 2))
+            for jx = (ix+1):1:min(npl, ix + Int((ndiag["out"] - 1) / 2))
                 jxPerm = pv[jx]
                 jbeg = sum(M.blockSizes[1:jxPerm-1]) + 1
                 jend = sum(M.blockSizes[1:jxPerm])
@@ -163,17 +174,30 @@ function bm_convert(M::BlockMatrix, permVec::Vector{Int})::SparseArrays.SparseMa
     return A
 end
 
-# create sparse matrix that implements permutations from the permVec vector
-function bndiag_of_inv_pddrgf_create_sparse_permutator(permVec::Vector{Int}, blockSizes::Vector{Int},
-    nrsType::DataType)::SparseArrays.SparseMatrixCSC
+"""
+	bndiag_of_inv_ddrgf_create_sparse_permutator(permVec::Vector{Int}, blockSizes::Vector{Int},
+        nrsType::DataType)
 
-    # println(permVec)
+Create sparse matrix that implements permutations from the `permVec` vector.
+
+# Arguments
+- `permVec::Vector{Int}`: the permutation vector.
+- `blockSizes::Vector{Int}`: the sizes of the principal layers.
+- `nrsType::DataType`: the type of the underlying data.
+"""
+function bndiag_of_inv_ddrgf_create_sparse_permutator(permVec::Vector{Int}, blockSizes::Vector{Int},
+    nrsType::DataType)::SparseArrays.SparseMatrixCSC
 
     n = sum(blockSizes)
     # ndiag = M.ndiag
     # nrsType = M.nrsType
     pv = permVec
     npl = size(blockSizes)[1]
+    # we also need the permuted array of block sizes
+    blockSizesPerm = copy(blockSizes)
+    for ix = 1:npl
+        blockSizesPerm[pv[ix]] = blockSizes[ix]
+    end
 
     # create the empty sparse matrix to be the output, with the
     # appropriate underlying data type in nrsType
@@ -181,18 +205,18 @@ function bndiag_of_inv_pddrgf_create_sparse_permutator(permVec::Vector{Int}, blo
 
     for jx = 1:npl
         ix = pv[jx]
-        iStart = 1 + sum(blockSizes[1:ix-1])
-        iEnd = sum(blockSizes[1:ix])
+        iStart = 1 + sum(blockSizesPerm[1:ix-1])
+        iEnd = sum(blockSizesPerm[1:ix])
         jStart = 1 + sum(blockSizes[1:jx-1])
         jEnd = sum(blockSizes[1:jx])
-        A[iStart:iEnd, jStart:jEnd] = sparse(I, jEnd - jStart + 1, iEnd - iStart + 1)
+        A[iStart:iEnd, jStart:jEnd] = sparse(I, iEnd - iStart + 1, jEnd - jStart + 1)
     end
 
     return A
 end
 
 """
-	copy_BM(M::BlockMatrix)
+	bm_copy(M::BlockMatrix)
 
 Receives a BlockMatrix object and returns a deep copy of it.
 
@@ -203,10 +227,10 @@ function bm_copy(M::BlockMatrix)::BlockMatrix
     ndiag = M.ndiag
     npl = size(M.blockSizes)[1]
 
-    A = BlockMatrix(M.blockSizes, ArrayOrLU_(undef, npl, npl), ndiag, M.nrsType, M.isArrayOrLU)
+    A = BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl), ndiag, M.nrsType, M.isArrayOrLU)
 
     # loop over the block sizes, conversely over the block rows
-    for ix = 1:size(M.blockSizes)[1]
+    for ix = 1:npl
         # now, copy the blocks within the ix-th row
         if ix > 1
             # left
@@ -216,9 +240,9 @@ function bm_copy(M::BlockMatrix)::BlockMatrix
         end
         # center
         A.M[ix, ix] = be_copy_in_hw(M.M[ix, ix])
-        if ix < size(M.blockSizes)[1]
+        if ix < npl
             # right
-            for jx = (ix+1):1:min(size(M.blockSizes)[1], ix + Int((ndiag["out"] - 1) / 2))
+            for jx = (ix+1):1:min(npl, ix + Int((ndiag["out"] - 1) / 2))
                 A.M[ix, jx] = be_copy_in_hw(M.M[ix, jx])
             end
         end
@@ -241,7 +265,7 @@ function bm_copy!(Mout::BlockMatrix, Min::BlockMatrix)
     npl = size(Min.blockSizes)[1]
 
     # loop over the block sizes, conversely over the block rows
-    for ix = 1:size(Min.blockSizes)[1]
+    for ix = 1:npl
         # now, copy the blocks within the ix-th row
         if ix > 1
             # left
@@ -251,9 +275,9 @@ function bm_copy!(Mout::BlockMatrix, Min::BlockMatrix)
         end
         # center
         be_copy_in_hw!(Mout.M[ix, ix], Min.M[ix, ix])
-        if ix < size(Min.blockSizes)[1]
+        if ix < npl
             # right
-            for jx = (ix+1):1:min(size(Min.blockSizes)[1], ix + Int((ndiag["out"] - 1) / 2))
+            for jx = (ix+1):1:min(npl, ix + Int((ndiag["out"] - 1) / 2))
                 be_copy_in_hw!(Mout.M[ix, jx], Min.M[ix, jx])
             end
         end
@@ -261,7 +285,7 @@ function bm_copy!(Mout::BlockMatrix, Min::BlockMatrix)
 end
 
 """
-	bm_similar(M::BlockMatrix)
+	bm_similar(M::BlockMatrix, filling::Int)
 
 Receives a BlockMatrix object and returns a BlockMatrix with the same properties
 (block n-diagonal wise), but the dense blocks filled according to the value in
@@ -275,25 +299,24 @@ function bm_similar(M::BlockMatrix, filling::Int)::BlockMatrix
     npl = size(M.blockSizes)[1]
 
     if filling == 0
-        return BlockMatrix(M.blockSizes, ArrayOrLU_(undef, npl, npl), M.ndiag, M.nrsType, M.isArrayOrLU)
+        return BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl), M.ndiag, M.nrsType, M.isArrayOrLU)
     else
         blockSizes = M.blockSizes
-        ndiag = M.ndiag
         npl = size(blockSizes)[1]
-        A = BlockMatrix(M.blockSizes, ArrayOrLU_(undef, npl, npl), M.ndiag, M.nrsType, M.isArrayOrLU)
+        A = BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl), M.ndiag, M.nrsType, M.isArrayOrLU)
         bm_blocks_define!(A, filling)
         return A
     end
 end
 
 function bm_empty(blockSizes::Vector{Int}, npl::Int, ndiag::Int, isArrayOrLU::Bool, nrsType::DataType)::BlockMatrix
-    return BlockMatrix(blockSizes, ArrayOrLU_(undef, npl, npl), Dict("in" => ndiag, "out" => ndiag), nrsType, isArrayOrLU)
+    return BlockMatrix(copy(blockSizes), ArrayOrLU_(undef, npl, npl), Dict("in" => ndiag, "out" => ndiag), nrsType, isArrayOrLU)
 end
 
 """
 	bm_blocks_define!(M::BlockMatrix, filling::Int)
 
-Receives a BlockMatrix object, and set its dense blocks to either zero or random.
+Receives a BlockMatrix object, and sets its dense blocks to either zero or random.
 
 # Arguments
 - `M::BlockMatrix`: the matrix to be modified.
@@ -317,42 +340,37 @@ function bm_blocks_define!(M::BlockMatrix, filling::Int)
     # loop over the block sizes, conversely over the block rows
     for ix = 1:npl
         # indices for the rows
-        ibeg = sum(blockSizes[1:ix-1]) + 1
-        iend = sum(blockSizes[1:ix])
+        iSize = blockSizes[ix]
         # now, copy the blocks within the ix-th row
         if ix > 1
             # left
             for jx = (ix-1):-1:max(1, ix - Int((ndiag["in"] - 1) / 2))
-                jbeg = sum(blockSizes[1:jx-1]) + 1
-                jend = sum(blockSizes[1:jx])
+                jSize = blockSizes[jx]
                 if filling == 1
-                    A.M[ix, jx] = be_zero_array(A.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+                    A.M[ix, jx] = be_zero_array(A.nrsType, (iSize, jSize))
                 else
-                    A.M[ix, jx] = be_random_array(A.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+                    A.M[ix, jx] = be_random_array(A.nrsType, (iSize, jSize))
                 end
             end
         end
         # center
-        jbeg = ibeg
-        jend = iend
         if isArrayOrLU == 0
             if filling == 1
-                A.M[ix, ix] = be_zero_array(A.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+                A.M[ix, ix] = be_zero_array(A.nrsType, (iSize, iSize))
             else
-                A.M[ix, ix] = be_random_array(A.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+                A.M[ix, ix] = be_random_array(A.nrsType, (iSize, iSize))
             end
         else
-            A.M[ix, ix] = be_zero_lu(A.nrsType, iend - ibeg + 1)
+            A.M[ix, ix] = be_zero_lu(A.nrsType, iSize)
         end
         if ix < npl
             # right
             for jx = (ix+1):1:min(size(blockSizes)[1], ix + Int((ndiag["in"] - 1) / 2))
-                jbeg = sum(blockSizes[1:jx-1]) + 1
-                jend = sum(blockSizes[1:jx])
+                jSize = blockSizes[jx]
                 if filling == 1
-                    A.M[ix, jx] = be_zero_array(A.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+                    A.M[ix, jx] = be_zero_array(A.nrsType, (iSize, jSize))
                 else
-                    A.M[ix, jx] = be_random_array(A.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+                    A.M[ix, jx] = be_random_array(A.nrsType, (iSize, jSize))
                 end
             end
         end
@@ -379,37 +397,44 @@ function bm_blocks_define_complement11!(M::BlockMatrix, A::ArrayOrLUView_, filli
     # loop over the block sizes, conversely over the block rows
     for ix = 1:npl
         # indices for the rows
-        ibeg = sum(blockSizes[1:ix-1]) + 1
-        iend = sum(blockSizes[1:ix])
+        iSize = blockSizes[ix]
 
         # left
         for jx = (ix-2):-1:1
-            jbeg = sum(blockSizes[1:jx-1]) + 1
-            jend = sum(blockSizes[1:jx])
+            jSize = blockSizes[jx]
             if filling == 1
-                A[ix, jx] = be_zero_array(M.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+                A[ix, jx] = be_zero_array(M.nrsType, (iSize, jSize))
             else
-                A[ix, jx] = be_random_array(M.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+                A[ix, jx] = be_random_array(M.nrsType, (iSize, jSize))
             end
         end
 
         # right
         for jx = (ix+2):1:npl
-            jbeg = sum(blockSizes[1:jx-1]) + 1
-            jend = sum(blockSizes[1:jx])
+            jSize = blockSizes[jx]
             if filling == 1
-                A[ix, jx] = be_zero_array(M.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+                A[ix, jx] = be_zero_array(M.nrsType, (iSize, jSize))
             else
-                A[ix, jx] = be_random_array(M.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+                A[ix, jx] = be_random_array(M.nrsType, (iSize, jSize))
             end
         end
     end
 end
 
 # TODO : try to assign the type AuxDataDDRGF to auxData ?
+"""
+	bm_blocks_define_complement22!(M::BlockMatrix, auxData, filling::Int)
+
+Sets/pre-allocates all those blocks that are beyond block tridiagonal in
+the matrix `M`.
+
+# Arguments
+- `M::BlockMatrix`: the matrix in which the extra allocations will be placed.
+- `auxData`: some metadata.
+- `filling:Int`: 1 for zero blocks, 2 for random.
+"""
 function bm_blocks_define_complement22!(M::BlockMatrix, auxData, filling::Int)
     blockSizeD2 = auxData.blockSizeD2
-    permVec = auxData.permVec
     permVecInv = auxData.permVecInv
     buffTHat = auxData.buffTHat
     blockSizes = buffTHat.blockSizes
@@ -422,14 +447,12 @@ function bm_blocks_define_complement22!(M::BlockMatrix, auxData, filling::Int)
         ixL = permVecInv[ixLperm]
         jxL = permVecInv[jxLperm]
 
-        ibeg = sum(blockSizes[1:ixL-1]) + 1
-        iend = sum(blockSizes[1:ixL])
-        jbeg = sum(blockSizes[1:jxL-1]) + 1
-        jend = sum(blockSizes[1:jxL])
+        iSize = blockSizes[ixL]
+        jSize = blockSizes[jxL]
         if filling == 1
-            M.M[ixL, jxL] = be_zero_array(M.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+            M.M[ixL, jxL] = be_zero_array(M.nrsType, (iSize, jSize))
         else
-            M.M[ixL, jxL] = be_random_array(M.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+            M.M[ixL, jxL] = be_random_array(M.nrsType, (iSize, jSize))
         end
 
         # then, the lower one
@@ -438,19 +461,27 @@ function bm_blocks_define_complement22!(M::BlockMatrix, auxData, filling::Int)
         ixL = permVecInv[ixLperm]
         jxL = permVecInv[jxLperm]
 
-        ibeg = sum(blockSizes[1:ixL-1]) + 1
-        iend = sum(blockSizes[1:ixL])
-        jbeg = sum(blockSizes[1:jxL-1]) + 1
-        jend = sum(blockSizes[1:jxL])
+        iSize = blockSizes[ixL]
+        jSize = blockSizes[jxL]
         if filling == 1
-            M.M[ixL, jxL] = be_zero_array(M.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+            M.M[ixL, jxL] = be_zero_array(M.nrsType, (iSize, jSize))
         else
-            M.M[ixL, jxL] = be_random_array(M.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+            M.M[ixL, jxL] = be_random_array(M.nrsType, (iSize, jSize))
         end
     end
 end
 
 # TODO : try to assign the type AuxDataDDRGF to auxData ?
+"""
+	bm_blocks_define_complement12!(M_::BlockMatrix, auxData, filling::Int)
+
+Sets/pre-allocates, within `M`, the extra `12` part for DDRGF.
+
+# Arguments
+- `M_::BlockMatrix`: the matrix in which the extra allocations will be placed.
+- `auxData`: some metadata.
+- `filling:Int`: 1 for zero blocks, 2 for random.
+"""
 function bm_blocks_define_complement12!(M_::BlockMatrix, auxData, filling::Int)
     blockSizeD1 = auxData.blockSizeD1
     permVecInv = auxData.permVecInv
@@ -472,14 +503,12 @@ function bm_blocks_define_complement12!(M_::BlockMatrix, auxData, filling::Int)
             ixL = permVecInv[ixLperm]
             jxL = permVecInv[jxLperm]
 
-            ibeg = sum(blockSizes[1:ixL-1]) + 1
-            iend = sum(blockSizes[1:ixL])
-            jbeg = sum(blockSizes[1:jxL-1]) + 1
-            jend = sum(blockSizes[1:jxL])
+            iSize = blockSizes[ixL]
+            jSize = blockSizes[jxL]
             if filling == 1
-                M.M[ixL, jxL] = be_zero_array(M.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+                M.M[ixL, jxL] = be_zero_array(M.nrsType, (iSize, jSize))
             else
-                M.M[ixL, jxL] = be_random_array(M.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+                M.M[ixL, jxL] = be_random_array(M.nrsType, (iSize, jSize))
             end
         end
 
@@ -492,14 +521,12 @@ function bm_blocks_define_complement12!(M_::BlockMatrix, auxData, filling::Int)
                 ixL = permVecInv[ixLperm]
                 jxL = permVecInv[jxLperm]
 
-                ibeg = sum(blockSizes[1:ixL-1]) + 1
-                iend = sum(blockSizes[1:ixL])
-                jbeg = sum(blockSizes[1:jxL-1]) + 1
-                jend = sum(blockSizes[1:jxL])
+                iSize = blockSizes[ixL]
+                jSize = blockSizes[jxL]
                 if filling == 1
-                    M.M[ixL, jxL] = be_zero_array(M.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+                    M.M[ixL, jxL] = be_zero_array(M.nrsType, (iSize, jSize))
                 else
-                    M.M[ixL, jxL] = be_random_array(M.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+                    M.M[ixL, jxL] = be_random_array(M.nrsType, (iSize, jSize))
                 end
             end
         end
@@ -507,6 +534,16 @@ function bm_blocks_define_complement12!(M_::BlockMatrix, auxData, filling::Int)
 end
 
 # TODO : try to assign the type AuxDataDDRGF to auxData ?
+"""
+	bm_blocks_define_complement21!(M_::BlockMatrix, auxData, filling::Int)
+
+Sets/pre-allocates, within `M`, the extra `21` part for DDRGF.
+
+# Arguments
+- `M_::BlockMatrix`: the matrix in which the extra allocations will be placed.
+- `auxData`: some metadata.
+- `filling:Int`: 1 for zero blocks, 2 for random.
+"""
 function bm_blocks_define_complement21!(M_::BlockMatrix, auxData, filling::Int)
     blockSizeD1 = auxData.blockSizeD1
     permVecInv = auxData.permVecInv
@@ -528,14 +565,12 @@ function bm_blocks_define_complement21!(M_::BlockMatrix, auxData, filling::Int)
             ixL = permVecInv[ixLperm]
             jxL = permVecInv[jxLperm]
 
-            ibeg = sum(blockSizes[1:ixL-1]) + 1
-            iend = sum(blockSizes[1:ixL])
-            jbeg = sum(blockSizes[1:jxL-1]) + 1
-            jend = sum(blockSizes[1:jxL])
+            iSize = blockSizes[ixL]
+            jSize = blockSizes[jxL]
             if filling == 1
-                M.M[ixL, jxL] = be_zero_array(M.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+                M.M[ixL, jxL] = be_zero_array(M.nrsType, (iSize, jSize))
             else
-                M.M[ixL, jxL] = be_random_array(M.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+                M.M[ixL, jxL] = be_random_array(M.nrsType, (iSize, jSize))
             end
         end
 
@@ -548,14 +583,12 @@ function bm_blocks_define_complement21!(M_::BlockMatrix, auxData, filling::Int)
                 ixL = permVecInv[ixLperm]
                 jxL = permVecInv[jxLperm]
 
-                ibeg = sum(blockSizes[1:ixL-1]) + 1
-                iend = sum(blockSizes[1:ixL])
-                jbeg = sum(blockSizes[1:jxL-1]) + 1
-                jend = sum(blockSizes[1:jxL])
+                iSize = blockSizes[ixL]
+                jSize = blockSizes[jxL]
                 if filling == 1
-                    M.M[ixL, jxL] = be_zero_array(M.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+                    M.M[ixL, jxL] = be_zero_array(M.nrsType, (iSize, jSize))
                 else
-                    M.M[ixL, jxL] = be_random_array(M.nrsType, (iend - ibeg + 1, jend - jbeg + 1))
+                    M.M[ixL, jxL] = be_random_array(M.nrsType, (iSize, jSize))
                 end
             end
         end
@@ -586,12 +619,12 @@ function bm_blocks_define_identity!(M::BlockMatrix)
     # loop over the block sizes, conversely over the block rows
     for ix = 1:npl
         # indices for the rows
-        ibeg = sum(blockSizes[1:ix-1]) + 1
-        iend = sum(blockSizes[1:ix])
-        A.M[ix, ix] = be_identity(A.nrsType, iend - ibeg + 1)
+        iSize = blockSizes[ix]
+        A.M[ix, ix] = be_identity(A.nrsType, iSize)
     end
 end
 
+# TODO : is documentation deployment needed for this one?
 # tB can be either 'C' (for adjoint) or 'N' for no adjoint
 function bm_local_gemm!(tA::Char, tB::Char, alpha::Number, A_::BlockMatrix, B_::BlockMatrix, beta::Number,
     C_::BlockMatrix, ix::Int, jx::Int, td::TimingData, cd::CountingData)
@@ -624,17 +657,7 @@ function bm_local_gemm!(tA::Char, tB::Char, alpha::Number, A_::BlockMatrix, B_::
     end
 end
 
-"""
-	bm_local_gemm!(tA::Char, tB::Char, alpha::Number, A_::BlockMatrix, B_::BlockMatrix, beta::Number, C_::BlockMatrix, ix::Int, jx::Int)
-
-GEMM for BlockMatrix type matrices. The signature of the function
-follows closely that being used in BLAS. This function does
-C = beta*C + alpha*A*B.
-
-# Arguments
-- `tA::Char`: whether we take the adjoint of A ('C') or not ('N').
-- `tB::Char`: whether we take the adjoint of B ('C') or not ('N').
-"""
+# TODO : is documentation deployment needed for this one?
 function bm_gemm!(tA::Char, tB::Char, alpha::Number, A::BlockMatrix, B::BlockMatrix, beta::Number, C::BlockMatrix,
     td::TimingData, cd::CountingData)
     ndiag = C.ndiag
@@ -660,6 +683,17 @@ function bm_gemm!(tA::Char, tB::Char, alpha::Number, A::BlockMatrix, B::BlockMat
     end
 end
 
+"""
+	bm_create_synthetic(A_::BlockMatrix, nrLayers::Int, blocksDim::Int)
+
+Create a semi-synthetic block tridiagonal matrix, based on the data in
+the matrix `A_`.
+
+# Arguments
+- `A_::BlockMatrix`: where the data comes from.
+- `nrLayers::Int`: the number of principal layers.
+- `blocksDim::Int`: the size of the principal layers (i.e., blocks).
+"""
 function bm_create_synthetic(A_::BlockMatrix, nrLayers::Int, blocksDim::Int)::BlockMatrix
     # IMPORTANT : this function assumes that all of the principal layers are of
     #             the same size
@@ -676,7 +710,7 @@ function bm_create_synthetic(A_::BlockMatrix, nrLayers::Int, blocksDim::Int)::Bl
     lowLayers = Int(floor(nrLayers / npl))
     restLayers = nrLayers - lowLayers * npl
 
-    A = BlockMatrix(blockSizes, ArrayOrLU_(undef, nrLayers, nrLayers), ndiag, A_.nrsType, 0)
+    A = BlockMatrix(copy(blockSizes), ArrayOrLU_(undef, nrLayers, nrLayers), ndiag, A_.nrsType, 0)
 
     # loop over chunks of layers
     for olx = 1:lowLayers+1
@@ -734,15 +768,28 @@ function bm_create_synthetic(A_::BlockMatrix, nrLayers::Int, blocksDim::Int)::Bl
     return A
 end
 
+"""
+	bm_create_synthetic_random(nrLayers::Int, blocksDim::Int, nrsType::DataType)
+
+Create a random synthetic block tridiagonal matrix.
+
+# Arguments
+- `nrLayers::Int`: the number of principal layers.
+- `blocksDim::Int`: the average size of the principal layers (i.e., blocks).
+- `nrsType::DataType`: the type of the underlying data.
+"""
 function bm_create_synthetic_random(nrLayers::Int, blocksDim::Int, nrsType::DataType)::BlockMatrix
     # IMPORTANT : this function assumes that all of the principal layers are of
     #             the same size
 
-    blockSizes = repeat([blocksDim], nrLayers)
+    # blockSizes = repeat([blocksDim], nrLayers)
+    deltaRnd = 8.0
+    blockSizes::Vector{Int} = Int.(round.(broadcast(*, deltaRnd, rand(nrLayers)) .+ (blocksDim-deltaRnd/2.0)))
+
     # hardcoding block tridiagonal
     ndiag = Dict("in" => 3, "out" => 3)
 
-    A = BlockMatrix(blockSizes, ArrayOrLU_(undef, nrLayers, nrLayers), ndiag, nrsType, 0)
+    A = BlockMatrix(copy(blockSizes), ArrayOrLU_(undef, nrLayers, nrLayers), ndiag, nrsType, 0)
 
     # loop over chunks of layers
     for ix = 1:nrLayers
@@ -750,16 +797,21 @@ function bm_create_synthetic_random(nrLayers::Int, blocksDim::Int, nrsType::Data
             # left
             for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
                 # add a damping of 0.3
-                A.M[ix, jx] = convert(nrsType, 0.3) * be_random_array(nrsType, (blocksDim, blocksDim))
+                blocksDimI = blockSizes[ix]
+                blocksDimJ = blockSizes[jx]
+                A.M[ix, jx] = convert(nrsType, 0.3) * be_random_array(nrsType, (blocksDimI, blocksDimJ))
             end
         end
         # center
-        A.M[ix, ix] = be_random_array(nrsType, (blocksDim, blocksDim))
+        blocksDimI = blockSizes[ix]
+        A.M[ix, ix] = be_random_array(nrsType, (blocksDimI, blocksDimI))
         if ix < nrLayers
             # right
             for jx = (ix+1):1:min(nrLayers, ix + Int((ndiag["out"] - 1) / 2))
                 # add a damping of 0.3
-                A.M[ix, jx] = convert(nrsType, 0.3) * be_random_array(nrsType, (blocksDim, blocksDim))
+                blocksDimI = blockSizes[ix]
+                blocksDimJ = blockSizes[jx]
+                A.M[ix, jx] = convert(nrsType, 0.3) * be_random_array(nrsType, (blocksDimI, blocksDimJ))
             end
         end
     end
@@ -767,7 +819,15 @@ function bm_create_synthetic_random(nrLayers::Int, blocksDim::Int, nrsType::Data
     return A
 end
 
-# assign references in A.M to the blocks in B
+"""
+	bm_reference!(M::BlockMatrix, B::ArrayOrLUView_)
+
+Assign references in `A.M` to the blocks in `B`, using views.
+
+# Arguments
+- `M::BlockMatrix`: output.
+- `B::ArrayOrLUView_`: input.
+"""
 function bm_reference!(M::BlockMatrix, B::ArrayOrLUView_)
     npl = size(M.blockSizes)[1]
     ndiag = M.ndiag
@@ -792,7 +852,17 @@ function bm_reference!(M::BlockMatrix, B::ArrayOrLUView_)
     end
 end
 
-# assign references in A.M to the blocks in B
+"""
+	bm_reference!(M::BlockMatrix, B::ArrayOrLU_, iOffset::Int, jOffset::Int)
+
+Assign references in `A.M` to the blocks in `B`, avoids using views.
+
+# Arguments
+- `M::BlockMatrix`: output.
+- `B::ArrayOrLUView_`: input.
+- `iOffset::Int`: to point to the sub-matrix to reference to.
+- `jOffset::Int`: to point to the sub-matrix to reference to.
+"""
 function bm_reference!(M::BlockMatrix, B::ArrayOrLU_, iOffset::Int, jOffset::Int)
     npl = size(M.blockSizes)[1]
     ndiag = M.ndiag

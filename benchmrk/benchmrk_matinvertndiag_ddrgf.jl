@@ -1,20 +1,18 @@
 Printf.@printf("Benchmarking bndiag_of_inv_ddrgf!(...)\n")
 
-LinearAlgebra.BLAS.set_num_threads(Int(parse(Float64, ARGS[5])))
-
 # first, check if the number of threads divides the number of energy points,
 # exit if it doesn't
-if mod(nrEPoints, Threads.nthreads()) != 0
+if mod(nrEPoints, 1) != 0
     Printf.@printf("ERROR: the number of Julia threads (%d) does not divide the number \
-                    of energy points (%d)\n", Threads.nthreads(), nrEPoints)
+                    of energy points (%d)\n", 1, nrEPoints)
     exit()
 end
 
 for systemx in systemNames
-    for precx in precs
+    for precx in [precs[2]]
         # create a flops and mems counter for each precision and thread
         counters = Vector{CountingData}()
-        for ix = 1:Threads.nthreads()
+        for ix = 1:1
             if useFinerTimings == 1
                 push!(counters, CountingData(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
             else
@@ -23,7 +21,7 @@ for systemx in systemNames
         end
         # create array of timers
         timers = Vector{TimerOutput}()
-        for ix = 1:Threads.nthreads()
+        for ix = 1:1
             push!(timers, TimerOutput())
         end
         timerTagGlobal = "bndiag_of_inv_ddrgf_" * string(precx)
@@ -31,14 +29,14 @@ for systemx in systemNames
         for k in kpoints
             @timeit to timerTagGlobal begin
                 # loop over bunches of energy points
-                nrEgroups::Int = size(Epoints)[1] / Threads.nthreads()
+                nrEgroups::Int = size(Epoints)[1] / 1
                 for iEG = 1:nrEgroups
                     # preallocate large data per thread
                     Mins = Vector{BlockMatrix}()
                     Mouts = Vector{BlockMatrix}()
-                    for ix = 1:Threads.nthreads()
+                    for ix = 1:1
                         if whereFrom == 1
-                            iE = ix + (iEG - 1) * Threads.nthreads()
+                            iE = ix + (iEG - 1) * 1
                             # load matrices and build M
                             listMatsToLoad = ["H", "S", "Sc"]
                             loadedMats, blockSizes = load_matrices(systemx, Epoints[iE], k,
@@ -49,14 +47,19 @@ for systemx in systemNames
                             Msp = build_M_from_HS(H, S, Se, energVals[Epoints[iE]])
                             Min = bm_convert(Msp, blockSizes, Dict("in" => 3, "out" => 3))
                         else
-                            Min = bm_create_synthetic_random(10, 648, precx)
+                            Min = bm_create_synthetic_random(npl, blockSize, precx)
                         end
                         push!(Mins, Min)
                         push!(Mouts, bm_copy(Min))
                     end
-                    auxs = Vector{AuxDataDDRGF}()
-                    for ix = 1:Threads.nthreads()
-                        push!(auxs, allocate_aux_data_DDRGF(Mins[ix], parse(Int, ARGS[4]), parse(Int, ARGS[5])))
+                    auxsSeq = Vector{AuxDataRGF}()
+                    auxsPar = Vector{AuxDataDDRGF}()
+                    for ix = 1:1
+                        push!(auxsSeq, allocate_aux_data_RGF(Mins[ix], parse(Int, ARGS[4]), parse(Int, ARGS[5])))
+                        splitType::Bool = 0
+                        push!(auxsPar, allocate_aux_data_DDRGF(Mins[ix], nrBlocksInNonPivots, splitType, auxsSeq[ix],
+                            parse(Int, ARGS[3]), parse(Int, ARGS[4]), parse(Int, ARGS[5])))
+                        bm_blocks_define_complement22!(Mouts[ix], auxsPar[ix], 2)
                     end
 
                     # (?) force the garbage collector before doing the core computations
@@ -68,9 +71,9 @@ for systemx in systemNames
                         for ix = 1:ninvs
                             # do a clear separation when timing the first inversion vs the others
                             if ix == 1
-                                timerTagLocal = "thread" * string(tId) * "_first"
+                                timerTagLocal = "first"
                             else
-                                timerTagLocal = "thread" * string(tId) * "_wo_first"
+                                timerTagLocal = "wo_first"
                             end
                             # don't include the first inversion in the flops and mems counting
                             if useFinerTimings == 1
@@ -91,30 +94,27 @@ for systemx in systemNames
                                 td = TimingData()
                             end
                             timerTagLocalTotal = timerTagLocal * "_total"
-                            @timeit timers[tId] timerTagLocalTotal bndiag_of_inv_ddrgf_local!(Mouts[tId], Mins[tId], auxs[tId], td, cd)
+                            LinearAlgebra.BLAS.set_num_threads(auxsPar[tId].nrBLASThreadsInner)
+                            @timeit timers[tId] timerTagLocalTotal bndiag_of_inv_ddrgf!(Mouts[tId], Mins[tId], auxsPar[tId], td, cd)
                         end
                     end
 
-                    Threads.@threads for ix in 1:Threads.nthreads()
-                        tx(ix)
-                    end
+                    tx(1)
 
                     Printf.@printf("\n")
                 end
             end
         end
 
-        for ix = 1:Threads.nthreads()
+        for ix = 1:1
             merge!(to, timers[ix], tree_point=[timerTagGlobal])
         end
 
         # print flops and mems counts for thread1 only
         if useFinerTimings == 1
-            print_flops_and_mems(counters[1], to, precx, "bndiag_of_inv_ddrgf", true)
+            print_flops_and_mems(counters[1], to, precx, "bndiag_of_inv_ddrgf", false)
         end
     end
 end
-
-LinearAlgebra.BLAS.set_num_threads(1)
 
 Printf.@printf("\n")
