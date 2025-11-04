@@ -49,11 +49,12 @@ if exists_in_list "$HWs" " " $1; then
     # run the tests
     # IMPORTANT : we recommend a large value for NUM_PRGF_DOMAINS, to increase parallelism while
     #             at the same time reducing the size of the Schur complement
-    export NUM_PRGF_DOMAINS=72
+    export NUM_DDRGF_DOMAINS=72
+    export NUM_DDRGF_LEVELS=2
     export NUM_BLAS_THREADS_OUTER=$JULIA_NUM_THREADS
     export NUM_BLAS_THREADS_INNER=1
 
-    julia --threads=$JULIA_NUM_THREADS test.jl $1 $NUM_PRGF_DOMAINS $NUM_BLAS_THREADS_OUTER $NUM_BLAS_THREADS_INNER
+    julia --threads=$JULIA_NUM_THREADS test.jl $1 $NUM_DDRGF_DOMAINS $NUM_BLAS_THREADS_OUTER $NUM_BLAS_THREADS_INNER $NUM_DDRGF_LEVELS
 else
     echo "The hardware $1 is not in the list, not running the tests"
 fi

@@ -22,4 +22,4 @@ end
 # Passing the hardware type as argument, this creates the
 # ARGS variable which is accessible to all of the testsets
 # The following call triggers the precompilation of LibNEGF
-Pkg.test(; test_args=[ARGS[1], ARGS[2], ARGS[3], ARGS[4],]);
+Pkg.test(; test_args=[ARGS[1], ARGS[2], ARGS[3], ARGS[4], ARGS[5],]);

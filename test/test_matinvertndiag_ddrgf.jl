@@ -29,7 +29,7 @@ for systemx in systemNames
                     global accFctr = accFctrBare
                 else
                     # extra relaxation in lower precision
-                    global accFctr = 2.0*accFctrBare
+                    global accFctr = 2.0 * accFctrBare
                 end
 
                 if whereFrom == 1
@@ -134,14 +134,36 @@ for systemx in systemNames
                     #        (throw an error in the code if the last else is not being caught)
                     # 0 is open-end, 1 is closed-end
                     splitType = 0
+
+                    # nrDDRGFLevels = parse(Int, ARGS[5])
+                    # println(nrDDRGFLevels)
+                    listOfAuxDataPar = Vector{AuxDataDDRGF}()
+
+                    # fine grid
+                    auxDataSeq = allocate_aux_data_RGF(MbmSeq, parse(Int, ARGS[3]), parse(Int, ARGS[4]))
                     auxDataPar = allocate_aux_data_DDRGF(MbmPar, nrBlocksInNonPivots, splitType, auxDataSeq,
                         parse(Int, ARGS[2]), parse(Int, ARGS[3]), parse(Int, ARGS[4]))
-                    bm_blocks_define_complement22!(MbmInvNdiagPar, auxDataPar, 2)
+                    push!(listOfAuxDataPar, auxDataPar)
+
+                    # coarse grid
+                    auxDataSeq2 = allocate_aux_data_RGF(auxDataPar.buffTHat22inv, parse(Int, ARGS[3]), parse(Int, ARGS[4]))
+                    auxDataPar2 = allocate_aux_data_DDRGF(auxDataPar.buffTHat22inv, nrBlocksInNonPivots, splitType, auxDataSeq2,
+                        parse(Int, ARGS[2]), parse(Int, ARGS[3]), parse(Int, ARGS[4]))
+                    push!(listOfAuxDataPar, auxDataPar2)
 
                     # relErr::Float64 = bndiag_of_inv_ddrgf_error_inv_of_T11(MbmPar, MbmInvNdiagPar, auxDataPar, TimingData(), CountingData())
                     # @test relErr < roundoffs[precx] * 1.0E6
 
-                    bndiag_of_inv_ddrgf!(MbmInvNdiagPar, MbmPar, auxDataPar, TimingData(), CountingData())
+                    bndiag_of_inv_ddrgf!(MbmPar, listOfAuxDataPar, TimingData(), CountingData(), 1)
+                    bm_copy!(MbmInvNdiagPar, auxDataPar.buffMout)
+
+                    # Mout = bndiag_of_inv_ddrgf_create_permuted_matrix(MbmInvNdiagPar, auxDataPar.permVec)
+                    # bndiag_of_inv_ddrgf_add_block_refs_to_permuted_matrix22!(Mout, MbmInvNdiagPar, auxDataPar)
+                    # bm_reference!(auxDataPar.buffM222inv, Mout.M, 0, 0)
+                    # println("done")
+                    # bndiag_of_inv_ddrgf!(auxDataPar.buffM222inv, auxDataPar.buffTHat22inv, auxDataPar2, TimingData(), CountingData())
+
+                    # exit()
 
                     # check that the Schur complement construction is correct
 
@@ -254,8 +276,8 @@ for systemx in systemNames
                         ixLStart = sum(blockSizes11[1:ixDStart-1]) + 1
                         ixLEnd = sum(blockSizes11[1:ixDEnd])
                         relErr = LinearAlgebra.norm(Array(MinvNdiagSeq_perm11[ixLStart:ixLEnd, ixLStart:ixLEnd] -
-                                MinvNdiagPar_perm11[ixLStart:ixLEnd, ixLStart:ixLEnd]), 2) /
-                                LinearAlgebra.norm(Array(MinvNdiagSeq_perm11[ixLStart:ixLEnd, ixLStart:ixLEnd]), 2)
+                                                          MinvNdiagPar_perm11[ixLStart:ixLEnd, ixLStart:ixLEnd]), 2) /
+                                 LinearAlgebra.norm(Array(MinvNdiagSeq_perm11[ixLStart:ixLEnd, ixLStart:ixLEnd]), 2)
                         @test relErr < roundoffs[precx] * accFctr
                     end
                 end

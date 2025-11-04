@@ -10,6 +10,7 @@ export bndiag_of_inv_rgf_global!
 export allocate_aux_data_RGF
 export allocate_aux_data_DDRGF
 export AuxDataRGF
+export AuxDataDDRGF
 export bndiag_of_inv_ddrgf!
 export bndiag_of_inv_ddrgf_create_permuted_matrix
 export bndiag_of_inv_ddrgf_error_inv_of_T11
@@ -36,8 +37,10 @@ export bm_create_synthetic
 export bm_create_synthetic_random
 export bndiag_of_inv_ddrgf_create_sparse_permutator
 export bm_reference!
-export bm_blocks_define_complement22!
+export bm_blocks_define_complement22_non_recurs!
+export bm_blocks_define_complement22_recurs!
 export bm_empty
+export bm_copy!
 
 # from backend_*.jl
 export be_zero_array

@@ -45,6 +45,7 @@ struct AuxDataDDRGF
     buffTHat22inv::BlockMatrix
     auxDataSeq22inv::AuxDataRGF
     buffM222inv::BlockMatrix
+    buffMout::BlockMatrix
 end
 
 """
@@ -104,7 +105,7 @@ function allocate_aux_data_DDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, split
         println("WARNING: nrTasks = 1, then calling sequential RGF.")
         # FIXME : the following call to the constructor AuxDataDDRGF(..) is not really correct. Change and call/test
         return AuxDataDDRGF(auxDataSeq, nrTasks, Vector{Int}(), Vector{Int}(), Vector{Int}(),
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     end
 
     permVecInv, sizeDomains = bndiag_of_inv_ddrgf_create_permutation_vector(M, nrTasks, nrBlocksInNonPivots, splitType)
@@ -181,17 +182,21 @@ function allocate_aux_data_DDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, split
     buffM222inv = BlockMatrix(copy(blockSizesSchurCompl), ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
         buffTHatPerm.ndiag, buffTHatPerm.nrsType, 0)
 
+    # buffer for the output, (independently) available at each level of DDRGF
+    buffMout = bm_copy(buffTHat)
+
     # the final struct with the buffers
     auxDataPar = AuxDataDDRGF(auxDataSeq, nrTasks, permVec, permVecInv, sizeDomains, blockSizeD1,
         blockSizeD2, lastSizeD2, buffTHat, nrThreads, maxNrTasksPerThread, lastNrTasksPerThread, buffMPerm,
         bIdMPerm, buffTHatPerm, smallBlockSizes11, smallAuxDataSeq11, smallMbmIn11, smallMbmOut11, nrBLASThreadsOuter,
-        nrBLASThreadsInner, smallBlockSizes22, smallMbmIn22, smallMbmBuffTHat22, buffTHat22inv, auxDataSeq22inv, buffM222inv)
+        nrBLASThreadsInner, smallBlockSizes22, smallMbmIn22, smallMbmBuffTHat22, buffTHat22inv, auxDataSeq22inv, buffM222inv,
+        buffMout)
 
     # add extra allocations for buffTHat, for those little blocks of the Schur
     # complement that make it non embarrasingly parallel
-    bm_blocks_define_complement22!(auxDataPar.buffTHat, auxDataPar, 2)
+    bm_blocks_define_complement22_non_recurs!(auxDataPar.buffTHat, auxDataPar, 2)
     # and we need those little blocks for the buffM buffer as well
-    bm_blocks_define_complement22!(auxDataPar.auxDataSeq.buffM, auxDataPar, 2)
+    bm_blocks_define_complement22_non_recurs!(auxDataPar.auxDataSeq.buffM, auxDataPar, 2)
     # and extra allocations for THat_{11}^{-1} * THat_{12} and THat_{21} * THat_{11}^{-1}
     bm_blocks_define_complement12!(auxDataPar.buffTHat, auxDataPar, 2)
     bm_blocks_define_complement21!(auxDataPar.buffTHat, auxDataPar, 2)
@@ -214,6 +219,9 @@ function allocate_aux_data_DDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, split
     # compute ( THat11Inv * THat12 * THatSInv ) * THat21 * THat11Inv
     bm_blocks_define_complement12!(auxDataPar.auxDataSeq.buffM, auxDataPar, 2)
     bndiag_of_inv_ddrgf_add_block_refs_to_permuted_matrix12!(auxDataPar.buffMPerm, auxDataPar.auxDataSeq.buffM, auxDataPar)
+
+    # buffer for the output, (independently) available at each level of DDRGF
+    bm_blocks_define_complement22_non_recurs!(auxDataPar.buffMout, auxDataPar, 2)
 
     return auxDataPar
 end
@@ -673,8 +681,8 @@ function bndiag_of_inv_ddrgf_compute_THat11Inv_x_THat12!(Min::BlockMatrix, auxDa
             nrTasksPerThread = auxData.lastNrTasksPerThread
         end
 
-        iAccum = sum(sizeDomains11[1:(ixo - 1)*auxData.maxNrTasksPerThread])
-        jAccum = sum(sizeDomains22[1:(ixo - 1)*auxData.maxNrTasksPerThread])
+        iAccum = sum(sizeDomains11[1:(ixo-1)*auxData.maxNrTasksPerThread])
+        jAccum = sum(sizeDomains22[1:(ixo-1)*auxData.maxNrTasksPerThread])
         for ixi = 1:nrTasksPerThread
             # index of each individual task
             ix_ = (ixo - 1) * auxData.maxNrTasksPerThread + ixi
@@ -696,7 +704,7 @@ function bndiag_of_inv_ddrgf_compute_THat11Inv_x_THat12!(Min::BlockMatrix, auxDa
 
             if ix_ < nrTasks
                 # then, the right sub-domain
-                jxLperm +=1
+                jxLperm += 1
                 for ix = 1:blockSizeD1
                     ixLperm = ixLpermOffset + ix
 
@@ -740,8 +748,8 @@ function bndiag_of_inv_ddrgf_compute_minus_THat11Inv_x_THat12_x_THatSInv!(Mout::
             nrTasksPerThread = auxData.lastNrTasksPerThread
         end
 
-        iAccum = sum(sizeDomains11[1:(ixo - 1)*auxData.maxNrTasksPerThread])
-        jAccum = sum(sizeDomains22[1:(ixo - 1)*auxData.maxNrTasksPerThread])
+        iAccum = sum(sizeDomains11[1:(ixo-1)*auxData.maxNrTasksPerThread])
+        jAccum = sum(sizeDomains22[1:(ixo-1)*auxData.maxNrTasksPerThread])
         for ixi = 1:nrTasksPerThread
             # index of each individual task
             ix_ = (ixo - 1) * auxData.maxNrTasksPerThread + ixi
@@ -826,8 +834,8 @@ function bndiag_of_inv_ddrgf_compute_THat21_x_THat11Inv!(Min::BlockMatrix, auxDa
             nrTasksPerThread = auxData.lastNrTasksPerThread
         end
 
-        jAccum = sum(sizeDomains11[1:(jxo - 1) * auxData.maxNrTasksPerThread])
-        iAccum = sum(sizeDomains22[1:(jxo - 1) * auxData.maxNrTasksPerThread])
+        jAccum = sum(sizeDomains11[1:(jxo-1)*auxData.maxNrTasksPerThread])
+        iAccum = sum(sizeDomains22[1:(jxo-1)*auxData.maxNrTasksPerThread])
         for jxi = 1:nrTasksPerThread
             # index of each individual task
             jx_ = (jxo - 1) * auxData.maxNrTasksPerThread + jxi
@@ -895,8 +903,8 @@ function bndiag_of_inv_ddrgf_compute_minus_x_THatSInv_THat21_x_THat11Inv!(Mout::
             nrTasksPerThread = auxData.lastNrTasksPerThread
         end
 
-        jAccum = sum(sizeDomains11[1:(jxo - 1) * auxData.maxNrTasksPerThread])
-        iAccum = sum(sizeDomains22[1:(jxo - 1) * auxData.maxNrTasksPerThread])
+        jAccum = sum(sizeDomains11[1:(jxo-1)*auxData.maxNrTasksPerThread])
+        iAccum = sum(sizeDomains22[1:(jxo-1)*auxData.maxNrTasksPerThread])
         for jxi = 1:nrTasksPerThread
             # index of each individual task
             jx_ = (jxo - 1) * auxData.maxNrTasksPerThread + jxi
@@ -972,8 +980,8 @@ function bndiag_of_inv_ddrgf_compute_11_part!(Mout::BlockMatrix, auxData::AuxDat
             nrTasksPerThread = auxData.lastNrTasksPerThread
         end
 
-        iAccum = sum(sizeDomains11[1:(ixo - 1)*auxData.maxNrTasksPerThread])
-        jAccum = sum(sizeDomains22[1:(ixo - 1)*auxData.maxNrTasksPerThread])
+        iAccum = sum(sizeDomains11[1:(ixo-1)*auxData.maxNrTasksPerThread])
+        jAccum = sum(sizeDomains22[1:(ixo-1)*auxData.maxNrTasksPerThread])
         for ixi = 1:nrTasksPerThread
             # index of each individual task
             ix_ = (ixo - 1) * auxData.maxNrTasksPerThread + ixi
@@ -1067,7 +1075,7 @@ function bndiag_of_inv_ddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataDDRG
         smallMbmIn = auxData.smallMbmIn11[ixo]
         smallMbmOut = auxData.smallMbmOut11[ixo]
 
-        jxStartAccum = sum(auxData.sizeDomains[1:auxData.nrTasks + (ixo - 1) * auxData.maxNrTasksPerThread])
+        jxStartAccum = sum(auxData.sizeDomains[1:auxData.nrTasks+(ixo-1)*auxData.maxNrTasksPerThread])
         jxEndAccum = jxStartAccum
         for ixi = 1:nrTasksPerThread
             # index of each individual task
@@ -1177,7 +1185,7 @@ function bndiag_of_inv_ddrgf_build_Schur_compl!(Min_::BlockMatrix, auxData::AuxD
             nrTasksPerThread = auxData.lastNrTasksPerThread
         end
 
-        jx2StartAccum = sum(auxData.sizeDomains[1:(ixo - 1) * auxData.maxNrTasksPerThread])
+        jx2StartAccum = sum(auxData.sizeDomains[1:(ixo-1)*auxData.maxNrTasksPerThread])
         jx2EndAccum = jx2StartAccum
         for ixi = 1:nrTasksPerThread
             # index of each individual task
@@ -1318,23 +1326,36 @@ function bndiag_of_inv_ddrgf_build_Schur_compl!(Min_::BlockMatrix, auxData::AuxD
     end
 end
 
-function bndiag_of_inv_ddrgf_inv_Schur_compl!(Mout_::BlockMatrix, auxData::AuxDataDDRGF, td::TimingData,
-    cd::CountingData)
+function bndiag_of_inv_ddrgf_inv_Schur_compl!(Mout_::BlockMatrix, listOfAuxData::Vector{AuxDataDDRGF}, td::TimingData,
+    cd::CountingData, depth::Int)
     # the blocks in the following matrices contain references to blocks
     buffM2 = Mout_
 
+    auxData = listOfAuxData[depth]
+    nrLevels = size(listOfAuxData)[1]
+
     buffTHat22 = auxData.buffTHat22inv
-    auxDataSeq22 = auxData.auxDataSeq22inv
+    # auxData.buffM222inv is just a 'shell' to reference to another block matrix
     buffM222 = auxData.buffM222inv
 
-    # TODO : move this reference to a 'setup' stage
+    # this should not be moved to a 'setup' stage, as Mout might change
+    # from inversion to inversion (is this true, though, now that we are
+    # using auxData.buffMout?)
     bm_reference!(buffM222, buffM2.M, 0, 0)
 
-    @timewrap td "_SeqInv" bndiag_of_inv_rgf_global!(buffM222, buffTHat22, auxDataSeq22, td, cd)
+    if depth == nrLevels
+        auxDataSeq22 = auxData.auxDataSeq22inv
+        @timewrap td "_SeqInv" bndiag_of_inv_rgf_global!(buffM222, buffTHat22, auxDataSeq22, td, cd)
+    else
+        bndiag_of_inv_ddrgf!(buffTHat22, listOfAuxData, td, cd, depth + 1)
+        bm_copy!(buffM222, listOfAuxData[depth+1].buffMout)
+    end
 end
 
-function bndiag_of_inv_ddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::AuxDataDDRGF, td::TimingData,
-    cd::CountingData)
+function bndiag_of_inv_ddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::BlockMatrix, listOfAuxData::Vector{AuxDataDDRGF}, td::TimingData,
+    cd::CountingData, depth::Int)
+
+    auxData = listOfAuxData[depth]
 
     # the blocks in the following matrices contain references to blocks
     Min = Min_
@@ -1349,7 +1370,7 @@ function bndiag_of_inv_ddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Block
     bndiag_of_inv_ddrgf_build_Schur_compl!(Min, auxData, td, cd)
 
     # call sequential RGF to compute the inverse of the Schur complement
-    bndiag_of_inv_ddrgf_inv_Schur_compl!(Mout, auxData, td, cd)
+    bndiag_of_inv_ddrgf_inv_Schur_compl!(Mout, listOfAuxData, td, cd, depth)
 end
 
 """
@@ -1367,10 +1388,12 @@ of `M`. This function uses the paralle RGF method (soon to be extended to DD-RGF
 - `td`: struct for fine-level (i.e. of the backend kernels) timing. The user can choose no timing,
 in which case `td` is an empty `TimingData` struct.
 """
-function bndiag_of_inv_ddrgf!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::AuxDataDDRGF, td::TimingData,
-    cd::CountingData)
+function bndiag_of_inv_ddrgf!(Min_::BlockMatrix, listOfAuxData::Vector{AuxDataDDRGF}, td::TimingData,
+    cd::CountingData, depth::Int)
     # TODO : extend this code to n-diagonal, otherwise rename this function
     #        to keep it as the simple traditional RGF
+
+    auxData = listOfAuxData[depth]
 
     # call sequential RGF if nrTasks = 1
     if auxData.nrTasks == 1
@@ -1379,8 +1402,9 @@ function bndiag_of_inv_ddrgf!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::Au
     end
 
     Min = bndiag_of_inv_ddrgf_create_permuted_matrix(Min_, auxData.permVec)
-    Mout = bndiag_of_inv_ddrgf_create_permuted_matrix(Mout_, auxData.permVec)
-    bndiag_of_inv_ddrgf_add_block_refs_to_permuted_matrix22!(Mout, Mout_, auxData)
+    # Mout = bndiag_of_inv_ddrgf_create_permuted_matrix(Mout_, auxData.permVec)
+    Mout = bndiag_of_inv_ddrgf_create_permuted_matrix(auxData.buffMout, auxData.permVec)
+    bndiag_of_inv_ddrgf_add_block_refs_to_permuted_matrix22!(Mout, auxData.buffMout, auxData)
 
     # first, compute the inverse of \widehat{T}_{11}, storing it in the D1 part of auxData.buffTHat
     # (this is used in both the (1,1) and (2,2) parts)
@@ -1389,7 +1413,7 @@ function bndiag_of_inv_ddrgf!(Mout_::BlockMatrix, Min_::BlockMatrix, auxData::Au
     # with the inverse of \widehat{T}_{11} at hand, construct the Schur complement, and
     # then invert it, stored in the D2 part of Mout_
     # (this is the (2,2) part)
-    @timewrap td "_SCinv" bndiag_of_inv_ddrgf_inv_of_Schur_compl!(Mout, Min, auxData, td, cd)
+    @timewrap td "_SCinv" bndiag_of_inv_ddrgf_inv_of_Schur_compl!(Mout, Min, listOfAuxData, td, cd, depth)
 
     # compute the (1,2) and (2,1) parts of the global result
 
