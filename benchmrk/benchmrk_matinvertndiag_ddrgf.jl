@@ -52,14 +52,29 @@ for systemx in systemNames
                         push!(Mins, Min)
                         push!(Mouts, bm_copy(Min))
                     end
-                    auxsSeq = Vector{AuxDataRGF}()
-                    auxsPar = Vector{AuxDataDDRGF}()
-                    for ix = 1:1
-                        push!(auxsSeq, allocate_aux_data_RGF(Mins[ix], parse(Int, ARGS[4]), parse(Int, ARGS[5])))
-                        splitType::Bool = 0
-                        push!(auxsPar, allocate_aux_data_DDRGF(Mins[ix], nrBlocksInNonPivots, splitType, auxsSeq[ix],
-                            parse(Int, ARGS[3]), parse(Int, ARGS[4]), parse(Int, ARGS[5])))
-                        bm_blocks_define_complement22!(Mouts[ix], auxsPar[ix], 2)
+
+                    listOfListOfAuxDataPar = Vector{Vector{AuxDataDDRGF}}()
+
+                    for ix_ = 1:1
+                        # allocation of auxiliary data for DDRGF
+                        listOfAuxDataPar = Vector{AuxDataDDRGF}()
+                        begin
+                            # fine grid
+                            auxDataSeq = allocate_aux_data_RGF(Mins[ix_], parse(Int, ARGS[4]), parse(Int, ARGS[5]))
+                            auxDataPar = allocate_aux_data_DDRGF(Mins[ix_], nrBlocksInNonPivots, false, auxDataSeq,
+                                parse(Int, ARGS[3]), parse(Int, ARGS[4]), parse(Int, ARGS[5]))
+                            push!(listOfAuxDataPar, auxDataPar)
+
+                            # coarse grids
+                            nrDDRGFLevels = parse(Int, ARGS[6])
+                            for ix = 1:nrDDRGFLevels-1
+                                auxDataSeq2 = allocate_aux_data_RGF(listOfAuxDataPar[ix].buffTHat22inv, parse(Int, ARGS[4]), parse(Int, ARGS[5]))
+                                auxDataPar2 = allocate_aux_data_DDRGF(listOfAuxDataPar[ix].buffTHat22inv, nrBlocksInNonPivots, false, auxDataSeq2,
+                                    parse(Int, ARGS[3]), parse(Int, ARGS[4]), parse(Int, ARGS[5]))
+                                push!(listOfAuxDataPar, auxDataPar2)
+                            end
+                        end
+                        push!(listOfListOfAuxDataPar, listOfAuxDataPar)
                     end
 
                     # (?) force the garbage collector before doing the core computations
@@ -94,8 +109,11 @@ for systemx in systemNames
                                 td = TimingData()
                             end
                             timerTagLocalTotal = timerTagLocal * "_total"
-                            LinearAlgebra.BLAS.set_num_threads(auxsPar[tId].nrBLASThreadsInner)
-                            @timeit timers[tId] timerTagLocalTotal bndiag_of_inv_ddrgf!(Mouts[tId], Mins[tId], auxsPar[tId], td, cd)
+                            LinearAlgebra.BLAS.set_num_threads(listOfListOfAuxDataPar[tId][1].nrBLASThreadsInner)
+                            begin
+                                @timeit timers[tId] timerTagLocalTotal bndiag_of_inv_ddrgf!(Mins[tId], listOfListOfAuxDataPar[tId], td, cd, 1)
+                                bm_copy!(Mouts[tId], listOfListOfAuxDataPar[tId][1].buffMout)
+                            end
                         end
                     end
 
