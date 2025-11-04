@@ -433,7 +433,7 @@ the matrix `M`.
 - `auxData`: some metadata.
 - `filling:Int`: 1 for zero blocks, 2 for random.
 """
-function bm_blocks_define_complement22!(M::BlockMatrix, auxData, filling::Int)
+function bm_blocks_define_complement22_non_recurs!(M::BlockMatrix, auxData, filling::Int)
     blockSizeD2 = auxData.blockSizeD2
     permVecInv = auxData.permVecInv
     buffTHat = auxData.buffTHat
@@ -467,6 +467,73 @@ function bm_blocks_define_complement22!(M::BlockMatrix, auxData, filling::Int)
             M.M[ixL, jxL] = be_zero_array(M.nrsType, (iSize, jSize))
         else
             M.M[ixL, jxL] = be_random_array(M.nrsType, (iSize, jSize))
+        end
+    end
+end
+
+# recursively permute depending on the number of levels in DDRGF,
+# this is exclusive to the global (i.e., fine-grid) Mout, it takes
+# an index at a certain level in the recursion and returns the corresponding
+# index at the finest level
+function recursPermIndx(levelNr::Int, listOfAuxData, idx_::Int)
+    idx = listOfAuxData[levelNr].permVecInv[idx_]
+    if levelNr == 1
+        return idx
+    else
+        return recursPermIndx(levelNr - 1, listOfAuxData, idx)
+    end
+end
+
+# TODO : try to assign the type AuxDataDDRGF to auxData ?
+"""
+	bm_blocks_define_complement22!(M::BlockMatrix, auxData, filling::Int)
+
+Sets/pre-allocates all those blocks that are beyond block tridiagonal in
+the matrix `M`. This function is specific to Mout, where the blocks are defined
+into the depth of the global recursion of DDRGF.
+
+# Arguments
+- `M::BlockMatrix`: the matrix in which the extra allocations will be placed.
+- `auxData`: some metadata.
+- `filling:Int`: 1 for zero blocks, 2 for random.
+"""
+function bm_blocks_define_complement22_recurs!(M::BlockMatrix, listOfAuxData, filling::Int)
+    buffTHat = listOfAuxData[1].buffTHat
+    blockSizes = buffTHat.blockSizes
+
+    nrLevels = size(listOfAuxData)[1]
+
+    for ix_ = 1:nrLevels
+        blockSizeD2 = listOfAuxData[ix_].blockSizeD2
+        nrTasks = listOfAuxData[ix_].nrTasks
+        for ix = 1:nrTasks-1
+            # first, the upper one
+            ixLperm = blockSizeD2 * ix
+            jxLperm = ixLperm + 1
+            ixL = recursPermIndx(ix_, listOfAuxData, ixLperm)
+            jxL = recursPermIndx(ix_, listOfAuxData, jxLperm)
+
+            iSize = blockSizes[ixL]
+            jSize = blockSizes[jxL]
+            if filling == 1
+                M.M[ixL, jxL] = be_zero_array(M.nrsType, (iSize, jSize))
+            else
+                M.M[ixL, jxL] = be_random_array(M.nrsType, (iSize, jSize))
+            end
+
+            # then, the lower one
+            jxLperm = blockSizeD2 * ix
+            ixLperm = jxLperm + 1
+            ixL = recursPermIndx(ix_, listOfAuxData, ixLperm)
+            jxL = recursPermIndx(ix_, listOfAuxData, jxLperm)
+
+            iSize = blockSizes[ixL]
+            jSize = blockSizes[jxL]
+            if filling == 1
+                M.M[ixL, jxL] = be_zero_array(M.nrsType, (iSize, jSize))
+            else
+                M.M[ixL, jxL] = be_random_array(M.nrsType, (iSize, jSize))
+            end
         end
     end
 end
@@ -784,7 +851,7 @@ function bm_create_synthetic_random(nrLayers::Int, blocksDim::Int, nrsType::Data
 
     # blockSizes = repeat([blocksDim], nrLayers)
     deltaRnd = 8.0
-    blockSizes::Vector{Int} = Int.(round.(broadcast(*, deltaRnd, rand(nrLayers)) .+ (blocksDim-deltaRnd/2.0)))
+    blockSizes::Vector{Int} = Int.(round.(broadcast(*, deltaRnd, rand(nrLayers)) .+ (blocksDim - deltaRnd / 2.0)))
 
     # hardcoding block tridiagonal
     ndiag = Dict("in" => 3, "out" => 3)

@@ -29,7 +29,7 @@ for systemx in systemNames
                     global accFctr = accFctrBare
                 else
                     # extra relaxation in lower precision
-                    global accFctr = 2.0*accFctrBare
+                    global accFctr = 2.0 * accFctrBare
                 end
 
                 if whereFrom == 1
@@ -74,12 +74,7 @@ for systemx in systemNames
                     # pre-allocate buffer data for sequential RGF
                     auxDataSeq = allocate_aux_data_RGF(MbmSeq, parse(Int, ARGS[3]), parse(Int, ARGS[4]))
                     # pre-allocate buffer data for parallel RGF
-                    # TODO : move the following param inside the check_nr_tasks function,
-                    #        and with this decide based on the criteria explained in the paper
-                    #        (throw an error in the code if the last else is not being caught)
-                    # 0 is open-end, 1 is closed-end
-                    splitType::Bool = 0
-                    auxDataPar = allocate_aux_data_DDRGF(MbmSeq, nrBlocksInNonPivots, splitType, auxDataSeq,
+                    auxDataPar = allocate_aux_data_DDRGF(MbmSeq, nrBlocksInNonPivots, false, auxDataSeq,
                         parse(Int, ARGS[2]), parse(Int, ARGS[3]), parse(Int, ARGS[4]))
 
                     # the blocks in the following matrices are references to the blocks in Min
@@ -129,19 +124,34 @@ for systemx in systemNames
                     # pre-allocate the output matrix
                     MbmInvNdiagPar = bm_similar(MbmPar, 1)
                     # pre-allocate buffer data for parallel RGF
-                    # TODO : move the following param inside the check_nr_tasks function,
-                    #        and with this decide based on the criteria explained in the paper
-                    #        (throw an error in the code if the last else is not being caught)
-                    # 0 is open-end, 1 is closed-end
-                    splitType = 0
-                    auxDataPar = allocate_aux_data_DDRGF(MbmPar, nrBlocksInNonPivots, splitType, auxDataSeq,
-                        parse(Int, ARGS[2]), parse(Int, ARGS[3]), parse(Int, ARGS[4]))
-                    bm_blocks_define_complement22!(MbmInvNdiagPar, auxDataPar, 2)
+
+                    # allocation of auxiliary data for DDRGF
+                    listOfAuxDataPar = Vector{AuxDataDDRGF}()
+                    begin
+                        # fine grid
+                        auxDataSeq = allocate_aux_data_RGF(MbmSeq, parse(Int, ARGS[3]), parse(Int, ARGS[4]))
+                        auxDataPar = allocate_aux_data_DDRGF(MbmPar, nrBlocksInNonPivots, false, auxDataSeq,
+                            parse(Int, ARGS[2]), parse(Int, ARGS[3]), parse(Int, ARGS[4]))
+                        push!(listOfAuxDataPar, auxDataPar)
+
+                        # coarse grids
+                        nrDDRGFLevels = parse(Int, ARGS[5])
+                        for ix = 1:nrDDRGFLevels-1
+                            auxDataSeq2 = allocate_aux_data_RGF(listOfAuxDataPar[ix].buffTHat22inv, parse(Int, ARGS[3]), parse(Int, ARGS[4]))
+                            auxDataPar2 = allocate_aux_data_DDRGF(listOfAuxDataPar[ix].buffTHat22inv, nrBlocksInNonPivots, false, auxDataSeq2,
+                                parse(Int, ARGS[2]), parse(Int, ARGS[3]), parse(Int, ARGS[4]))
+                            push!(listOfAuxDataPar, auxDataPar2)
+                        end
+                    end
 
                     # relErr::Float64 = bndiag_of_inv_ddrgf_error_inv_of_T11(MbmPar, MbmInvNdiagPar, auxDataPar, TimingData(), CountingData())
                     # @test relErr < roundoffs[precx] * 1.0E6
 
-                    bndiag_of_inv_ddrgf!(MbmInvNdiagPar, MbmPar, auxDataPar, TimingData(), CountingData())
+                    # call the DDRGF inversion
+                    begin
+                        bndiag_of_inv_ddrgf!(MbmPar, listOfAuxDataPar, TimingData(), CountingData(), 1)
+                        bm_copy!(MbmInvNdiagPar, auxDataPar.buffMout)
+                    end
 
                     # check that the Schur complement construction is correct
 
@@ -254,8 +264,8 @@ for systemx in systemNames
                         ixLStart = sum(blockSizes11[1:ixDStart-1]) + 1
                         ixLEnd = sum(blockSizes11[1:ixDEnd])
                         relErr = LinearAlgebra.norm(Array(MinvNdiagSeq_perm11[ixLStart:ixLEnd, ixLStart:ixLEnd] -
-                                MinvNdiagPar_perm11[ixLStart:ixLEnd, ixLStart:ixLEnd]), 2) /
-                                LinearAlgebra.norm(Array(MinvNdiagSeq_perm11[ixLStart:ixLEnd, ixLStart:ixLEnd]), 2)
+                                                          MinvNdiagPar_perm11[ixLStart:ixLEnd, ixLStart:ixLEnd]), 2) /
+                                 LinearAlgebra.norm(Array(MinvNdiagSeq_perm11[ixLStart:ixLEnd, ixLStart:ixLEnd]), 2)
                         @test relErr < roundoffs[precx] * accFctr
                     end
                 end
