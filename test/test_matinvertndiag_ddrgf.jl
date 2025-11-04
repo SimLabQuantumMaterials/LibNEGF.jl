@@ -74,12 +74,7 @@ for systemx in systemNames
                     # pre-allocate buffer data for sequential RGF
                     auxDataSeq = allocate_aux_data_RGF(MbmSeq, parse(Int, ARGS[3]), parse(Int, ARGS[4]))
                     # pre-allocate buffer data for parallel RGF
-                    # TODO : move the following param inside the check_nr_tasks function,
-                    #        and with this decide based on the criteria explained in the paper
-                    #        (throw an error in the code if the last else is not being caught)
-                    # 0 is open-end, 1 is closed-end
-                    splitType::Bool = 0
-                    auxDataPar = allocate_aux_data_DDRGF(MbmSeq, nrBlocksInNonPivots, splitType, auxDataSeq,
+                    auxDataPar = allocate_aux_data_DDRGF(MbmSeq, nrBlocksInNonPivots, false, auxDataSeq,
                         parse(Int, ARGS[2]), parse(Int, ARGS[3]), parse(Int, ARGS[4]))
 
                     # the blocks in the following matrices are references to the blocks in Min
@@ -129,41 +124,34 @@ for systemx in systemNames
                     # pre-allocate the output matrix
                     MbmInvNdiagPar = bm_similar(MbmPar, 1)
                     # pre-allocate buffer data for parallel RGF
-                    # TODO : move the following param inside the check_nr_tasks function,
-                    #        and with this decide based on the criteria explained in the paper
-                    #        (throw an error in the code if the last else is not being caught)
-                    # 0 is open-end, 1 is closed-end
-                    splitType = 0
 
-                    # nrDDRGFLevels = parse(Int, ARGS[5])
-                    # println(nrDDRGFLevels)
+                    # allocation of auxiliary data for DDRGF
                     listOfAuxDataPar = Vector{AuxDataDDRGF}()
+                    begin
+                        # fine grid
+                        auxDataSeq = allocate_aux_data_RGF(MbmSeq, parse(Int, ARGS[3]), parse(Int, ARGS[4]))
+                        auxDataPar = allocate_aux_data_DDRGF(MbmPar, nrBlocksInNonPivots, false, auxDataSeq,
+                            parse(Int, ARGS[2]), parse(Int, ARGS[3]), parse(Int, ARGS[4]))
+                        push!(listOfAuxDataPar, auxDataPar)
 
-                    # fine grid
-                    auxDataSeq = allocate_aux_data_RGF(MbmSeq, parse(Int, ARGS[3]), parse(Int, ARGS[4]))
-                    auxDataPar = allocate_aux_data_DDRGF(MbmPar, nrBlocksInNonPivots, splitType, auxDataSeq,
-                        parse(Int, ARGS[2]), parse(Int, ARGS[3]), parse(Int, ARGS[4]))
-                    push!(listOfAuxDataPar, auxDataPar)
-
-                    # coarse grid
-                    auxDataSeq2 = allocate_aux_data_RGF(auxDataPar.buffTHat22inv, parse(Int, ARGS[3]), parse(Int, ARGS[4]))
-                    auxDataPar2 = allocate_aux_data_DDRGF(auxDataPar.buffTHat22inv, nrBlocksInNonPivots, splitType, auxDataSeq2,
-                        parse(Int, ARGS[2]), parse(Int, ARGS[3]), parse(Int, ARGS[4]))
-                    push!(listOfAuxDataPar, auxDataPar2)
+                        # coarse grids
+                        nrDDRGFLevels = parse(Int, ARGS[5])
+                        for ix = 1:nrDDRGFLevels-1
+                            auxDataSeq2 = allocate_aux_data_RGF(listOfAuxDataPar[ix].buffTHat22inv, parse(Int, ARGS[3]), parse(Int, ARGS[4]))
+                            auxDataPar2 = allocate_aux_data_DDRGF(listOfAuxDataPar[ix].buffTHat22inv, nrBlocksInNonPivots, false, auxDataSeq2,
+                                parse(Int, ARGS[2]), parse(Int, ARGS[3]), parse(Int, ARGS[4]))
+                            push!(listOfAuxDataPar, auxDataPar2)
+                        end
+                    end
 
                     # relErr::Float64 = bndiag_of_inv_ddrgf_error_inv_of_T11(MbmPar, MbmInvNdiagPar, auxDataPar, TimingData(), CountingData())
                     # @test relErr < roundoffs[precx] * 1.0E6
 
-                    bndiag_of_inv_ddrgf!(MbmPar, listOfAuxDataPar, TimingData(), CountingData(), 1)
-                    bm_copy!(MbmInvNdiagPar, auxDataPar.buffMout)
-
-                    # Mout = bndiag_of_inv_ddrgf_create_permuted_matrix(MbmInvNdiagPar, auxDataPar.permVec)
-                    # bndiag_of_inv_ddrgf_add_block_refs_to_permuted_matrix22!(Mout, MbmInvNdiagPar, auxDataPar)
-                    # bm_reference!(auxDataPar.buffM222inv, Mout.M, 0, 0)
-                    # println("done")
-                    # bndiag_of_inv_ddrgf!(auxDataPar.buffM222inv, auxDataPar.buffTHat22inv, auxDataPar2, TimingData(), CountingData())
-
-                    # exit()
+                    # call the DDRGF inversion
+                    begin
+                        bndiag_of_inv_ddrgf!(MbmPar, listOfAuxDataPar, TimingData(), CountingData(), 1)
+                        bm_copy!(MbmInvNdiagPar, auxDataPar.buffMout)
+                    end
 
                     # check that the Schur complement construction is correct
 

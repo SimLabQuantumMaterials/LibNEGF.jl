@@ -50,7 +50,7 @@ if exists_in_list "$HWs" " " $1; then
     # IMPORTANT : we recommend a large value for NUM_PRGF_DOMAINS, to increase parallelism while
     #             at the same time reducing the size of the Schur complement
     export NUM_DDRGF_DOMAINS=72
-    export NUM_DDRGF_LEVELS=2
+    export NUM_DDRGF_LEVELS=3
     export NUM_BLAS_THREADS_OUTER=$JULIA_NUM_THREADS
     export NUM_BLAS_THREADS_INNER=1
 
