@@ -78,8 +78,31 @@ function allocate_aux_data_RGF(M::BlockMatrix, nrBLASThreadsOuter::Int, nrBLASTh
     return auxData
 end
 
+function allocate_aux_data_DDRGF(Min::BlockMatrix, nrBlocksInNonPivots::Int, splitType::Bool,
+    nrTasksBare::Int, nrBLASThreadsOuter::Int, nrBLASThreadsInner::Int)::Vector{AuxDataDDRGF}
+    # allocation of auxiliary data for DDRGF
+    listOfAuxDataPar = Vector{AuxDataDDRGF}()
+
+    # fine grid
+    auxDataSeq = allocate_aux_data_RGF(Min, nrBLASThreadsOuter, nrBLASThreadsInner)
+    auxDataPar = allocate_aux_data_DDRGF_single_level(Min, nrBlocksInNonPivots, splitType, auxDataSeq,
+        nrTasksBare, nrBLASThreadsOuter, nrBLASThreadsInner)
+    push!(listOfAuxDataPar, auxDataPar)
+
+    # coarse grids
+    nrDDRGFLevels = parse(Int, ARGS[5])
+    for ix = 1:nrDDRGFLevels-1
+        auxDataSeq2 = allocate_aux_data_RGF(listOfAuxDataPar[ix].buffTHat22inv, nrBLASThreadsOuter, nrBLASThreadsInner)
+        auxDataPar2 = allocate_aux_data_DDRGF_single_level(listOfAuxDataPar[ix].buffTHat22inv, nrBlocksInNonPivots, splitType, auxDataSeq2,
+            nrTasksBare, nrBLASThreadsOuter, nrBLASThreadsInner)
+        push!(listOfAuxDataPar, auxDataPar2)
+    end
+
+    return listOfAuxDataPar
+end
+
 """
-	allocate_aux_data_DDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, splitType::Bool,
+	allocate_aux_data_DDRGF_single_level(M::BlockMatrix, nrBlocksInNonPivots::Int, splitType::Bool,
         auxDataSeq::AuxDataRGF, nrTasksBare::Int, nrBLASThreadsOuter::Int, nrBLASThreadsInner::Int)
 
 Allocate some extra buffers in `AuxDataDDRGF` useful for parallel RGF.
@@ -88,7 +111,7 @@ Allocate some extra buffers in `AuxDataDDRGF` useful for parallel RGF.
 - `M::BlockMatrix`: the matrix used as reference.
 - `auxDataSeq::AuxDataRGF`: reference to the data pre-allocated already for sequential RGF.
 """
-function allocate_aux_data_DDRGF(M::BlockMatrix, nrBlocksInNonPivots::Int, splitType::Bool,
+function allocate_aux_data_DDRGF_single_level(M::BlockMatrix, nrBlocksInNonPivots::Int, splitType::Bool,
     auxDataSeq::AuxDataRGF, nrTasksBare::Int, nrBLASThreadsOuter::Int, nrBLASThreadsInner::Int)::AuxDataDDRGF
     nrTasks = nrTasksBare
 
