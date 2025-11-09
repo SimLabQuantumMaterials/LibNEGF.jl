@@ -295,8 +295,8 @@ function opt_params(Min::BlockMatrix, nrBlocksInNonPivots::Int, rLU::Float64, rM
             if optCostNew < optCostOld
                 optNrLevels = 0
                 optNrTasks = nrTasksF
+                optCostOld = optCostNew
             end
-            optCostOld = optCostNew
             break
         end
 
@@ -340,8 +340,8 @@ function opt_params(Min::BlockMatrix, nrBlocksInNonPivots::Int, rLU::Float64, rM
             if optCostNew < optCostOld
                 optNrLevels = nrLevels
                 optNrTasks = nrTasksF
+                optCostOld = optCostNew
             end
-            optCostOld = optCostNew
 
             if nrTasks < nrThreadsBare
                 break
@@ -354,10 +354,8 @@ function opt_params(Min::BlockMatrix, nrBlocksInNonPivots::Int, rLU::Float64, rM
     return (optNrLevels, optNrTasks, optCostNew)
 end
 
-function allocate_aux_data_DDRGF(Min::BlockMatrix, nrBlocksInNonPivots::Int, splitType::Bool,
-    nrTasksBare::Int, nrBLASThreadsOuter::Int, nrBLASThreadsInner::Int)::Vector{AuxDataDDRGF}
-
-    # TODO : blockSizeD1 can also be tuned -> run over 1, 2, 3, 4 for it
+function allocate_aux_data_DDRGF(Min::BlockMatrix, splitType::Bool,
+    nrBLASThreadsOuter::Int, nrBLASThreadsInner::Int)::Vector{AuxDataDDRGF}
 
     # before anything else, find the optimal parameters for DDRGF
 
@@ -375,14 +373,28 @@ function allocate_aux_data_DDRGF(Min::BlockMatrix, nrBlocksInNonPivots::Int, spl
     # tunable but dependent params :
     #   blockSizeD2 (this depends directly on nrTasks)
 
+    nrTasks::Int = 1
+    nrBlocksInNonPivots::Int = 1
+    nrLevels::Int = 0
+    totCost::Float64 = Inf
+
     for blockSizeD1 = 1:4
-        nrLevels, nrTasks, totCost = opt_params(Min, blockSizeD1, rLU, rMLDIV, dampSeqF, splitType)
-        println("Optimal cost : "*string(totCost))
-        println("Optimal number of levels : "*string(nrLevels))
-        println("Optimal number of tasks : "*(string(nrTasks)))
-        println(dampSeqF * cost_rgf(size(Min.blockSizes)[1], rLU, rMLDIV, false))
-        println("")
+        nrLevelsNew, nrTasksNew, totCostNew = opt_params(Min, blockSizeD1, rLU, rMLDIV, dampSeqF, splitType)
+        if totCostNew < totCost
+            nrLevels = nrLevelsNew
+            nrTasks = nrTasksNew
+            totCost = totCostNew
+        end
     end
+
+    println("Optimal cost : "*string(totCost))
+    println("Optimal number of levels : "*string(nrLevels))
+    println("Optimal number of tasks : "*(string(nrTasks)))
+    println("Optimal number of non-pivot PLs : "*(string(nrBlocksInNonPivots)))
+    println(dampSeqF * cost_rgf(size(Min.blockSizes)[1], rLU, rMLDIV, false))
+    println("")
+
+    nrTasksBare = nrTasks
 
     exit()
 
@@ -398,7 +410,7 @@ function allocate_aux_data_DDRGF(Min::BlockMatrix, nrBlocksInNonPivots::Int, spl
     push!(listOfAuxDataPar, auxDataPar)
 
     # coarse grids
-    nrDDRGFLevels = parse(Int, ARGS[5])
+    nrDDRGFLevels = nrLevels
     for ix = 1:nrDDRGFLevels-1
         auxDataSeq2 = allocate_aux_data_RGF(listOfAuxDataPar[ix].buffTHat22inv, nrBLASThreadsOuter, nrBLASThreadsInner)
         auxDataPar2 = allocate_aux_data_DDRGF_single_level(listOfAuxDataPar[ix].buffTHat22inv, nrBlocksInNonPivots, splitType, auxDataSeq2,

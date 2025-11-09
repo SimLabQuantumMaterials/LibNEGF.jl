@@ -72,8 +72,8 @@ for systemx in systemNames
                     # reference to the block matrix coming from data
                     MbmSeq = MbmSynth
                     # pre-allocate buffer data for parallel RGF
-                    listOfAuxDataPar = allocate_aux_data_DDRGF(MbmSeq, nrBlocksInNonPivots, false,
-                        parse(Int, ARGS[2]), parse(Int, ARGS[3]), parse(Int, ARGS[4]))
+                    listOfAuxDataPar = allocate_aux_data_DDRGF(MbmSeq, false,
+                        parse(Int, ARGS[3]), parse(Int, ARGS[4]))
                     auxDataPar = listOfAuxDataPar[1]
 
                     # the blocks in the following matrices are references to the blocks in Min
@@ -124,8 +124,8 @@ for systemx in systemNames
                     MbmInvNdiagPar = bm_similar(MbmPar, 1)
 
                     # pre-allocate buffer data for parallel RGF
-                    listOfAuxDataPar = allocate_aux_data_DDRGF(MbmPar, nrBlocksInNonPivots, false,
-                        parse(Int, ARGS[2]), parse(Int, ARGS[3]), parse(Int, ARGS[4]))
+                    listOfAuxDataPar = allocate_aux_data_DDRGF(MbmPar, false,
+                        parse(Int, ARGS[3]), parse(Int, ARGS[4]))
 
                     # relErr::Float64 = bndiag_of_inv_ddrgf_error_inv_of_T11(MbmPar, MbmInvNdiagPar, auxDataPar, TimingData(), CountingData())
                     # @test relErr < roundoffs[precx] * 1.0E6

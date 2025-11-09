@@ -34,7 +34,7 @@ if exists_in_list "$HWs" " " $1; then
     # create usable copy of Project_common.toml
     cp Project_common.toml Project.toml
     export OPENBLAS_NUM_THREADS=1
-    export JULIA_NUM_THREADS=4
+    export JULIA_NUM_THREADS=8
 
     # variables used to mimic C's ifdef
     export LIBNEGF_HW=$1
