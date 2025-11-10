@@ -178,7 +178,7 @@ function cost_rgf(L::Int, rLU::Float64, rMLDIV::Float64, doFull::Bool)::Float64
     return rRGF
 end
 
-function cost_ddrgf(L::Int, rLU::Float64, rMLDIV::Float64, nrTasks::Int, nrThreads::Int,
+function cost_ddrgf(rLU::Float64, rMLDIV::Float64, nrTasks::Int, nrThreads::Int,
     blockSizeD1::Int)::Float64
     rDDRGF::Float64 = 0.0
 
@@ -192,13 +192,15 @@ function cost_ddrgf(L::Int, rLU::Float64, rMLDIV::Float64, nrTasks::Int, nrThrea
     rDDRGF += (1.0 / nrThreads) * (4 * nrTasks - 3)
 
     # r12 term
-    rDDRGF += (1.0 / nrThreads) * ((2 * nrTasks - 1) * blockSizeD1 + 2 * (nrTasks - 1) * blockSizeD1)
+    rDDRGF += (1.0 / nrThreads) * ((2 * nrTasks - 1) * blockSizeD1 + 2 * (nrTasks - 1) *
+                                                                     blockSizeD1)
 
     # r21 term
     rDDRGF += (1.0 / nrThreads) * (4 * nrTasks - 3)
 
     # r11 term
-    rDDRGF += (1.0 / nrThreads) * (2 * (nrTasks * (blockSizeD1 - 1) + (nrTasks - 1) * (blockSizeD1 - 1)) + (2 * nrTasks - 1) * blockSizeD1)
+    rDDRGF += (1.0 / nrThreads) * (2 * (nrTasks * (blockSizeD1 - 1) + (nrTasks - 1) *
+                                                                      (blockSizeD1 - 1)) + (2 * nrTasks - 1) * blockSizeD1)
 
     # those are all GEMMs
     rDDRGF *= 1.0
@@ -383,8 +385,15 @@ function allocate_aux_data_DDRGF(Min::BlockMatrix, splitType::Bool,
             nrLevels = nrLevelsNew
             nrTasks = nrTasksNew
             totCost = totCostNew
+            nrBlocksInNonPivots = blockSizeD1
         end
     end
+
+    # println("DDRGF params :")
+    # println("\tNumber of tasks = " * string(nrTasks))
+    # println("\tNumber of non-pivot PLs = " * string(nrBlocksInNonPivots))
+    # println("\tNumber of levels = " * string(nrLevels))
+    # println("\tTot cost = " * string(totCost))
 
     nrTasksBare = nrTasks
 
