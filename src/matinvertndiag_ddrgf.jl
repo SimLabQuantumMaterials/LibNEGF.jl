@@ -265,7 +265,7 @@ function opt_params(Min::BlockMatrix, nrBlocksInNonPivots::Int, rLU::Float64, rM
 
     nrTasksBare::Int = floor(nplBare / (1 + nrBlocksInNonPivots)) + 1
     if nrTasksBare-1 < nrThreadsBare
-        println("ERROR: you need to increase the number of Julia threads")
+        println("ERROR: you need to decrease the number of Julia threads")
         exit()
     end
     while nrTasksBare > 2
@@ -288,17 +288,18 @@ function opt_params(Min::BlockMatrix, nrBlocksInNonPivots::Int, rLU::Float64, rM
             push!(listOfNrTasks, nrTasksF)
         end
 
-        if nrTasksF == 1
-            # add <<RGF>> cost computation here
-            optCostNew = cost_rgf(npl, rLU, rMLDIV, false)
-            # check if this new combination is optimal (up until now)
-            if optCostNew < optCostOld
-                optNrLevels = 0
-                optNrTasks = nrTasksF
-                optCostOld = optCostNew
-            end
-            break
-        end
+        # the following also adds a comparison of DDRGF to RGF
+        # if nrTasksF == 1
+        #     # add <<RGF>> cost computation here
+        #     optCostNew = dampSeqF * cost_rgf(npl, rLU, rMLDIV, false)
+        #     # check if this new combination is optimal (up until now)
+        #     if optCostNew < optCostOld
+        #         optNrLevels = 0
+        #         optNrTasks = nrTasksF
+        #         optCostOld = optCostNew
+        #     end
+        #     break
+        # end
 
         # add the DDRGF cost accummulation
         optCostNewF = cost_ddrgf(npl, rLU, rMLDIV, nrTasksF, nrThreadsF, blockSizeD1)
@@ -321,6 +322,9 @@ function opt_params(Min::BlockMatrix, nrBlocksInNonPivots::Int, rLU::Float64, rM
                 nrTasks, blockSizeD1, blockSizeD2, lastSizeD2 = bndiag_of_inv_ddrgf_check_nr_tasks(npl, nrBlocksInNonPivots,
                     nrTasks, splitType)
                 if nrTasks < nrThreadsBare
+                    # account for the coarsest-level RGF. We assume we're using BLAS threading within, but
+                    # we damp that by a factor
+                    optCostNew += dampSeqF * cost_rgf(npl, rLU, rMLDIV, false)
                     break
                 end
                 nrThreadsC, maxNrTasksPerThread, lastNrTasksPerThread = bndiag_of_inv_ddrgf_check_nr_threads(nrThreadsBare, nrTasks)
@@ -331,10 +335,6 @@ function opt_params(Min::BlockMatrix, nrBlocksInNonPivots::Int, rLU::Float64, rM
                 # add the cost accummulation
                 optCostNew += cost_ddrgf(npl, rLU, rMLDIV, nrTasks, nrThreadsC, blockSizeD1)
             end
-
-            # account for the coarsest-level RGF. We assume we're using BLAS threading within, but
-            # we damp that by a factor
-            optCostNew += (1.0 / dampSeqF)*cost_rgf(npl, rLU, rMLDIV, false)
 
             # check if this new combination is optimal (up until now)
             if optCostNew < optCostOld
@@ -360,6 +360,8 @@ function allocate_aux_data_DDRGF(Min::BlockMatrix, splitType::Bool,
     # before anything else, find the optimal parameters for DDRGF
 
     dampSeqF = get_damp_blas(Min)
+    # println(dampSeqF)
+    # exit()
 
     # to do this, first obtain rMLDIV and rLU
     rLU::Float64 = get_rLU(Min)
