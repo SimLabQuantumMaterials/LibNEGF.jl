@@ -13,9 +13,6 @@ whereFrom = 2
 # values for the synthetic matrix
 npl = 288
 blockSize = 64
-# IMPORTANT : the recommended value for nrBlocksInNonPivots is 2, to reduce fill up
-#             as much as possible
-nrBlocksInNonPivots = 3
 
 # this factor relaxes the required relative tolerance
 accFctrBare = 2.5E5
