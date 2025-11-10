@@ -252,7 +252,7 @@ function get_damp_blas(M::BlockMatrix)::Float64
 end
 
 function opt_params(Min::BlockMatrix, nrBlocksInNonPivots::Int, rLU::Float64, rMLDIV::Float64,
-    dampSeqF::Float64, splitType::Bool)::Tuple{Int, Int, Float64}
+    dampSeqF::Float64, splitType::Bool)::Tuple{Int,Int,Float64}
     nplBare = size(Min.blockSizes)[1]
     nrThreadsBare = Threads.nthreads()
 
@@ -264,7 +264,7 @@ function opt_params(Min::BlockMatrix, nrBlocksInNonPivots::Int, rLU::Float64, rM
     listOfNrTasks = Vector{Int}()
 
     nrTasksBare::Int = floor(nplBare / (1 + nrBlocksInNonPivots)) + 1
-    if nrTasksBare-1 < nrThreadsBare
+    if nrTasksBare - 1 < nrThreadsBare
         println("ERROR: you need to decrease the number of Julia threads")
         exit()
     end
@@ -359,13 +359,10 @@ function allocate_aux_data_DDRGF(Min::BlockMatrix, splitType::Bool,
 
     # before anything else, find the optimal parameters for DDRGF
 
-    dampSeqF = get_damp_blas(Min)
-    # println(dampSeqF)
-    # exit()
-
-    # to do this, first obtain rMLDIV and rLU
+    # to do this, first obtain rMLDIV and rLU, and the threaded BLAS factor
     rLU::Float64 = get_rLU(Min)
     rMLDIV::Float64 = get_rMLDIV(Min)
+    dampSeqF = get_damp_blas(Min)
 
     # IMPORTANT:
     # fixed params (these might change, though, for achieving good load balance and to reduce energy waste) : 
@@ -389,16 +386,7 @@ function allocate_aux_data_DDRGF(Min::BlockMatrix, splitType::Bool,
         end
     end
 
-    println("Optimal cost : "*string(totCost))
-    println("Optimal number of levels : "*string(nrLevels))
-    println("Optimal number of tasks : "*(string(nrTasks)))
-    println("Optimal number of non-pivot PLs : "*(string(nrBlocksInNonPivots)))
-    println(dampSeqF * cost_rgf(size(Min.blockSizes)[1], rLU, rMLDIV, false))
-    println("")
-
     nrTasksBare = nrTasks
-
-    exit()
 
     # -------
 
