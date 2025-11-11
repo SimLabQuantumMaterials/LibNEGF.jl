@@ -9,7 +9,7 @@ if mod(nrEPoints, 1) != 0
 end
 
 for systemx in systemNames
-    for precx in [precs[2]]
+    for precx in precs
         # create a flops and mems counter for each precision and thread
         counters = Vector{CountingData}()
         for ix = 1:1
@@ -26,59 +26,53 @@ for systemx in systemNames
         end
         timerTagGlobal = "bndiag_of_inv_ddrgf_" * string(precx)
 
+        # (?) force the garbage collector before doing the core computations
+        GC.gc()
+
         for k in kpoints
-            @timeit to timerTagGlobal begin
-                # loop over bunches of energy points
-                nrEgroups::Int = size(Epoints)[1] / 1
-                for iEG = 1:nrEgroups
-                    # preallocate large data per thread
-                    Mins = Vector{BlockMatrix}()
-                    Mouts = Vector{BlockMatrix}()
-                    for ix = 1:1
-                        if whereFrom == 1
-                            iE = ix + (iEG - 1) * 1
-                            # load matrices and build M
-                            listMatsToLoad = ["H", "S", "Sc"]
-                            loadedMats, blockSizes = load_matrices(systemx, Epoints[iE], k,
-                                listMatsToLoad, precx, whereFrom)
-                            H = loadedMats[1]
-                            S = loadedMats[2]
-                            Se = loadedMats[3]
-                            Msp = build_M_from_HS(H, S, Se, energVals[Epoints[iE]])
-                            Min = bm_convert(Msp, blockSizes, Dict("in" => 3, "out" => 3))
-                        else
-                            Min = bm_create_synthetic_random(npl, blockSize, precx)
-                        end
-                        push!(Mins, Min)
-                        push!(Mouts, bm_copy(Min))
+            # loop over bunches of energy points
+            nrEgroups::Int = size(Epoints)[1] / 1
+            for iEG = 1:nrEgroups
+                # preallocate large data per thread
+                Mins = Vector{BlockMatrix}()
+                Mouts = Vector{BlockMatrix}()
+                for ix = 1:1
+                    if whereFrom == 1
+                        iE = ix + (iEG - 1) * 1
+                        # load matrices and build M
+                        listMatsToLoad = ["H", "S", "Sc"]
+                        loadedMats, blockSizes = load_matrices(systemx, Epoints[iE], k,
+                            listMatsToLoad, precx, whereFrom)
+                        H = loadedMats[1]
+                        S = loadedMats[2]
+                        Se = loadedMats[3]
+                        Msp = build_M_from_HS(H, S, Se, energVals[Epoints[iE]])
+                        Min = bm_convert(Msp, blockSizes, Dict("in" => 3, "out" => 3))
+                    else
+                        Min = bm_create_synthetic_random(npl, blockSize, precx)
                     end
+                    push!(Mins, Min)
+                    push!(Mouts, bm_copy(Min))
+                end
 
-                    listOfListOfAuxDataPar = Vector{Vector{AuxDataDDRGF}}()
+                # pre-allocate buffer data for parallel RGF
+                if useFinerTimings == 1
+                    cdSetup = CountingData(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+                else
+                    cdSetup = CountingData()
+                end
+                if useFinerTimings == 1
+                    tdSetup = TimingData(TimerOutput(), "setup")
+                else
+                    tdSetup = TimingData()
+                end
+                listOfAuxDataPar = allocate_aux_data_DDRGF(Mins[1], false, parse(Int, ARGS[3]), parse(Int, ARGS[4]),
+                    tdSetup, cdSetup)
 
-                    for ix_ = 1:1
-                        # allocation of auxiliary data for DDRGF
-                        listOfAuxDataPar = Vector{AuxDataDDRGF}()
-                        begin
-                            # fine grid
-                            auxDataSeq = allocate_aux_data_RGF(Mins[ix_], parse(Int, ARGS[4]), parse(Int, ARGS[5]))
-                            auxDataPar = allocate_aux_data_DDRGF(Mins[ix_], nrBlocksInNonPivots, false, auxDataSeq,
-                                parse(Int, ARGS[3]), parse(Int, ARGS[4]), parse(Int, ARGS[5]))
-                            push!(listOfAuxDataPar, auxDataPar)
+                listOfListOfAuxDataPar = Vector{Vector{AuxDataDDRGF}}()
+                push!(listOfListOfAuxDataPar, listOfAuxDataPar)
 
-                            # coarse grids
-                            nrDDRGFLevels = parse(Int, ARGS[6])
-                            for ix = 1:nrDDRGFLevels-1
-                                auxDataSeq2 = allocate_aux_data_RGF(listOfAuxDataPar[ix].buffTHat22inv, parse(Int, ARGS[4]), parse(Int, ARGS[5]))
-                                auxDataPar2 = allocate_aux_data_DDRGF(listOfAuxDataPar[ix].buffTHat22inv, nrBlocksInNonPivots, false, auxDataSeq2,
-                                    parse(Int, ARGS[3]), parse(Int, ARGS[4]), parse(Int, ARGS[5]))
-                                push!(listOfAuxDataPar, auxDataPar2)
-                            end
-                        end
-                        push!(listOfListOfAuxDataPar, listOfAuxDataPar)
-                    end
-
-                    # (?) force the garbage collector before doing the core computations
-                    GC.gc()
+                @timeit to timerTagGlobal begin
 
                     tx(tId) = begin
                         ninvs = 10

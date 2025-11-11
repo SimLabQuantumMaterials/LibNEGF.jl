@@ -22,8 +22,8 @@ include("common_to_benchmrks.jl")
 
 Printf.@printf("\nBenchmarking, common info:\n")
 Printf.@printf("  -- hardware: %s\n", ARGS[1])
-Printf.@printf("  -- nr of BLAS threads outer: %d\n", parse(Int, ARGS[4]))
-Printf.@printf("  -- nr of BLAS threads inner: %d\n", parse(Int, ARGS[5]))
+Printf.@printf("  -- nr of BLAS threads outer: %d\n", parse(Int, ARGS[3]))
+Printf.@printf("  -- nr of BLAS threads inner: %d\n", parse(Int, ARGS[4]))
 Printf.@printf("  -- nr of outer threads: %d\n", Threads.nthreads())
 Printf.@printf("  -- nr of energy points: %d\n\n", size(Epoints)[1])
 

@@ -78,11 +78,11 @@ function allocate_aux_data_RGF(M::BlockMatrix, nrBLASThreadsOuter::Int, nrBLASTh
     return auxData
 end
 
-function get_rMLDIV(M::BlockMatrix)::Float64
+function get_rMLDIV(M::BlockMatrix, td::TimingData, cd::CountingData)::Float64
     # we take the block size to be the average of the block sizes
     avgBlockSize = Int(floor((sum(M.blockSizes) / size(M.blockSizes)[1])))
 
-    # we obtain rLU for that average block size
+    # we obtain rMLDIV for that average block size
 
     plusOneCmplx = convert(M.nrsType, 1.0)
     A = be_random_array(M.nrsType, (avgBlockSize, avgBlockSize))
@@ -94,13 +94,13 @@ function get_rMLDIV(M::BlockMatrix)::Float64
     nrSamples::Int = floor(0.5E5 * 3.0E5 / (avgBlockSize^3)) + 10
 
     # let's pre-run one GEMM, to avoid setup-ish times being accounted for
-    be_gemm!('N', 'N', plusOneCmplx, A, B, plusOneCmplx, C, TimingData(), CountingData())
+    be_gemm!('N', 'N', plusOneCmplx, A, B, plusOneCmplx, C, td, cd)
     # get the average time for a single GEMM
     t1GEMM = time()
     for ix = 1:nrSamples
         be_copy_in_hw!(A, A0)
         be_copy_in_hw!(B, B0)
-        be_gemm!('N', 'N', plusOneCmplx, A, B, plusOneCmplx, C, TimingData(), CountingData())
+        be_gemm!('N', 'N', plusOneCmplx, A, B, plusOneCmplx, C, td, cd)
     end
     t2GEMM = time()
     avgTimeGEMM::Float64 = (t2GEMM - t1GEMM) / nrSamples
@@ -108,14 +108,14 @@ function get_rMLDIV(M::BlockMatrix)::Float64
     # get the average time for a single LU
     Alu = be_zero_lu(M.nrsType, avgBlockSize)
     Alu0 = be_zero_lu(M.nrsType, avgBlockSize)
-    be_lu!(Alu, A, TimingData(), CountingData())
-    be_lu!(Alu0, A, TimingData(), CountingData())
+    be_lu!(Alu, A, td, cd)
+    be_lu!(Alu0, A, td, cd)
     t1MLDIV = time()
     for ix = 1:nrSamples
         # be_copy_in_hw!(A, A0)
         # be_copy_in_hw!(B, B0)
         # be_copy_in_hw!(Alu.A, Alu0.A)
-        be_mldivide!('N', B, A, Alu, TimingData(), CountingData())
+        be_mldivide!('N', B, A, Alu, td, cd)
     end
     t2MLDIV = time()
     avgTimeMLDIV::Float64 = (t2MLDIV - t1MLDIV) / nrSamples
@@ -123,7 +123,7 @@ function get_rMLDIV(M::BlockMatrix)::Float64
     return avgTimeMLDIV / avgTimeGEMM
 end
 
-function get_rLU(M::BlockMatrix)::Float64
+function get_rLU(M::BlockMatrix, td::TimingData, cd::CountingData)::Float64
     # we take the block size to be the average of the block sizes
     avgBlockSize = Int(floor((sum(M.blockSizes) / size(M.blockSizes)[1])))
 
@@ -140,23 +140,23 @@ function get_rLU(M::BlockMatrix)::Float64
     nrSamples::Int = floor(1.0E4 * 3.0E5 / (avgBlockSize^3)) + 10
 
     # let's pre-run one GEMM, to avoid setup-ish times being accounted for
-    be_gemm!('N', 'N', plusOneCmplx, A, B, plusOneCmplx, C, TimingData(), CountingData())
+    be_gemm!('N', 'N', plusOneCmplx, A, B, plusOneCmplx, C, td, cd)
     # get the average time for a single GEMM
     t1GEMM = time()
     for ix = 1:nrSamples
         be_copy_in_hw!(A, A0)
         be_copy_in_hw!(B, B0)
-        be_gemm!('N', 'N', plusOneCmplx, A, B, plusOneCmplx, C, TimingData(), CountingData())
+        be_gemm!('N', 'N', plusOneCmplx, A, B, plusOneCmplx, C, td, cd)
     end
     t2GEMM = time()
     avgTimeGEMM::Float64 = (t2GEMM - t1GEMM) / nrSamples
 
     # get the average time for a single LU
     Alu = be_zero_lu(M.nrsType, avgBlockSize)
-    be_lu!(Alu, A, TimingData(), CountingData())
+    be_lu!(Alu, A, td, cd)
     t1LU = time()
     for ix = 1:nrSamples
-        be_lu!(Alu, A, TimingData(), CountingData())
+        be_lu!(Alu, A, td, cd)
     end
     t2LU = time()
     avgTimeLU::Float64 = (t2LU - t1LU) / nrSamples
@@ -208,7 +208,7 @@ function cost_ddrgf(rLU::Float64, rMLDIV::Float64, nrTasks::Int, nrThreads::Int,
     return rDDRGF
 end
 
-function get_damp_blas(M::BlockMatrix)::Float64
+function get_damp_blas(M::BlockMatrix, td::TimingData, cd::CountingData)::Float64
     nrThreads = Threads.nthreads()
 
     # we take the block size to be the average of the block sizes
@@ -231,7 +231,7 @@ function get_damp_blas(M::BlockMatrix)::Float64
     for ix = 1:nrSamples
         be_copy_in_hw!(A, A0)
         be_copy_in_hw!(B, B0)
-        be_gemm!('N', 'N', plusOneCmplx, A, B, plusOneCmplx, C, TimingData(), CountingData())
+        be_gemm!('N', 'N', plusOneCmplx, A, B, plusOneCmplx, C, td, cd)
     end
     t2GEMM = time()
     avgTimeGEMMst::Float64 = (t2GEMM - t1GEMM) / nrSamples
@@ -242,7 +242,7 @@ function get_damp_blas(M::BlockMatrix)::Float64
     for ix = 1:nrSamples
         be_copy_in_hw!(A, A0)
         be_copy_in_hw!(B, B0)
-        be_gemm!('N', 'N', plusOneCmplx, A, B, plusOneCmplx, C, TimingData(), CountingData())
+        be_gemm!('N', 'N', plusOneCmplx, A, B, plusOneCmplx, C, td, cd)
     end
     t2GEMM = time()
     avgTimeGEMMmt::Float64 = (t2GEMM - t1GEMM) / nrSamples
@@ -357,14 +357,15 @@ function opt_params(Min::BlockMatrix, nrBlocksInNonPivots::Int, rLU::Float64, rM
 end
 
 function allocate_aux_data_DDRGF(Min::BlockMatrix, splitType::Bool,
-    nrBLASThreadsOuter::Int, nrBLASThreadsInner::Int)::Vector{AuxDataDDRGF}
+    nrBLASThreadsOuter::Int, nrBLASThreadsInner::Int, td::TimingData,
+    cd::CountingData)::Vector{AuxDataDDRGF}
 
     # before anything else, find the optimal parameters for DDRGF
 
     # to do this, first obtain rMLDIV and rLU, and the threaded BLAS factor
-    rLU::Float64 = get_rLU(Min)
-    rMLDIV::Float64 = get_rMLDIV(Min)
-    dampSeqF = get_damp_blas(Min)
+    rLU::Float64 = get_rLU(Min, td, cd)
+    rMLDIV::Float64 = get_rMLDIV(Min, td, cd)
+    dampSeqF = get_damp_blas(Min, td, cd)
 
     # IMPORTANT:
     # fixed params (these might change, though, for achieving good load balance and to reduce energy waste) : 

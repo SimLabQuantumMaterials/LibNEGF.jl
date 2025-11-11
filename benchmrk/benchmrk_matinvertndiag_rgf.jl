@@ -1,6 +1,6 @@
 Printf.@printf("Benchmarking bndiag_of_inv_ddrgf!(...)\n")
 
-LinearAlgebra.BLAS.set_num_threads(Int(parse(Float64, ARGS[5])))
+LinearAlgebra.BLAS.set_num_threads(Int(parse(Float64, ARGS[4])))
 
 # first, check if the number of threads divides the number of energy points,
 # exit if it doesn't
@@ -49,14 +49,14 @@ for systemx in systemNames
                             Msp = build_M_from_HS(H, S, Se, energVals[Epoints[iE]])
                             Min = bm_convert(Msp, blockSizes, Dict("in" => 3, "out" => 3))
                         else
-                            Min = bm_create_synthetic_random(10, 648, precx)
+                            Min = bm_create_synthetic_random(npl, blockSize, precx)
                         end
                         push!(Mins, Min)
                         push!(Mouts, bm_copy(Min))
                     end
                     auxs = Vector{AuxDataRGF}()
                     for ix = 1:Threads.nthreads()
-                        push!(auxs, allocate_aux_data_RGF(Mins[ix], parse(Int, ARGS[4]), parse(Int, ARGS[5])))
+                        push!(auxs, allocate_aux_data_RGF(Mins[ix], parse(Int, ARGS[3]), parse(Int, ARGS[4])))
                     end
 
                     # (?) force the garbage collector before doing the core computations
