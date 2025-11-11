@@ -39,7 +39,7 @@ if whereFrom == 1
                     Mbm = bm_convert(M, blockSizes, Dict("in" => 3, "out" => 3))
 
                     # pre-allocate buffer data for DD-RGF
-                    auxData = allocate_aux_data_RGF(Mbm, parse(Int, ARGS[3]), parse(Int, ARGS[4]))
+                    auxData = allocate_aux_data_RGF(Mbm, parse(Int, ARGS[2]), parse(Int, ARGS[3]))
                     # pre-allocate the output matrix
                     MbmInvNdiag = bm_similar(Mbm, 1)
                     # get the block n-diagonal of M^-1 via RGF
