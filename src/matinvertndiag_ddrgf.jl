@@ -304,7 +304,7 @@ function opt_params(Min::BlockMatrix, nrBlocksInNonPivots::Int, rLU::Float64, rM
         # end
 
         # add the DDRGF cost accummulation
-        optCostNewF = cost_ddrgf(npl, rLU, rMLDIV, nrTasksF, nrThreadsF, blockSizeD1)
+        optCostNewF = cost_ddrgf(rLU, rMLDIV, nrTasksF, nrThreadsF, blockSizeD1)
 
         nrLevels::Int = 0
         while true
@@ -335,7 +335,7 @@ function opt_params(Min::BlockMatrix, nrBlocksInNonPivots::Int, rLU::Float64, rM
                 end
 
                 # add the cost accummulation
-                optCostNew += cost_ddrgf(npl, rLU, rMLDIV, nrTasks, nrThreadsC, blockSizeD1)
+                optCostNew += cost_ddrgf(rLU, rMLDIV, nrTasks, nrThreadsC, blockSizeD1)
             end
 
             # check if this new combination is optimal (up until now)
