@@ -221,3 +221,20 @@ function keldyshndiag_central_rkd!(M::BlockMatrix, auxData::AuxDataKeldysh, td::
         end
     end
 end
+
+function keldyshndiag_downward_rkd!(auxData::AuxDataKeldysh, td::TimingData, cd::CountingData)
+    npl = size(auxData.buffM2.blockSizes)[1]
+
+    minusOneCmplx = convert(auxData.buffM2.nrsType, -1.0)
+    plusOneCmplx = convert(auxData.buffM2.nrsType, 1.0)
+
+    buffS = auxData.buffS
+    buffTx = auxData.auxDataRGF.buffM
+
+    for ix = 1:npl-1
+        be_gemm!('C', 'C', minusOneCmplx, buffS.M[ix, ix+1], buffTx.M[ix+1, ix], plusOneCmplx, buffS.M[ix+1, ix+1], td, cd)
+        be_gemm!('N', 'C', minusOneCmplx, buffS.M[ix, ix], buffTx.M[ix+1, ix], plusOneCmplx, buffS.M[ix, ix+1], td, cd)
+
+        be_gemm!('N', 'N', minusOneCmplx, buffTx.M[ix+1, ix], buffTx.M[ix, ix+1], plusOneCmplx, buffS.M[ix+1, ix+1], td, cd)
+    end
+end
