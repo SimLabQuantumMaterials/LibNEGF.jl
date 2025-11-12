@@ -116,10 +116,11 @@ function keldyshndiag_v3!(M::BlockMatrix, S::BlockMatrix, auxData::AuxDataKeldys
     # upward pass of recursive Keldysh
     keldyshndiag_upward_rkd!(auxData, td, cd)
 
-    # TODO #2 : central (upward/downward) pass of RKD
+    # central (upward/downward) pass of RKD
     keldyshndiag_central_rkd!(M, auxData, td, cd)
 
-    # TODO #3 : downward pass of RKD
+    # downward pass of RKD
+    keldyshndiag_downward_rkd!(auxData, td, cd)    
 end
 
 # upward RGF pass only
