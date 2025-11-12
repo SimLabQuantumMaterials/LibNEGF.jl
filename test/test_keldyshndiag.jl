@@ -49,7 +49,7 @@ blockSize = 32
                     # make Arandbm Hermitian, this will be the middle operator in Keldysh
                     Arandbm = bm_similar(Mbm, 2)
                     Arandsp = bm_convert(Arandbm)
-                    Arandsp = (Arandsp + Arandsp') / 2
+                    Arandsp = (Arandsp + Arandsp') / convert(precx, 2.0)
                     # BUT : we need to save Arandbm efficiently, considering that it is Hermitian,
                     #       specified via the last parameter in the following line
                     Arandbm = bm_convert(Arandsp, Arandbm.blockSizes, Arandbm.ndiag, true)
@@ -63,11 +63,13 @@ blockSize = 32
                     auxDataKeldysh = allocate_aux_data_Keldysh(Mbm, Sbm, parse(Int, ARGS[2]), parse(Int, ARGS[3]))
                     keldyshndiag!(Mbm, Sbm, auxDataKeldysh, TimingData(), CountingData())
 
-                    # extract the output of Keldysh in sparse format
-                    GnUT = bm_convert(auxDataKeldysh.buffS)
-                    Gn = (GnUT + GnUT') / 2.0
+                    Gn = bm_convert(auxDataKeldysh.buffS)
 
-                    # now, do Keldysh by brute force
+                    # relErrHerm = LinearAlgebra.norm(Gn[2,2]-Gn[2,2]', 2) / LinearAlgebra.norm(Gn[2,2], 2)
+                    # println(relErrHerm)
+
+                    # THEN, do Keldysh by brute force
+
                     M = bm_convert(Mbm)
                     Gr = LinearAlgebra.inv(Array(M))
                     S = bm_convert(Sbm)
@@ -77,35 +79,6 @@ blockSize = 32
                     relErr = LinearAlgebra.norm(Array(Gn)-GnBF, 2) / LinearAlgebra.norm(GnBF, 2)
                     println(relErr)
                     # @test relErr < roundoffs[precx] * 1.0E02
-
-                    exit()
-
-                    # # FIRST, do Keldysh 'by hand'
-
-                    # # # pre-allocate the output matrix
-                    # # MbmInvNdiag = bm_similar(Mbm, 1)
-                    # # # get the block n-diagonal of M^-1 via RGF
-                    # # bndiag_of_inv_ddrgf!(MbmInvNdiag, Mbm, auxDataRGF, TimingData(), CountingData())
-
-                    # # convert back to sparse
-                    # MinvSp = bm_convert(MbmInvNdiag)
-
-                    # C1sp = MinvSp * (Arandsp * MinvSp')
-                    # # but, we need to extract the bndiag part of C1sp
-                    # C1bm = bm_convert(C1sp, Mbm.blockSizes, Mbm.ndiag)
-                    # C1sp = bm_convert(C1bm)
-                    # # for de-allocation of some matrices
-                    # MinvSp = 0
-                    # Arandsp = 0
-                    # C1bm = 0
-                    # GC.gc()
-
-                    # # THEN, do Keldysh via its function
-
-                    # C2bm = bm_similar(Mbm, 1)
-                    # auxDataKeldysh = allocate_aux_data_Keldysh(Mbm, auxDataRGF)
-                    # keldyshndiag!(C2bm, MbmInvNdiag, Mbm, Arandbm, auxDataKeldysh, TimingData(), CountingData(), "v2")
-                    # C2sp = bm_convert(C2bm)
 
                     # relErr = LinearAlgebra.norm(Array(C1sp - C2sp), 2) / LinearAlgebra.norm(Array(C1sp), 2)
                     # @test relErr < roundoffs[precx] * 1.0E02

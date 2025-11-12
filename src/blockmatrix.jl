@@ -97,13 +97,15 @@ function bm_convert(M::BlockMatrix)::SparseArrays.SparseMatrixCSC
         ibeg = sum(M.blockSizes[1:ix-1]) + 1
         iend = sum(M.blockSizes[1:ix])
         # now, copy the blocks within the ix-th row
-        if !M.isHermitian
-            if ix > 1
-                # left
-                for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
-                    jbeg = sum(M.blockSizes[1:jx-1]) + 1
-                    jend = sum(M.blockSizes[1:jx])
+        if ix > 1
+            # left
+            for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
+                jbeg = sum(M.blockSizes[1:jx-1]) + 1
+                jend = sum(M.blockSizes[1:jx])
+                if !M.isHermitian
                     A[ibeg:iend, jbeg:jend] = sparse(be_copy_from_hw(M.M[ix, jx]))
+                else
+                    A[ibeg:iend, jbeg:jend] = sparse(be_copy_from_hw(M.M[jx, ix]))'
                 end
             end
         end

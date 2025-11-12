@@ -176,7 +176,7 @@ function keldyshndiag_central_rkd!(M::BlockMatrix, auxData::AuxDataKeldysh, td::
     # through this one we access the block-diagonal elements only
     buffXdiag = auxData.buffX
     # through this one we access the block off-diagonal elements only
-    buffXoff = auxData.buffM2
+    buffXoff = auxData.buffX
 
     buffM2 = auxData.buffM2
     buffS = auxData.buffS
@@ -235,7 +235,6 @@ function keldyshndiag_downward_rkd!(auxData::AuxDataKeldysh, td::TimingData, cd:
     for ix = 1:npl-1
         be_gemm!('C', 'C', minusOneCmplx, buffS.M[ix, ix+1], buffTx.M[ix+1, ix], plusOneCmplx, buffS.M[ix+1, ix+1], td, cd)
         be_gemm!('N', 'C', minusOneCmplx, buffS.M[ix, ix], buffTx.M[ix+1, ix], plusOneCmplx, buffS.M[ix, ix+1], td, cd)
-
-        be_gemm!('N', 'N', minusOneCmplx, buffTx.M[ix+1, ix], buffTx.M[ix, ix+1], plusOneCmplx, buffS.M[ix+1, ix+1], td, cd)
+        be_gemm!('N', 'N', minusOneCmplx, buffTx.M[ix+1, ix], buffS.M[ix, ix+1], plusOneCmplx, buffS.M[ix+1, ix+1], td, cd)
     end
 end
