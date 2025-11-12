@@ -15,6 +15,7 @@ struct BlockMatrix
     nrsType::DataType
     # 0 is Array-like, 1 is LU-like
     isArrayOrLU::Bool
+    isHermitian::Bool
 end
 
 # IMPORTANT : we work here under the assumption that the matrices of type
@@ -33,11 +34,11 @@ Converts the sparse input matrix `M` to the `BlockMatrix` type.
   and the output, e.g. Dict("in" => 3, "out" => 3) for block tri-diagonal.
 """
 function bm_convert(M::SparseArrays.SparseMatrixCSC, blockSizes::Vector{Int},
-    ndiag::Dict{String,Int})::BlockMatrix
+    ndiag::Dict{String,Int}, isHermitian::Bool)::BlockMatrix
     # npl stands for number of principal layers
     npl = size(blockSizes)[1]
     # in general, these type of block matrices will contain Array-like object and not LU-like
-    A = BlockMatrix(copy(blockSizes), ArrayOrLU_(undef, npl, npl), ndiag, typeof(M[1, 1]), 0)
+    A = BlockMatrix(copy(blockSizes), ArrayOrLU_(undef, npl, npl), ndiag, typeof(M[1, 1]), 0, isHermitian)
 
     # loop over the block sizes, conversely over the block rows
     for ix = 1:npl
@@ -45,12 +46,14 @@ function bm_convert(M::SparseArrays.SparseMatrixCSC, blockSizes::Vector{Int},
         ibeg = sum(blockSizes[1:ix-1]) + 1
         iend = sum(blockSizes[1:ix])
         # now, copy the blocks within the ix-th row
-        if ix > 1
-            # left
-            for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
-                jbeg = sum(blockSizes[1:jx-1]) + 1
-                jend = sum(blockSizes[1:jx])
-                A.M[ix, jx] = be_copy_to_hw(Array(M[ibeg:iend, jbeg:jend]))
+        if !isHermitian
+            if ix > 1
+                # left
+                for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
+                    jbeg = sum(blockSizes[1:jx-1]) + 1
+                    jend = sum(blockSizes[1:jx])
+                    A.M[ix, jx] = be_copy_to_hw(Array(M[ibeg:iend, jbeg:jend]))
+                end
             end
         end
         # center
@@ -94,12 +97,14 @@ function bm_convert(M::BlockMatrix)::SparseArrays.SparseMatrixCSC
         ibeg = sum(M.blockSizes[1:ix-1]) + 1
         iend = sum(M.blockSizes[1:ix])
         # now, copy the blocks within the ix-th row
-        if ix > 1
-            # left
-            for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
-                jbeg = sum(M.blockSizes[1:jx-1]) + 1
-                jend = sum(M.blockSizes[1:jx])
-                A[ibeg:iend, jbeg:jend] = sparse(be_copy_from_hw(M.M[ix, jx]))
+        if !M.isHermitian
+            if ix > 1
+                # left
+                for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
+                    jbeg = sum(M.blockSizes[1:jx-1]) + 1
+                    jend = sum(M.blockSizes[1:jx])
+                    A[ibeg:iend, jbeg:jend] = sparse(be_copy_from_hw(M.M[ix, jx]))
+                end
             end
         end
         # center
@@ -147,13 +152,15 @@ function bm_convert(M::BlockMatrix, permVec::Vector{Int})::SparseArrays.SparseMa
         ibeg = sum(M.blockSizes[1:ixPerm-1]) + 1
         iend = sum(M.blockSizes[1:ixPerm])
         # now, copy the blocks within the ix-th row
-        if ix > 1
-            # left
-            for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
-                jxPerm = pv[jx]
-                jbeg = sum(M.blockSizes[1:jxPerm-1]) + 1
-                jend = sum(M.blockSizes[1:jxPerm])
-                A[ibeg:iend, jbeg:jend] = sparse(be_copy_from_hw(M.M[ixPerm, jxPerm]))
+        if !M.isHermitian
+            if ix > 1
+                # left
+                for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
+                    jxPerm = pv[jx]
+                    jbeg = sum(M.blockSizes[1:jxPerm-1]) + 1
+                    jend = sum(M.blockSizes[1:jxPerm])
+                    A[ibeg:iend, jbeg:jend] = sparse(be_copy_from_hw(M.M[ixPerm, jxPerm]))
+                end
             end
         end
         # center
@@ -227,15 +234,17 @@ function bm_copy(M::BlockMatrix)::BlockMatrix
     ndiag = M.ndiag
     npl = size(M.blockSizes)[1]
 
-    A = BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl), ndiag, M.nrsType, M.isArrayOrLU)
+    A = BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl), ndiag, M.nrsType, M.isArrayOrLU, M.isHermitian)
 
     # loop over the block sizes, conversely over the block rows
     for ix = 1:npl
         # now, copy the blocks within the ix-th row
-        if ix > 1
-            # left
-            for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
-                A.M[ix, jx] = be_copy_in_hw(M.M[ix, jx])
+        if !M.isHermitian
+            if ix > 1
+                # left
+                for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
+                    A.M[ix, jx] = be_copy_in_hw(M.M[ix, jx])
+                end
             end
         end
         # center
@@ -267,10 +276,12 @@ function bm_copy!(Mout::BlockMatrix, Min::BlockMatrix)
     # loop over the block sizes, conversely over the block rows
     for ix = 1:npl
         # now, copy the blocks within the ix-th row
-        if ix > 1
-            # left
-            for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
-                be_copy_in_hw!(Mout.M[ix, jx], Min.M[ix, jx])
+        if !Min.isHermitian
+            if ix > 1
+                # left
+                for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
+                    be_copy_in_hw!(Mout.M[ix, jx], Min.M[ix, jx])
+                end
             end
         end
         # center
@@ -299,18 +310,18 @@ function bm_similar(M::BlockMatrix, filling::Int)::BlockMatrix
     npl = size(M.blockSizes)[1]
 
     if filling == 0
-        return BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl), M.ndiag, M.nrsType, M.isArrayOrLU)
+        return BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl), M.ndiag, M.nrsType, M.isArrayOrLU, M.isHermitian)
     else
         blockSizes = M.blockSizes
         npl = size(blockSizes)[1]
-        A = BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl), M.ndiag, M.nrsType, M.isArrayOrLU)
+        A = BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl), M.ndiag, M.nrsType, M.isArrayOrLU, M.isHermitian)
         bm_blocks_define!(A, filling)
         return A
     end
 end
 
-function bm_empty(blockSizes::Vector{Int}, npl::Int, ndiag::Int, isArrayOrLU::Bool, nrsType::DataType)::BlockMatrix
-    return BlockMatrix(copy(blockSizes), ArrayOrLU_(undef, npl, npl), Dict("in" => ndiag, "out" => ndiag), nrsType, isArrayOrLU)
+function bm_empty(blockSizes::Vector{Int}, npl::Int, ndiag::Int, isArrayOrLU::Bool, nrsType::DataType, isHermitian::Bool)::BlockMatrix
+    return BlockMatrix(copy(blockSizes), ArrayOrLU_(undef, npl, npl), Dict("in" => ndiag, "out" => ndiag), nrsType, isArrayOrLU, isHermitian)
 end
 
 """
@@ -342,14 +353,16 @@ function bm_blocks_define!(M::BlockMatrix, filling::Int)
         # indices for the rows
         iSize = blockSizes[ix]
         # now, copy the blocks within the ix-th row
-        if ix > 1
-            # left
-            for jx = (ix-1):-1:max(1, ix - Int((ndiag["in"] - 1) / 2))
-                jSize = blockSizes[jx]
-                if filling == 1
-                    A.M[ix, jx] = be_zero_array(A.nrsType, (iSize, jSize))
-                else
-                    A.M[ix, jx] = be_random_array(A.nrsType, (iSize, jSize))
+        if !A.isHermitian
+            if ix > 1
+                # left
+                for jx = (ix-1):-1:max(1, ix - Int((ndiag["in"] - 1) / 2))
+                    jSize = blockSizes[jx]
+                    if filling == 1
+                        A.M[ix, jx] = be_zero_array(A.nrsType, (iSize, jSize))
+                    else
+                        A.M[ix, jx] = be_random_array(A.nrsType, (iSize, jSize))
+                    end
                 end
             end
         end
@@ -777,7 +790,7 @@ function bm_create_synthetic(A_::BlockMatrix, nrLayers::Int, blocksDim::Int)::Bl
     lowLayers = Int(floor(nrLayers / npl))
     restLayers = nrLayers - lowLayers * npl
 
-    A = BlockMatrix(copy(blockSizes), ArrayOrLU_(undef, nrLayers, nrLayers), ndiag, A_.nrsType, 0)
+    A = BlockMatrix(copy(blockSizes), ArrayOrLU_(undef, nrLayers, nrLayers), ndiag, A_.nrsType, 0, A_.isHermitian)
 
     # loop over chunks of layers
     for olx = 1:lowLayers+1
@@ -792,11 +805,13 @@ function bm_create_synthetic(A_::BlockMatrix, nrLayers::Int, blocksDim::Int)::Bl
         for ixL = 1:nrLoopLayers
             ixG = ixL + offsetG
             # now, copy the blocks within the ix-th row
-            if ixL > 1
-                # left
-                for jxL = (ixL-1):-1:max(1, ixL - Int((ndiag["out"] - 1) / 2))
-                    jxG = jxL + offsetG
-                    A.M[ixG, jxG] = be_copy_in_hw((A_.M[1+ixL, 1+jxL])[1:blocksDim, 1:blocksDim])
+            if !A.isHermitian
+                if ixL > 1
+                    # left
+                    for jxL = (ixL-1):-1:max(1, ixL - Int((ndiag["out"] - 1) / 2))
+                        jxG = jxL + offsetG
+                        A.M[ixG, jxG] = be_copy_in_hw((A_.M[1+ixL, 1+jxL])[1:blocksDim, 1:blocksDim])
+                    end
                 end
             end
             # center
@@ -824,13 +839,17 @@ function bm_create_synthetic(A_::BlockMatrix, nrLayers::Int, blocksDim::Int)::Bl
     # first, top-left corner
     A.M[1, 1] = be_copy_in_hw((A_.M[1, 1])[1:blocksDim, 1:blocksDim])
     A.M[1, 2] = be_copy_in_hw((A_.M[1, 2])[1:blocksDim, 1:blocksDim])
-    A.M[2, 1] = be_copy_in_hw((A_.M[2, 1])[1:blocksDim, 1:blocksDim])
+    if !A.isHermitian
+        A.M[2, 1] = be_copy_in_hw((A_.M[2, 1])[1:blocksDim, 1:blocksDim])
+    end
 
     # then, bottom-right corner - for this, restore npl to the actual total
     npl += 2
     A.M[nrLayers, nrLayers] = be_copy_in_hw((A_.M[npl, npl])[1:blocksDim, 1:blocksDim])
     A.M[nrLayers-1, nrLayers] = be_copy_in_hw((A_.M[npl-1, npl])[1:blocksDim, 1:blocksDim])
-    A.M[nrLayers, nrLayers-1] = be_copy_in_hw((A_.M[npl, npl-1])[1:blocksDim, 1:blocksDim])
+    if !A.isHermitian
+        A.M[nrLayers, nrLayers-1] = be_copy_in_hw((A_.M[npl, npl-1])[1:blocksDim, 1:blocksDim])
+    end
 
     return A
 end
@@ -845,7 +864,7 @@ Create a random synthetic block tridiagonal matrix.
 - `blocksDim::Int`: the average size of the principal layers (i.e., blocks).
 - `nrsType::DataType`: the type of the underlying data.
 """
-function bm_create_synthetic_random(nrLayers::Int, blocksDim::Int, nrsType::DataType)::BlockMatrix
+function bm_create_synthetic_random(nrLayers::Int, blocksDim::Int, nrsType::DataType, isHermitian::Bool)::BlockMatrix
     # IMPORTANT : this function assumes that all of the principal layers are of
     #             the same size
 
@@ -856,17 +875,19 @@ function bm_create_synthetic_random(nrLayers::Int, blocksDim::Int, nrsType::Data
     # hardcoding block tridiagonal
     ndiag = Dict("in" => 3, "out" => 3)
 
-    A = BlockMatrix(copy(blockSizes), ArrayOrLU_(undef, nrLayers, nrLayers), ndiag, nrsType, 0)
+    A = BlockMatrix(copy(blockSizes), ArrayOrLU_(undef, nrLayers, nrLayers), ndiag, nrsType, 0, isHermitian)
 
     # loop over chunks of layers
     for ix = 1:nrLayers
-        if ix > 1
-            # left
-            for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
-                # add a damping of 0.3
-                blocksDimI = blockSizes[ix]
-                blocksDimJ = blockSizes[jx]
-                A.M[ix, jx] = convert(nrsType, 0.3) * be_random_array(nrsType, (blocksDimI, blocksDimJ))
+        if !isHermitian
+            if ix > 1
+                # left
+                for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
+                    # add a damping of 0.3
+                    blocksDimI = blockSizes[ix]
+                    blocksDimJ = blockSizes[jx]
+                    A.M[ix, jx] = convert(nrsType, 0.3) * be_random_array(nrsType, (blocksDimI, blocksDimJ))
+                end
             end
         end
         # center
@@ -902,10 +923,12 @@ function bm_reference!(M::BlockMatrix, B::ArrayOrLUView_)
     # loop over the block sizes, conversely over the block rows
     for ix = 1:npl
         # now, copy the blocks within the ix-th row
-        if ix > 1
-            # left
-            for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
-                M.M[ix, jx] = B[ix, jx]
+        if !M.isHermitian
+            if ix > 1
+                # left
+                for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
+                    M.M[ix, jx] = B[ix, jx]
+                end
             end
         end
         # center
@@ -937,12 +960,14 @@ function bm_reference!(M::BlockMatrix, B::ArrayOrLU_, iOffset::Int, jOffset::Int
     # loop over the block sizes, conversely over the block rows
     for ix = 1:npl
         # now, copy the blocks within the ix-th row
-        if ix > 1
-            # left
-            for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
-                ix_ = iOffset + ix
-                jx_ = jOffset + jx
-                M.M[ix, jx] = B[ix_, jx_]
+        if !M.isHermitian
+            if ix > 1
+                # left
+                for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
+                    ix_ = iOffset + ix
+                    jx_ = jOffset + jx
+                    M.M[ix, jx] = B[ix_, jx_]
+                end
             end
         end
         # center

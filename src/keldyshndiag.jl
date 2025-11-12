@@ -17,7 +17,7 @@ function allocate_aux_data_Keldysh(M::BlockMatrix, auxDataRGF::AuxDataRGF)::AuxD
     # in general, these type of auxiliary block matrices will contain
     # Array-like object and not LU-like, as specified by the last param
     bmLargeBuff = BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl),
-        Dict("in" => m, "out" => m), M.nrsType, 0)
+        Dict("in" => m, "out" => m), M.nrsType, 0, )
     bm_blocks_define!(bmLargeBuff, 1)
 
     # the final struct with the buffers
@@ -57,7 +57,7 @@ function keldyshndiag_v1!(C::BlockMatrix, Binv::BlockMatrix, B::BlockMatrix, A::
             Csp = Binvsp * (Asp * Binvsp')
         end
     end
-    Cbm = bm_convert(Csp, B.blockSizes, B.ndiag)
+    Cbm = bm_convert(Csp, B.blockSizes, B.ndiag, false)
     bm_copy!(C, Cbm)
 end
 

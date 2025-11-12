@@ -5,55 +5,83 @@ module TestLibNEGFKeldysh
 using LibNEGF, Test
 import LinearAlgebra
 
+# 1 from disk, 2 is random
+whereFrom = 2
+# values for the synthetic matrix
+npl = 10
+blockSize = 32
+
 @testset "Keldyshndiag" begin
     include("common_to_test.jl")
 
     for systemx in systemNames
         for E in Epoints
             for k in kpoints
-                # pre-compute the condition number in double precision
-                # list of matrices to load
-                listMatsToLoad = ["H", "S", "Sc"]
-                loadedMats, blockSizes = load_matrices(systemx, E, k,
-                    listMatsToLoad, ComplexF64)
-                H = loadedMats[1]
-                S = loadedMats[2]
-                Se = loadedMats[3]
-                M = build_M_from_HS(H, S, Se, energVals[E])
-
                 for precx in precs
-                    # load matrices and build M
-                    listMatsToLoad = ["H", "S", "Sc"]
-                    loadedMats, blockSizes = load_matrices(systemx, E, k,
-                        listMatsToLoad, precx)
-                    H = loadedMats[1]
-                    S = loadedMats[2]
-                    Se = loadedMats[3]
-                    M = build_M_from_HS(H, S, Se, energVals[E])
+                    if whereFrom == 1
+                        # load matrices and build M
+                        listMatsToLoad = ["H", "S", "Sc"]
+                        loadedMats, blockSizes = load_matrices(systemx, E, k,
+                            listMatsToLoad, precx)
+                        Hx = loadedMats[1]
+                        Sx = loadedMats[2]
+                        Se = loadedMats[3]
+                        Mx = build_M_from_HS(Hx, Sx, Se, energVals[E])
 
-                    # loading blockSizes only - this is redundant, but illustrates
-                    # that this can be done without any matrix loading
-                    listMatsToLoad = Vector{String}()
-                    loadedMats, blockSizes = load_matrices(systemx, E, k,
-                        listMatsToLoad, precx)
+                        # loading blockSizes only - this is redundant, but illustrates
+                        # that this can be done without any matrix loading
+                        listMatsToLoad = Vector{String}()
+                        loadedMats, blockSizes = load_matrices(systemx, E, k,
+                            listMatsToLoad, precx)
+
+                        # convert to BlockMatrix
+                        MbmFromData = bm_convert(Mx, blockSizes, Dict("in" => 3, "out" => 3))
+
+                        # crate synthetic matrix
+                        MbmSynth = bm_create_synthetic(MbmFromData, npl, blockSize)
+                    else
+                        MbmSynth = bm_create_synthetic_random(npl, blockSize, precx)
+                    end
+
+                    # this is T, whose inverse is Gr
+                    Mbm = MbmSynth
+
+                    # make Arandbm Hermitian
+                    Arandbm = bm_similar(Mbm, 2)
+                    Arandsp = bm_convert(Arandbm)
+                    Arandsp = (Arandsp + Arandsp') / 2
+                    Arandbm = bm_convert(Arandsp, Arandbm.blockSizes, Arandbm.ndiag)
+
+                    # BUT : we need to save Arandbm efficiently, considering that it is Hermitian
+                    # TODO
+
+                    Al = Arandbm.M[1,1]
+                    Alt = LinearAlgebra.UpperTriangular(Al)
+
+                    println(sizeof(Al))
+                    println(sizeof(Alt))
+
+                    Al[1,1] = 17.893
+                    println(Alt[1,1])
+
+                    # we call this Sn, which stands for \Sigma^{n}
+                    Sn = Arandbm
+
+                    exit()
 
                     # FIRST, do Keldysh 'by hand'
 
-                    # convert to BlockMatrix
-                    Mbm = bm_convert(M, blockSizes, Dict("in" => 3, "out" => 3))
                     # pre-allocate buffer data for DD-RGF
                     auxDataRGF = allocate_aux_data_RGF(Mbm)
-                    # pre-allocate the output matrix
-                    MbmInvNdiag = bm_similar(Mbm, 1)
-                    # get the block n-diagonal of M^-1 via RGF
-                    bndiag_of_inv_ddrgf!(MbmInvNdiag, Mbm, auxDataRGF, TimingData(), CountingData())
+
+                    # # pre-allocate the output matrix
+                    # MbmInvNdiag = bm_similar(Mbm, 1)
+                    # # get the block n-diagonal of M^-1 via RGF
+                    # bndiag_of_inv_ddrgf!(MbmInvNdiag, Mbm, auxDataRGF, TimingData(), CountingData())
+
                     # convert back to sparse
                     MinvSp = bm_convert(MbmInvNdiag)
-                    Arandbm = bm_similar(Mbm, 2)
-                    Arandsp = bm_convert(Arandbm)
-                    # make Arandbm and Arandsp symmetric
-                    Arandsp = (Arandsp + Arandsp') / 2
-                    Arandbm = bm_convert(Arandsp, Arandbm.blockSizes, Arandbm.ndiag)
+
                     C1sp = MinvSp * (Arandsp * MinvSp')
                     # but, we need to extract the bndiag part of C1sp
                     C1bm = bm_convert(C1sp, Mbm.blockSizes, Mbm.ndiag)

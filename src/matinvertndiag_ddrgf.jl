@@ -65,11 +65,11 @@ function allocate_aux_data_RGF(M::BlockMatrix, nrBLASThreadsOuter::Int, nrBLASTh
     # in general, these type of auxiliary block matrices will contain
     # Array-like object and not LU-like, as specified by the last param
     buffM = BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl),
-        M.ndiag, M.nrsType, 1)
+        M.ndiag, M.nrsType, 1, false)
     bm_blocks_define!(buffM, 1)
 
     bIdM = BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl),
-        Dict("in" => 1, "out" => 1), M.nrsType, 0)
+        Dict("in" => 1, "out" => 1), M.nrsType, 0, false)
     bm_blocks_define_identity!(bIdM)
 
     # the final struct with the buffers
@@ -479,7 +479,7 @@ function allocate_aux_data_DDRGF_single_level(M::BlockMatrix, nrBlocksInNonPivot
             smallBlockSizes = copy(buffTHat.blockSizes[jxStart:jxEnd])
             nrDiags::Int = blockSizeD1 + (blockSizeD1 - 1)
             smallMbmBuffTHat = BlockMatrix(copy(smallBlockSizes), ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
-                Dict("in" => 3, "out" => nrDiags), buffTHat.nrsType, 0)
+                Dict("in" => 3, "out" => nrDiags), buffTHat.nrsType, 0, false)
             bm_blocks_define_complement11!(smallMbmBuffTHat, smallMViewBuffTHat, 2)
         end
     end
@@ -501,29 +501,29 @@ function allocate_aux_data_DDRGF_single_level(M::BlockMatrix, nrBlocksInNonPivot
     for ix = 1:nrThreads
         push!(smallBlockSizes11, copy(M.blockSizes[1:blockSizeD1]))
         push!(smallAuxDataSeq11, AuxDataRGF(BlockMatrix(copy(smallBlockSizes11[ix]), ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
-                buffMPerm.ndiag, buffMPerm.nrsType, 0), BlockMatrix(copy(smallBlockSizes11[ix]), ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
-                bIdMPerm.ndiag, bIdMPerm.nrsType, 0), 1, auxDataSeq.nrBLASThreadsOuter, auxDataSeq.nrBLASThreadsInner))
+                buffMPerm.ndiag, buffMPerm.nrsType, 0, false), BlockMatrix(copy(smallBlockSizes11[ix]), ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
+                bIdMPerm.ndiag, bIdMPerm.nrsType, 0, false), 1, auxDataSeq.nrBLASThreadsOuter, auxDataSeq.nrBLASThreadsInner))
         push!(smallMbmIn11, BlockMatrix(copy(smallBlockSizes11[ix]), ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
-            M.ndiag, M.nrsType, 0))
+            M.ndiag, M.nrsType, 0, false))
         push!(smallMbmOut11, BlockMatrix(copy(smallBlockSizes11[ix]), ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
-            buffTHatPerm.ndiag, buffTHatPerm.nrsType, 0))
+            buffTHatPerm.ndiag, buffTHatPerm.nrsType, 0, false))
         push!(smallBlockSizes22, copy(M.blockSizes[1:blockSizeD2]))
         push!(smallMbmIn22, BlockMatrix(copy(smallBlockSizes22[ix]), ArrayOrLU_(undef, blockSizeD2, blockSizeD2),
-            M.ndiag, M.nrsType, 0))
+            M.ndiag, M.nrsType, 0, false))
         push!(smallMbmBuffTHat22, BlockMatrix(copy(smallBlockSizes22[ix]), ArrayOrLU_(undef, blockSizeD2, blockSizeD2),
-            buffTHatPerm.ndiag, buffTHatPerm.nrsType, 0))
+            buffTHatPerm.ndiag, buffTHatPerm.nrsType, 0, false))
     end
 
     # pre-allocations needed for the inverse of the Schur complement
     nrLayersSchurCompl = sum(sizeDomains[1:nrTasks])
     blockSizesSchurCompl = copy(buffTHatPerm.blockSizes[1:nrLayersSchurCompl])
     buffTHat22inv = BlockMatrix(copy(blockSizesSchurCompl), ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
-        buffTHatPerm.ndiag, buffTHatPerm.nrsType, 0)
+        buffTHatPerm.ndiag, buffTHatPerm.nrsType, 0, false)
     auxDataSeq22inv = AuxDataRGF(BlockMatrix(copy(blockSizesSchurCompl), ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
-            buffMPerm.ndiag, buffMPerm.nrsType, 0), BlockMatrix(copy(blockSizesSchurCompl), ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
-            bIdMPerm.ndiag, bIdMPerm.nrsType, 0), 0, nrBLASThreadsOuter, nrBLASThreadsInner)
+            buffMPerm.ndiag, buffMPerm.nrsType, 0, false), BlockMatrix(copy(blockSizesSchurCompl), ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
+            bIdMPerm.ndiag, bIdMPerm.nrsType, 0, false), 0, nrBLASThreadsOuter, nrBLASThreadsInner)
     buffM222inv = BlockMatrix(copy(blockSizesSchurCompl), ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
-        buffTHatPerm.ndiag, buffTHatPerm.nrsType, 0)
+        buffTHatPerm.ndiag, buffTHatPerm.nrsType, 0, false)
 
     # buffer for the output, (independently) available at each level of DDRGF
     buffMout = bm_copy(buffTHat)
@@ -869,16 +869,18 @@ end
 function bndiag_of_inv_ddrgf_create_permuted_matrix(M::BlockMatrix, permVec::Vector{Int})::BlockMatrix
     npl = size(M.blockSizes)[1]
     ndiag = M.ndiag
-    Mhat = BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl), M.ndiag, M.nrsType, 0)
+    Mhat = BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl), M.ndiag, M.nrsType, 0, M.isHermitian)
     pv = permVec
 
     # loop over the block sizes, conversely over the block rows
     for ix = 1:npl
         # now, copy the blocks within the ix-th row
-        if ix > 1
-            # left
-            for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
-                Mhat.M[pv[ix], pv[jx]] = M.M[ix, jx]
+        if !M.isHermitian
+            if ix > 1
+                # left
+                for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
+                    Mhat.M[pv[ix], pv[jx]] = M.M[ix, jx]
+                end
             end
         end
         # center
@@ -1581,9 +1583,9 @@ function bndiag_of_inv_ddrgf_build_Schur_compl!(Min_::BlockMatrix, auxData::AuxD
             else
                 smallBlockSizes = Min.blockSizes[jx2Start:jx2End]
                 smallMbmIn = BlockMatrix(copy(smallBlockSizes), ArrayOrLU_(undef, jx2End - jx2Start + 1, jx2End - jx2Start + 1),
-                    Min.ndiag, Min.nrsType, 0)
+                    Min.ndiag, Min.nrsType, 0, false)
                 smallMbmBuffTHat = BlockMatrix(copy(smallBlockSizes), ArrayOrLU_(undef, jx2End - jx2Start + 1, jx2End - jx2Start + 1),
-                    buffTHat.ndiag, buffTHat.nrsType, 0)
+                    buffTHat.ndiag, buffTHat.nrsType, 0, false)
             end
 
             # TODO : move setting these references to a 'setup' stage (then wrap with an
