@@ -63,6 +63,21 @@ blockSize = 32
                     auxDataKeldysh = allocate_aux_data_Keldysh(Mbm, Sbm, parse(Int, ARGS[2]), parse(Int, ARGS[3]))
                     keldyshndiag!(Mbm, Sbm, auxDataKeldysh, TimingData(), CountingData())
 
+                    # extract the output of Keldysh in sparse format
+                    GnUT = bm_convert(auxDataKeldysh.buffS)
+                    Gn = (GnUT + GnUT') / 2.0
+
+                    # now, do Keldysh by brute force
+                    M = bm_convert(Mbm)
+                    Gr = LinearAlgebra.inv(Array(M))
+                    S = bm_convert(Sbm)
+                    S = Array(S)
+                    GnBF = Gr * (S * Gr')
+
+                    relErr = LinearAlgebra.norm(Array(Gn)-GnBF, 2) / LinearAlgebra.norm(GnBF, 2)
+                    println(relErr)
+                    # @test relErr < roundoffs[precx] * 1.0E02
+
                     exit()
 
                     # # FIRST, do Keldysh 'by hand'
