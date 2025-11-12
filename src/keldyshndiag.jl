@@ -7,12 +7,13 @@ RGF operations, and `bmLargeBuff` to do the further GEMM.
 struct AuxDataKeldysh
     auxDataRGF::AuxDataRGF
     buffS::BlockMatrix
-    buffMdiag::BlockMatrix
+    buffM2::BlockMatrix
+    buffX::BlockMatrix
 end
 
 function allocate_aux_data_Keldysh(M::BlockMatrix, S::BlockMatrix, nrBLASThreadsOuter::Int,
     nrBLASThreadsInner)::AuxDataKeldysh
-    # npl = size(M.blockSizes)[1]
+    npl = size(M.blockSizes)[1]
 
     auxDataRGF = allocate_aux_data_RGF(M, nrBLASThreadsOuter, nrBLASThreadsInner)
 
@@ -28,11 +29,15 @@ function allocate_aux_data_Keldysh(M::BlockMatrix, S::BlockMatrix, nrBLASThreads
     # this is the main buffer, of the same structure as the central operator in Keldysh, i.e., S
     buffS = bm_copy(S)
     # in principle, we only need the lower triangular part of the following buffer
-    buffMdiag = bm_copy(M)
+    buffM2 = bm_copy(M)
+    # this is a buffer used during the central pass of RKD
+    buffX = BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl),
+        Dict("in" => 3, "out" => 3), M.nrsType, 0, false)
+    bm_blocks_define!(buffX, 2)
 
     # the final struct with the buffers
     # auxDataKeldysh = AuxDataKeldysh(auxDataRGF, bmLargeBuff)
-    auxDataKeldysh = AuxDataKeldysh(auxDataRGF, buffS, buffMdiag)
+    auxDataKeldysh = AuxDataKeldysh(auxDataRGF, buffS, buffM2, buffX)
 
     return auxDataKeldysh
 end
@@ -112,6 +117,7 @@ function keldyshndiag_v3!(M::BlockMatrix, S::BlockMatrix, auxData::AuxDataKeldys
     keldyshndiag_upward_rkd!(auxData, td, cd)
 
     # TODO #2 : central (upward/downward) pass of RKD
+    keldyshndiag_central_rkd!(M, auxData, td, cd)
 
     # TODO #3 : downward pass of RKD
 end
@@ -123,8 +129,7 @@ function keldyshndiag_upward_rgf!(M::BlockMatrix, auxData::AuxDataKeldysh, td::T
     npl = size(M.blockSizes)[1]
 
     buffM1 = auxData.auxDataRGF.buffM
-    # auxData.buffMdiag is block-diagonal
-    buffM2 = auxData.buffMdiag
+    buffM2 = auxData.buffM2
 
     # bottom element
     be_lu!(buffM1.M[npl, npl], M.M[npl, npl], td, cd)
@@ -144,23 +149,75 @@ function keldyshndiag_upward_rgf!(M::BlockMatrix, auxData::AuxDataKeldysh, td::T
 
         be_copy_in_hw!(buffM2.M[ix, ix], M.M[ix, ix])
         be_gemm!('N', 'N', minusOneCmplx, M.M[ix, ix+1], buffM1.M[ix+1, ix], plusOneCmplx, buffM2.M[ix, ix], td, cd)
-        # TODO : double-check, but this last LU factorization seems to not be needed
         be_lu!(buffM1.M[ix, ix], buffM2.M[ix, ix], td, cd)
     end
 end
 
 function keldyshndiag_upward_rkd!(auxData::AuxDataKeldysh, td::TimingData, cd::CountingData)
-    npl = size(auxData.buffMdiag.blockSizes)[1]
+    npl = size(auxData.buffM2.blockSizes)[1]
 
-    minusOneCmplx = convert(auxData.buffMdiag.nrsType, -1.0)
-    plusOneCmplx = convert(auxData.buffMdiag.nrsType, 1.0)
+    minusOneCmplx = convert(auxData.buffM2.nrsType, -1.0)
+    plusOneCmplx = convert(auxData.buffM2.nrsType, 1.0)
 
     buffS = auxData.buffS
-    buffTt = auxData.auxDataRGF.buffM
+    buffTx = auxData.auxDataRGF.buffM
 
     for ix = npl-1:-1:1
-        be_gemm!('N', 'C', minusOneCmplx, buffTt.M[ix, ix+1], buffS.M[ix, ix+1], plusOneCmplx, buffS.M[ix, ix], td, cd)
-        be_gemm!('N', 'N', minusOneCmplx, buffTt.M[ix, ix+1], buffS.M[ix+1, ix+1], plusOneCmplx, buffS.M[ix, ix+1], td, cd)
-        be_gemm!('N', 'C', minusOneCmplx, buffS.M[ix, ix+1], buffTt.M[ix, ix+1], plusOneCmplx, buffS.M[ix, ix], td, cd)
+        be_gemm!('N', 'C', minusOneCmplx, buffTx.M[ix, ix+1], buffS.M[ix, ix+1], plusOneCmplx, buffS.M[ix, ix], td, cd)
+        be_gemm!('N', 'N', minusOneCmplx, buffTx.M[ix, ix+1], buffS.M[ix+1, ix+1], plusOneCmplx, buffS.M[ix, ix+1], td, cd)
+        be_gemm!('N', 'C', minusOneCmplx, buffS.M[ix, ix+1], buffTx.M[ix, ix+1], plusOneCmplx, buffS.M[ix, ix], td, cd)
+    end
+end
+
+function keldyshndiag_central_rkd!(M::BlockMatrix, auxData::AuxDataKeldysh, td::TimingData, cd::CountingData)
+    npl = size(auxData.buffM2.blockSizes)[1]
+
+    # through this one we access the block-diagonal elements only
+    buffXdiag = auxData.buffX
+    # through this one we access the block off-diagonal elements only
+    buffXoff = auxData.buffM2
+
+    buffM2 = auxData.buffM2
+    buffS = auxData.buffS
+
+    # through this one we access only the off-diagonal blocks
+    buffTx = auxData.auxDataRGF.buffM
+    # through this one we access only the diagonal blocks, which are LU elements
+    buffM1 = auxData.auxDataRGF.buffM
+
+    zeroCmplx = convert(auxData.buffM2.nrsType, 0.0)
+    plusOneCmplx = convert(auxData.buffM2.nrsType, 1.0)
+
+    # first, we set the X11 block to zero
+    be_fill!(buffXdiag.M[1, 1], zeroCmplx)
+    # then, sum 1.0 to its diagonal
+    nx::Int = size(buffXdiag.M[1, 1])[1]
+    for ix = 1:nx
+        buffXdiag.M[1, 1][ix, ix] += plusOneCmplx
+    end
+
+    for ix = 2:npl-1
+        # first, construct the new X_{ix,ix}
+
+        be_gemm!('N', 'N', plusOneCmplx, buffXdiag.M[ix-1, ix-1], buffTx.M[ix-1, ix], zeroCmplx, buffM2.M[ix-1, ix], td, cd)
+        be_mldivide!('N', buffXoff.M[ix-1, ix], buffM2.M[ix-1, ix], buffM1.M[ix-1, ix-1], td, cd)
+        be_gemm!('N', 'N', plusOneCmplx, M.M[ix, ix-1], buffXoff.M[ix-1, ix], zeroCmplx, buffXdiag.M[ix, ix], td, cd)
+
+        # next, compute the update on \Sigma^{n}
+
+        # for this, we first increase the diagonal of the new X_{ix,ix} by 1.0
+        nx = size(buffXdiag.M[ix, ix])[1]
+        for ix_ = 1:nx
+            buffXdiag.M[ix, ix][ix_, ix_] += plusOneCmplx
+        end
+
+        be_mldivide!('N', buffM2.M[ix, ix], buffXdiag.M[ix, ix], buffM1.M[ix, ix], td, cd)
+        be_gemm!('N', 'N', plusOneCmplx, buffM2.M[ix, ix], buffS.M[ix, ix+1], zeroCmplx, buffM2.M[ix, ix+1], td, cd)
+
+        begin
+            be_ctranspose!(buffM2.M[ix+1, ix], buffM2.M[ix, ix+1], td, cd)
+            be_mldivide!('N', buffXoff.M[ix+1, ix], buffM2.M[ix+1, ix], buffM1.M[ix+1, ix+1], td, cd)
+            be_ctranspose!(buffS.M[ix, ix+1], buffXoff.M[ix+1, ix], td, cd)
+        end
     end
 end
