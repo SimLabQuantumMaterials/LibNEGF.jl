@@ -48,7 +48,7 @@ Computes C = A * Binv * A^{H}, where Binv is the block tridiagonal of
 level but further within Keldysh and RGF.
 - `vsn:String`: the version of the implementation, currently available "v1" and "v2".
 """
-function keldyshndiag!(M::BlockMatrix, S::BlockMatrix, auxData::AuxDataKeldysh, td::TimingData, 
+function keldyshndiag!(M::BlockMatrix, S::BlockMatrix, auxData::AuxDataKeldysh, td::TimingData,
     cd::CountingData)
     keldyshndiag_v3!(M, S, auxData, td, cd)
 
@@ -62,7 +62,7 @@ function keldyshndiag!(M::BlockMatrix, S::BlockMatrix, auxData::AuxDataKeldysh, 
 end
 
 # first version, naive, inefficient
-function keldyshndiag_v1!(C::BlockMatrix, Binv::BlockMatrix, B::BlockMatrix, A::BlockMatrix, auxData::AuxDataKeldysh, 
+function keldyshndiag_v1!(C::BlockMatrix, Binv::BlockMatrix, B::BlockMatrix, A::BlockMatrix, auxData::AuxDataKeldysh,
     td::TimingData, cd::CountingData)
     bndiag_of_inv_rgf_local!(Binv, B, auxData.auxDataRGF, td, cd)
 
@@ -106,7 +106,10 @@ function keldyshndiag_v3!(M::BlockMatrix, S::BlockMatrix, auxData::AuxDataKeldys
 
     # now we start with the actual RKD stuff
 
-    # TODO #1 : upward pass of RKD
+    bm_copy!(auxData.buffS, S)
+
+    # upward pass of recursive Keldysh
+    keldyshndiag_upward_rkd!(auxData, td, cd)
 
     # TODO #2 : central (upward/downward) pass of RKD
 
@@ -143,5 +146,21 @@ function keldyshndiag_upward_rgf!(M::BlockMatrix, auxData::AuxDataKeldysh, td::T
         be_gemm!('N', 'N', minusOneCmplx, M.M[ix, ix+1], buffM1.M[ix+1, ix], plusOneCmplx, buffM2.M[ix, ix], td, cd)
         # TODO : double-check, but this last LU factorization seems to not be needed
         be_lu!(buffM1.M[ix, ix], buffM2.M[ix, ix], td, cd)
+    end
+end
+
+function keldyshndiag_upward_rkd!(auxData::AuxDataKeldysh, td::TimingData, cd::CountingData)
+    npl = size(auxData.buffMdiag.blockSizes)[1]
+
+    minusOneCmplx = convert(auxData.buffMdiag.nrsType, -1.0)
+    plusOneCmplx = convert(auxData.buffMdiag.nrsType, 1.0)
+
+    buffS = auxData.buffS
+    buffTt = auxData.auxDataRGF.buffM
+
+    for ix = npl-1:-1:1
+        be_gemm!('N', 'C', minusOneCmplx, buffTt.M[ix, ix+1], buffS.M[ix, ix+1], plusOneCmplx, buffS.M[ix, ix], td, cd)
+        be_gemm!('N', 'N', minusOneCmplx, buffTt.M[ix, ix+1], buffS.M[ix+1, ix+1], plusOneCmplx, buffS.M[ix, ix+1], td, cd)
+        be_gemm!('N', 'C', minusOneCmplx, buffS.M[ix, ix+1], buffTt.M[ix, ix+1], plusOneCmplx, buffS.M[ix, ix], td, cd)
     end
 end
