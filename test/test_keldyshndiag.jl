@@ -2,7 +2,7 @@
 
 module TestLibNEGFKeldysh
 
-using LibNEGF, Test
+using LibNEGF, Test, SparseArrays
 import LinearAlgebra
 
 # 1 from disk, 2 is random
@@ -11,6 +11,10 @@ whereFrom = 2
 npl = 10
 blockSize = 32
 
+# this factor relaxes the required relative tolerance
+accFctrBare = 1.0E3
+accFctr = 0.0
+
 @testset "Keldyshndiag" begin
     include("common_to_test.jl")
 
@@ -18,6 +22,12 @@ blockSize = 32
         for E in Epoints
             for k in kpoints
                 for precx in precs
+                    if precx == ComplexF64
+                        global accFctr = accFctrBare
+                    else
+                        # extra relaxation in lower precision
+                        global accFctr = accFctrBare
+                    end
                     if whereFrom == 1
                         # load matrices and build M
                         listMatsToLoad = ["H", "S", "Sc"]
@@ -65,9 +75,6 @@ blockSize = 32
 
                     Gn = bm_convert(auxDataKeldysh.buffS)
 
-                    # relErrHerm = LinearAlgebra.norm(Gn[2,2]-Gn[2,2]', 2) / LinearAlgebra.norm(Gn[2,2], 2)
-                    # println(relErrHerm)
-
                     # THEN, do Keldysh by brute force
 
                     M = bm_convert(Mbm)
@@ -75,13 +82,11 @@ blockSize = 32
                     S = bm_convert(Sbm)
                     S = Array(S)
                     GnBF = Gr * (S * Gr')
+                    GnBFbm = bm_convert(SparseArrays.SparseMatrixCSC{precx,Int}(GnBF), Sbm.blockSizes, Sbm.ndiag, true)
+                    GnBF = bm_convert(GnBFbm)
 
-                    relErr = LinearAlgebra.norm(Array(Gn)-GnBF, 2) / LinearAlgebra.norm(GnBF, 2)
-                    println(relErr)
-                    # @test relErr < roundoffs[precx] * 1.0E02
-
-                    # relErr = LinearAlgebra.norm(Array(C1sp - C2sp), 2) / LinearAlgebra.norm(Array(C1sp), 2)
-                    # @test relErr < roundoffs[precx] * 1.0E02
+                    relErr = LinearAlgebra.norm(Array(Gn) - GnBF, 2) / LinearAlgebra.norm(GnBF, 2)
+                    @test relErr < roundoffs[precx] * accFctr
                 end
             end
         end

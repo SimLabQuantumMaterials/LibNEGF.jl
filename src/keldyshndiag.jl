@@ -120,7 +120,7 @@ function keldyshndiag_v3!(M::BlockMatrix, S::BlockMatrix, auxData::AuxDataKeldys
     keldyshndiag_central_rkd!(M, auxData, td, cd)
 
     # downward pass of RKD
-    keldyshndiag_downward_rkd!(auxData, td, cd)    
+    keldyshndiag_downward_rkd!(auxData, td, cd)
 end
 
 # upward RGF pass only
@@ -189,6 +189,12 @@ function keldyshndiag_central_rkd!(M::BlockMatrix, auxData::AuxDataKeldysh, td::
     zeroCmplx = convert(auxData.buffM2.nrsType, 0.0)
     plusOneCmplx = convert(auxData.buffM2.nrsType, 1.0)
 
+    # "block-re-scaling" of the (1,2) block
+    be_mldivide!('N', buffM2.M[1, 2], buffS.M[1, 2], buffM1.M[1, 1], td, cd)
+    be_ctranspose!(buffM2.M[2, 1], buffM2.M[1, 2], td, cd)
+    be_mldivide!('N', buffXoff.M[2, 1], buffM2.M[2, 1], buffM1.M[2, 2], td, cd)
+    be_ctranspose!(buffS.M[1, 2], buffXoff.M[2, 1], td, cd)
+
     # first, we set the X11 block to zero
     be_fill!(buffXdiag.M[1, 1], zeroCmplx)
     # then, sum 1.0 to its diagonal
@@ -220,6 +226,14 @@ function keldyshndiag_central_rkd!(M::BlockMatrix, auxData::AuxDataKeldysh, td::
             be_mldivide!('N', buffXoff.M[ix+1, ix], buffM2.M[ix+1, ix], buffM1.M[ix+1, ix+1], td, cd)
             be_ctranspose!(buffS.M[ix, ix+1], buffXoff.M[ix+1, ix], td, cd)
         end
+    end
+
+    # "block-re-scaling" of the diagonal blocks
+    for ix = 1:npl
+        be_mldivide!('N', buffM2.M[ix, ix], buffS.M[ix, ix], buffM1.M[ix, ix], td, cd)
+        be_ctranspose!(buffXdiag.M[ix, ix], buffM2.M[ix, ix], td, cd)
+        be_mldivide!('N', buffM2.M[ix, ix], buffXdiag.M[ix, ix], buffM1.M[ix, ix], td, cd)
+        be_ctranspose!(buffS.M[ix, ix], buffM2.M[ix, ix], td, cd)
     end
 end
 
