@@ -49,7 +49,7 @@ for systemx in systemNames
                         Msp = build_M_from_HS(H, S, Se, energVals[Epoints[iE]])
                         Min = bm_convert(Msp, blockSizes, Dict("in" => 3, "out" => 3))
                     else
-                        Min = bm_create_synthetic_random(npl, blockSize, precx)
+                        Min = bm_create_synthetic_random(npl, blockSize, precx, false)
                     end
                     push!(Mins, Min)
                     push!(Mouts, bm_copy(Min))

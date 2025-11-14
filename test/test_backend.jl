@@ -47,7 +47,7 @@ end
                             # convert to BlockMatrix, this lives in the device always
                             Abm = bm_convert(M, blockSizes, Dict("in" => 3, "out" => 3))
                         else
-                            Abm = bm_create_synthetic_random(10, 64, precx)
+                            Abm = bm_create_synthetic_random(10, 64, precx, false)
                         end
 
                         # performance is not a problem here, therefore we call the garbage

@@ -8,8 +8,7 @@ if ARGS[1] == "apple"
 end
 
 # tests common to all of the supported hardwares
-include("test_blockmatrix.jl")
-include("test_backend.jl")
-include("test_matinvert.jl")
-# the following takes quite some time
-# include("test_keldyshndiag.jl")
+# include("test_blockmatrix.jl")
+# include("test_backend.jl")
+# include("test_matinvert.jl")
+include("test_keldyshndiag.jl")

@@ -39,11 +39,12 @@ for systemx in systemNames
                     Se = loadedMats[3]
                     M = build_M_from_HS(H, S, Se, energVals[E])
 
-                    # load Gr
-                    listMatsToLoad = ["Gr"]
-                    loadedMats, blockSizes = load_matrices(systemx, E, k,
-                        listMatsToLoad, precx, whereFrom)
-                    Gr = loadedMats[1]
+                    # we don't really need Gr, we do checks for DDRGF against RGF
+                    # # load Gr
+                    # listMatsToLoad = ["Gr"]
+                    # loadedMats, blockSizes = load_matrices(systemx, E, k,
+                    #     listMatsToLoad, precx, whereFrom)
+                    # Gr = loadedMats[1]
 
                     # loading blockSizes only - this is redundant, but illustrates
                     # that this can be done without any matrix loading
@@ -52,12 +53,12 @@ for systemx in systemNames
                         listMatsToLoad, precx, whereFrom)
 
                     # convert to BlockMatrix
-                    MbmFromData = bm_convert(M, blockSizes, Dict("in" => 3, "out" => 3))
+                    MbmFromData = bm_convert(M, blockSizes, Dict("in" => 3, "out" => 3), false)
 
                     # crate synthetic matrix
                     MbmSynth = bm_create_synthetic(MbmFromData, npl, blockSize)
                 else
-                    MbmSynth = bm_create_synthetic_random(npl, blockSize, precx)
+                    MbmSynth = bm_create_synthetic_random(npl, blockSize, precx, false)
                 end
 
                 # -----------------------------
@@ -192,7 +193,7 @@ for systemx in systemNames
                     nrLayersSchurCompl = sum(auxDataPar.sizeDomains[1:auxDataPar.nrTasks])
                     blockSizesSchurCompl = buffTHat.blockSizes[1:nrLayersSchurCompl]
                     buffTHat22 = bm_empty(blockSizesSchurCompl, nrLayersSchurCompl, buffTHat.ndiag["in"],
-                        buffTHat.isArrayOrLU, buffTHat.nrsType)
+                        buffTHat.isArrayOrLU, buffTHat.nrsType, false)
                     buffTHatMView = view(buffTHat.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
                     bm_reference!(buffTHat22, buffTHatMView)
                     buffTHatM22 = bm_convert(buffTHat22)
