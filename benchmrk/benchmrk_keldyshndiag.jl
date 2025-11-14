@@ -3,7 +3,7 @@ Printf.@printf("Benchmarking keldyshndiag!(...)\n")
 # choose the version of Keldysh's implementation to benchmark (see src/keldyshndiag.jl)
 keldyshVersion = "v2"
 
-LinearAlgebra.BLAS.set_num_threads(Int(parse(Float64, ARGS[5])))
+LinearAlgebra.BLAS.set_num_threads(Int(parse(Float64, ARGS[4])))
 
 # first, check if the number of threads divides the number of energy points,
 # exit if it doesn't
@@ -39,9 +39,7 @@ for systemx in systemNames
                 for iEG = 1:nrEgroups
                     # preallocate large data per thread
                     Mins = Vector{BlockMatrix}()
-                    MoutsRGF = Vector{BlockMatrix}()
-                    MoutsKeldysh = Vector{BlockMatrix}()
-                    Mrands = Vector{BlockMatrix}()
+                    Sns = Vector{BlockMatrix}()
                     for ix = 1:Threads.nthreads()
                         if whereFrom == 1
                             iE = ix + (iEG - 1) * Threads.nthreads()
@@ -55,18 +53,19 @@ for systemx in systemNames
                             Msp = build_M_from_HS(H, S, Se, energVals[Epoints[iE]])
                             Min = bm_convert(Msp, blockSizes, Dict("in" => 3, "out" => 3))
                         else
-                            Min = bm_create_synthetic_random(10, 648, precx)
+                            Min = bm_create_synthetic_random(npl, blockSize, precx, false)
                         end
                         push!(Mins, Min)
-                        push!(MoutsRGF, bm_similar(Min, 1))
-                        push!(MoutsKeldysh, bm_similar(Min, 1))
-                        push!(Mrands, bm_similar(Min, 2))
+                        Arandbm = bm_similar(Mins[ix], 2)
+                        Arandsp = bm_convert(Arandbm)
+                        Arandsp = (Arandsp + Arandsp') / convert(precx, 2.0)
+                        Sn = bm_convert(Arandsp, Arandbm.blockSizes, Arandbm.ndiag, true)
+                        push!(Sns, Sn)
                     end
                     auxs = Vector{AuxDataKeldysh}()
                     for ix = 1:Threads.nthreads()
-                        auxLoc = allocate_aux_data_RGF(Mins[ix], parse(Int, ARGS[4]), parse(Int, ARGS[5]))
-                        bmLoc = bm_similar(Mins[ix], 1)
-                        push!(auxs, allocate_aux_data_Keldysh(bmLoc, auxLoc))
+                        auxDataKeldysh = allocate_aux_data_Keldysh(Mins[ix], Sns[ix], parse(Int, ARGS[3]), parse(Int, ARGS[4]))
+                        push!(auxs, auxDataKeldysh)
                     end
 
                     # (?) force the garbage collector before doing the core computations
@@ -104,8 +103,7 @@ for systemx in systemNames
                                 td = TimingData()
                             end
                             timerTagLocalTotal = timerTagLocal * "_total"
-                            @timeit timers[tId] timerTagLocalTotal keldyshndiag!(MoutsKeldysh[tId],
-                                MoutsRGF[tId], Mins[tId], Mrands[tId], auxs[tId], td, cd, keldyshVersion)
+                            @timeit timers[tId] timerTagLocalTotal keldyshndiag!(Mins[tId], Sns[tId], auxs[tId], td, cd)
                         end
                     end
 
