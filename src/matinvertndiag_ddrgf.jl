@@ -91,7 +91,7 @@ function get_rMLDIV(M::BlockMatrix, td::TimingData, cd::CountingData)::Float64
     A0 = be_random_array(M.nrsType, (avgBlockSize, avgBlockSize))
     B0 = be_random_array(M.nrsType, (avgBlockSize, avgBlockSize))
 
-    nrSamples::Int = floor(0.5E5 * 3.0E5 / (avgBlockSize^3)) + 10
+    nrSamples::Int = floor(1.0E4 * 3.0E5 / (avgBlockSize^3)) + 10
 
     # let's pre-run one GEMM, to avoid setup-ish times being accounted for
     be_gemm!('N', 'N', plusOneCmplx, A, B, plusOneCmplx, C, td, cd)
@@ -345,8 +345,14 @@ function opt_params(Min::BlockMatrix, nrBlocksInNonPivots::Int, rLU::Float64, rM
                 optCostOld = optCostNew
             end
 
-            if nrTasks < nrThreadsBare
-                break
+            if nrThreadsBare > 1
+                if nrTasks < nrThreadsBare
+                    break
+                end
+            else
+                if nrTasks <= nrThreadsBare
+                    break
+                end
             end
         end
     end
@@ -361,6 +367,11 @@ function allocate_aux_data_DDRGF(Min::BlockMatrix, splitType::Bool,
     cd::CountingData)::Vector{AuxDataDDRGF}
 
     # before anything else, find the optimal parameters for DDRGF
+
+    # IMPORTANT : below, nrLevels=1 means that we have a two-level DDRGF,
+    #             i.e., one domain decomposition application and then the
+    #             Schur complement inverse sequentially. This implies no
+    #             recursive call of DDRGF to itself
 
     # to do this, first obtain rMLDIV and rLU, and the threaded BLAS factor
     rLU::Float64 = get_rLU(Min, td, cd)
@@ -390,6 +401,7 @@ function allocate_aux_data_DDRGF(Min::BlockMatrix, splitType::Bool,
         end
     end
 
+    # uncomment to verify the DDRGF params after auto-tuning
     # println("DDRGF params :")
     # println("\tNumber of tasks = " * string(nrTasks))
     # println("\tNumber of non-pivot PLs = " * string(nrBlocksInNonPivots))
