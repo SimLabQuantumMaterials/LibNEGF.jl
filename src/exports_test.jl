@@ -58,6 +58,14 @@ export bm_blocks_define_complement22_recurs!
 export bm_empty
 export bm_copy!
 
+# from selected_inverse.jl
+export prod_VecOfBlock!
+export prod_VecOfBlock
+export blockMatrix_factorization!
+export blockMatrix_factorization
+export blockMatrix_inverse!
+export blockMatrix_inverse
+
 # from backend_*.jl
 export be_zero_array
 export be_copy_in_hw!

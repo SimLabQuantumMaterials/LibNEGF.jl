@@ -34,5 +34,6 @@ include("blockmatrix.jl")
 include("matinvertndiag_direct.jl")
 include("matinvertndiag_ddrgf.jl")
 include("keldyshndiag.jl")
+include("selected_inverse.jl")
 
 end
