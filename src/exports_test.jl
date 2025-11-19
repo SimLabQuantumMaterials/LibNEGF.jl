@@ -26,6 +26,22 @@ export keldyshndiag!
 export AuxDataKeldysh
 export allocate_aux_data_Keldysh
 
+# from block.jl
+export Block
+export bm_equal
+export bm_copy
+export bm_similar
+export sum_BlockMatrix
+export prod_BlockMatrix
+export get_rcIndex
+export get_rcIndexAt
+export get_rowSizes
+export get_colSizes
+export get_blockSizes
+export full
+export set_sparse_Block
+export show_sparse
+
 # from blockmatrix.jl
 export BlockMatrix
 export bm_convert

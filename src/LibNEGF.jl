@@ -29,6 +29,7 @@ end
 end
 
 include("matloader.jl")
+include("block.jl")
 include("blockmatrix.jl")
 include("matinvertndiag_direct.jl")
 include("matinvertndiag_ddrgf.jl")

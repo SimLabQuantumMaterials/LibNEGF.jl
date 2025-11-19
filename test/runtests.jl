@@ -11,4 +11,5 @@ end
 # include("test_blockmatrix.jl")
 # include("test_backend.jl")
 # include("test_matinvert.jl")
-include("test_keldyshndiag.jl")
+# include("test_keldyshndiag.jl")
+include("test_block.jl")
