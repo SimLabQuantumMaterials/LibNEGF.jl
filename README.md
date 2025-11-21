@@ -12,6 +12,12 @@ Adding some nice visualization pictures under construction.
 ## Installation and Usage
 At the moment, the default is to create synthetic data to run both the tests and the benchmarks. If you want to use realistic data, do the following: get the file `built_matrices.tar.xz`, located at `/p/project1/mat4energy/ramirez1/libNEGF/matrices/3x3/`. Extract it in your system. Let us assume this is stored in `$PATH_TO_BUILT_MATRICES`. In this repository, go to the file `setup.sh`, uncomment the block necessary to create the symbolic link to the matrices and run `./setup.sh` . This will change in the future to something more appropriate e.g. making use of Git LFS. A last step is to look for the variable `whereFrom` and set it to 1 wherever you would like to use this realistic data.
 
+There are simple examples to get started with, in the `examples/` directory. To run those:
+
+```
+./runexamples.sh
+```
+
 To run the tests:
 
 ```
