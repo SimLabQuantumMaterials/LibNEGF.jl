@@ -15,10 +15,10 @@ precx = ComplexF64
 
 # non-Hermitian matrix
 Min = bm_create_synthetic_random(npl, blockSize, precx, false)
-Moutbm = bm_copy(Min)
+Mout = bm_copy(Min)
 
 auxData = allocate_aux_data_RGF(Min, parse(Int, ARGS[3]), parse(Int, ARGS[4]))
-bndiag_of_inv_rgf_local!(Moutbm, Min, auxData, TimingData(), CountingData())
+bndiag_of_inv_rgf_local!(Mout, Min, auxData, TimingData(), CountingData())
 
 # finally, convert Mout to a sparse matrix
-Moutsp = bm_convert(Moutbm)
+Moutsp = bm_convert(Mout)

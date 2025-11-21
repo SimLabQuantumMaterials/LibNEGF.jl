@@ -9,3 +9,8 @@ export bm_convert
 export allocate_aux_data_DDRGF
 export bndiag_of_inv_ddrgf!
 export bm_copy!
+
+# for RKD
+export bm_similar
+export allocate_aux_data_Keldysh
+export keldyshndiag!
