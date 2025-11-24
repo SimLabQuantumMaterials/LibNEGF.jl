@@ -182,3 +182,15 @@ function print_flops_and_mems(cd::CountingData, to::TimerOutput, prec::DataType,
     print_flops_and_mems_(cd, to, prec, "mldivide", method, isSeq)
     print_flops_and_mems_(cd, to, prec, "total", method, isSeq)
 end
+
+function print_flops_and_mems_si(cd::CountingData, to::TimerOutput, prec::DataType, method::String,
+    isSeq::Bool)
+    nrCalls = cd.nrCalls
+
+    println("\nFlops and mems (" * string(prec) * " - master thread only):")
+    println("\t -- nr calls : " * string(nrCalls))
+    # print_flops_and_mems_(cd, to, prec, "gemm", method, isSeq)
+    # print_flops_and_mems_(cd, to, prec, "lu", method, isSeq)
+    # print_flops_and_mems_(cd, to, prec, "mldivide", method, isSeq)
+    print_flops_and_mems_(cd, to, prec, "total", method, isSeq)
+end

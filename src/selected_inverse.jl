@@ -51,20 +51,18 @@ function blockMatrix_factorization!(A::Matrix)::Matrix
 			if isassigned(A,j,i)
 				push!(idx,j)
 				# Step 2 : Generate L(i+1,i)
-				# A[j,i].Full = A[j,i].Full / A[i,i].Factors.U
 				A[j,i].Full /= A[i,i].Factors.U
 			end
 			if isassigned(A,i,j)
 				# Step 3 : Generate U(i,i+1)
 				A[i,j].Full = A[i,i].Factors.L \ A[i,j].Full
-				# ldiv!(A[i,i].Factors, A[i,j].Full)
 			end
 		end
 		# Step 4 : Update A(i+1:,i+1:)
 		for k in collect(Iterators.product(idx,idx))
 			k = CartesianIndex(k)
 			if isassigned(A,k[1],k[2])
-				A[k].Full = A[k].Full - prod(A[k[1],i], A[i,k[2]])
+				A[k].Full .-= prod(A[k[1],i], A[i,k[2]])
 			else
 				A[k] = Block(A[k[1],i].row,A[i,k[2]].col)
 				A[k].Full = - prod(A[k[1],i], A[i,k[2]])

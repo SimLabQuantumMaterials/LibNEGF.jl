@@ -540,12 +540,12 @@ function set_sparse_Block(B::SparseArrays.SparseMatrixCSC, b::Vector{Int}, s_fla
 		for j in 1:npl
 			idx = 1 + sum(b[1:i-1]) : sum(b[1:i])
 			idy = 1 + sum(b[1:j-1]) : sum(b[1:j])
-			if iszero(B[idx,idy])
+			if iszero(Matrix(B[idx,idy]))
 				continue
 			end
-			A[i,j] = Block(B[idx,idy])
+			A[i,j] = Block(Matrix(B[idx,idy]))
 			if s_flag && i != j
-				A[j,i] = Block(B[idy,idx])
+				A[j,i] = Block(Matrix(B[idy,idx]))
 			end
 		end
 	end
@@ -613,6 +613,48 @@ function set_sparse_Block(B::Array, npl::Int, s_flag::Bool=false)::Matrix
 	end
 
 	return A
+end
+
+"""
+	block_create_synthetic_random(nrLayers::Int, blocksDim::Int, nrsType::DataType)
+
+Create a random synthetic block tridiagonal matrix.
+
+# Arguments
+- `nrLayers::Int`: the number of principal layers.
+- `blocksDim::Int`: the average size of the principal layers (i.e., blocks).
+- `nrsType::DataType`: the type of the underlying data.
+"""
+function block_create_synthetic_random(nrLayers::Int, blocksDim::Int, nrsType::DataType, isHermitian::Bool)::Array
+    # IMPORTANT : this function assumes that all of the principal layers are of
+    #             the same size
+	bind2 = repeat([blocksDim], nrLayers)
+
+	# row index
+    rind2 = []
+    for i in 2:nrLayers-1
+        rind2 = cat(rind2, repeat([i], 3); dims=1)
+    end
+    rind2 = cat([1, 1], rind2, [nrLayers, nrLayers]; dims=1)
+    
+	# col index
+    cind2 = []
+    for i in 2:nrLayers-1
+        cind2 = cat(cind2, [i - 1, i, i + 1]; dims=1)
+    end
+    cind2 = cat([1, 2], cind2, [nrLayers - 1, nrLayers]; dims=1)
+
+    # Original matrix
+	A::Matrix = Matrix(undef, nrLayers, nrLayers)
+	idx = CartesianIndex.(rind2,cind2)
+	for j in 1:length(idx)
+		A[idx[j]] = Block(convert(nrsType, 0.3) * be_random_array(nrsType, (bind2[idx[j][1]], bind2[idx[j][2]])))
+		if isHermitian && idx[j][1] != idx[j][2]
+			A[idx[j][2],idx[j][1]] = Block(convert(nrsType, 0.3) * be_random_array(nrsType, (bind2[idx[j][2]], bind2[idx[j][1]])))
+		end
+	end
+
+    return A
 end
 
 """

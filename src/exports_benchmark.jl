@@ -27,6 +27,33 @@ export bm_convert
 export bm_copy
 export bm_similar
 export bm_copy!
+export bm_reference!
+
+# from block.jl
+export Block
+export bm_equal
+export bm_copy
+export bm_similar
+export sum_BlockMatrix
+export prod_BlockMatrix
+export get_rcIndex
+export get_rcIndexAt
+export get_rowSizes
+export get_colSizes
+export get_blockSizes
+export full
+export set_sparse_Block
+export show_sparse
+export block_create_synthetic_random
+
+# from selected_inverse.jl
+export prod_VecOfBlock!
+export prod_VecOfBlock
+export blockMatrix_factorization!
+export blockMatrix_factorization
+export blockMatrix_inverse!
+export blockMatrix_inverse
 
 # from utils
 export print_flops_and_mems
+export print_flops_and_mems_si
