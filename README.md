@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/1103035642.svg)](https://zenodo.org/badge/latestdoi/1103035642)
+
 # LibNEGF
 
 ## Name
