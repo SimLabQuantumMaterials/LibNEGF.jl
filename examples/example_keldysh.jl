@@ -1,6 +1,11 @@
 using LibNEGF, LinearAlgebra
 LinearAlgebra.BLAS.set_num_threads(Int(parse(Float64, ARGS[4])))
 
+# in this example we show how to compute, for given two block tridiagonal
+# matrices T and S, the block tridiagonal part of T^{-1} S T^{-H}. This is done in this
+# example in a recursive manner, and sequentially, via an algorithmic formulation
+# that we call here RKD
+
 npl = 128
 blockSize = 64
 precx = ComplexF64
