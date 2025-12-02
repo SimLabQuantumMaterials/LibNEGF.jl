@@ -61,18 +61,18 @@ function check_if_enough_mem_rgf(npl::Int, blockSize::Int, precx::DataType)
 
     # before allocating, check whether there is enough memory
     # to allocate all the needed buffers
-    requiredMem::Float64 = required_mem(npl, precx, N1diag, N3diag, blockSize)
+    requiredMem::Float64 = required_mem_non_symm(npl, precx, N1diag, N3diag, blockSize)
     if requiredMem > 0.8*totalMem
         error("The required memory exceeds 80% of the total memory")
     end
 end
 
-# get the memory required by RGF, in MB
+# get the memory required by non-symmetric matrices, in MB
 # npl : number of principal layers
 # N1diag : number of block diagonal matrices to be allocated
 # N3diag : number of block tridiagonal matrices to be allocated
-function required_mem(npl::Int, precx::DataType, N1diag::Int, N3diag::Int, avgBlockSize::Int)::Float64
-    requiredMem = 0.0
+function required_mem_non_symm(npl::Int, precx::DataType, N1diag::Int, N3diag::Int, avgBlockSize::Int)::Float64
+    requiredMem::Float64 = 0.0
 
     for ix = 1:npl
         # left

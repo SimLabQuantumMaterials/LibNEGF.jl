@@ -15,6 +15,9 @@ precx = ComplexF64
 # in Keldysh, but for that one the last parameter has to be 'true',
 # indicating that the operator is Hermitian
 
+# check if there's enough memory for the allocations
+check_if_enough_mem_rkd(npl, blockSize, precx)
+
 # non-Hermitian matrix
 Min = bm_create_synthetic_random(npl, blockSize, precx, false)
 

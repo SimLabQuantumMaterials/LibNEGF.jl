@@ -12,6 +12,9 @@ end
 
 for systemx in systemNames
     for precx in precs
+        # check if there's enough memory for the allocations
+        check_if_enough_mem_rgf(npl, blockSize, precx)
+
         # create a flops and mems counter for each precision and thread
         counters = Vector{CountingData}()
         for ix = 1:Threads.nthreads()
@@ -37,9 +40,6 @@ for systemx in systemNames
                     Mins = Vector{BlockMatrix}()
                     Mouts = Vector{BlockMatrix}()
                     for ix = 1:Threads.nthreads()
-                        # check if there's enough memory for the allocations
-                        check_if_enough_mem_rgf(npl, blockSize, precx)
-
                         if whereFrom == 1
                             iE = ix + (iEG - 1) * Threads.nthreads()
                             # load matrices and build M

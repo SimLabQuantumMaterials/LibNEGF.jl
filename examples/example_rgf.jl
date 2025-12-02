@@ -13,6 +13,9 @@ precx = ComplexF64
 # where blockSizes is an array with the sizes of the blocks (corresponding
 # to the sizes of the pricipal layers)
 
+# check if there's enough memory for the allocations
+check_if_enough_mem_rgf(npl, blockSize, precx)
+
 # non-Hermitian matrix
 Min = bm_create_synthetic_random(npl, blockSize, precx, false)
 Mout = bm_copy(Min)
