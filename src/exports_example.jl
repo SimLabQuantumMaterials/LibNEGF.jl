@@ -10,6 +10,7 @@ export check_if_enough_mem_rgf
 export allocate_aux_data_DDRGF
 export bndiag_of_inv_ddrgf!
 export bm_copy!
+export check_if_enough_mem_ddrgf
 
 # for RKD
 export bm_similar

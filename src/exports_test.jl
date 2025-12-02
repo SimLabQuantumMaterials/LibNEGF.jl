@@ -22,6 +22,7 @@ export bndiag_of_inv_ddrgf_compute_minus_x_THatSInv_THat21_x_THat11Inv!
 export bndiag_of_inv_ddrgf_compute_11_part!
 export check_if_enough_mem_rgf
 export check_if_enough_mem_rkd
+export check_if_enough_mem_ddrgf
 
 # from keldyshndiag.jl
 export keldyshndiag!
