@@ -37,6 +37,9 @@ for systemx in systemNames
                     Mins = Vector{BlockMatrix}()
                     Mouts = Vector{BlockMatrix}()
                     for ix = 1:Threads.nthreads()
+                        # check if there's enough memory for the allocations
+                        check_if_enough_mem_rgf(npl, blockSize, precx)
+
                         if whereFrom == 1
                             iE = ix + (iEG - 1) * Threads.nthreads()
                             # load matrices and build M
@@ -47,9 +50,9 @@ for systemx in systemNames
                             S = loadedMats[2]
                             Se = loadedMats[3]
                             Msp = build_M_from_HS(H, S, Se, energVals[Epoints[iE]])
-                            Min = bm_convert(Msp, blockSizes, Dict("in" => 3, "out" => 3))
+                            Min = bm_convert(Msp, blockSizes, Dict("in" => 3, "out" => 3), false)
                         else
-                            Min = bm_create_synthetic_random(npl, blockSize, precx)
+                            Min = bm_create_synthetic_random(npl, blockSize, precx, false)
                         end
                         push!(Mins, Min)
                         push!(Mouts, bm_copy(Min))

@@ -8,12 +8,23 @@ accFctr = 1.0E4
 
 # 1 from disk, 2 is random
 whereFrom = 2
+# # values for the synthetic matrix
+# npl = 128
+# blockSize = 64
 
 if whereFrom == 1
     for systemx in systemNames
         for E in [Epoints[1]]
             for k in [kpoints[1]]
                 for precx in precs
+                    # loading blockSizes only - this is redundant, but illustrates
+                    # that this can be done without any matrix loading
+                    listMatsToLoad = Vector{String}()
+                    loadedMats, blockSizes = load_matrices(systemx, E, k,
+                        listMatsToLoad, precx, whereFrom)
+
+                    # check_if_enough_mem_rgf(npl, blockSize, precx)
+
                     # load matrices and build M
                     listMatsToLoad = ["H", "S", "Sc"]
                     loadedMats, blockSizes = load_matrices(systemx, E, k,
@@ -29,21 +40,16 @@ if whereFrom == 1
                         listMatsToLoad, precx, whereFrom)
                     Gr = loadedMats[1]
 
-                    # loading blockSizes only - this is redundant, but illustrates
-                    # that this can be done without any matrix loading
-                    listMatsToLoad = Vector{String}()
-                    loadedMats, blockSizes = load_matrices(systemx, E, k,
-                        listMatsToLoad, precx, whereFrom)
-
                     # convert to BlockMatrix
-                    Mbm = bm_convert(M, blockSizes, Dict("in" => 3, "out" => 3))
+                    MbmSynth = bm_convert(M, blockSizes, Dict("in" => 3, "out" => 3), false)
+                    # MbmSynth = bm_create_synthetic(Mbm, npl, blockSize)
 
                     # pre-allocate buffer data for DD-RGF
-                    auxData = allocate_aux_data_RGF(Mbm, parse(Int, ARGS[2]), parse(Int, ARGS[3]))
+                    auxData = allocate_aux_data_RGF(MbmSynth, parse(Int, ARGS[2]), parse(Int, ARGS[3]))
                     # pre-allocate the output matrix
-                    MbmInvNdiag = bm_similar(Mbm, 1)
+                    MbmInvNdiag = bm_similar(MbmSynth, 1)
                     # get the block n-diagonal of M^-1 via RGF
-                    bndiag_of_inv_rgf_global!(MbmInvNdiag, Mbm, auxData, TimingData(), CountingData())
+                    bndiag_of_inv_rgf_global!(MbmInvNdiag, MbmSynth, auxData, TimingData(), CountingData())
 
                     # convert back to sparse
                     MinvSp = bm_convert(MbmInvNdiag)

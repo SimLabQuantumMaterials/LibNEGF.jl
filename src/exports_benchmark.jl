@@ -15,6 +15,7 @@ export bndiag_of_inv_rgf_global!
 export bndiag_of_inv_rgf_local!
 export bndiag_of_inv_ddrgf!
 export bm_blocks_define_complement22!
+export check_if_enough_mem_rgf
 
 # from keldyshndiag.jl
 export keldyshndiag!

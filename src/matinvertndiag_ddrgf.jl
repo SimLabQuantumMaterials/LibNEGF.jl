@@ -48,6 +48,59 @@ struct AuxDataDDRGF
     buffMout::BlockMatrix
 end
 
+function check_if_enough_mem_rgf(npl::Int, blockSize::Int, precx::DataType)
+    # total system memory in MB
+    totalMem = Sys.total_memory() / 2^20
+
+    # +1 for a buffer identity
+    N1diag = 1
+    # +1 for the sparse original matrix, +1 for the conversion of that
+    # original matrix to the input block tridiagonal matrix, +1 for a buffer
+    # block tridiagonal matrix in RGF
+    N3diag = 3
+
+    # before allocating, check whether there is enough memory
+    # to allocate all the needed buffers
+    requiredMem::Float64 = required_mem(npl, precx, N1diag, N3diag, blockSize)
+    if requiredMem > 0.8*totalMem
+        error("The required memory exceeds 80% of the total memory")
+    end
+end
+
+# get the memory required by RGF, in MB
+# npl : number of principal layers
+# N1diag : number of block diagonal matrices to be allocated
+# N3diag : number of block tridiagonal matrices to be allocated
+function required_mem(npl::Int, precx::DataType, N1diag::Int, N3diag::Int, avgBlockSize::Int)::Float64
+    requiredMem = 0.0
+
+    for ix = 1:npl
+        # left
+        if ix > 1
+            nx = avgBlockSize
+            ny = avgBlockSize
+            requiredMem += N3diag * (nx*ny)
+        end
+
+        # center
+        nx = avgBlockSize
+        ny = avgBlockSize
+        requiredMem += N3diag * (nx*ny)
+        requiredMem += N1diag * (nx*ny)
+
+        # right
+        if ix < npl
+            nx = avgBlockSize
+            ny = avgBlockSize
+            requiredMem += N3diag * (nx*ny)
+        end
+    end
+
+    requiredMem *= (2*sizeof(precx) / 2^20)
+
+    return requiredMem
+end
+
 """
 	allocate_aux_data_RGF(M::BlockMatrix, nrBLASThreadsOuter::Int, nrBLASThreadsInner::Int)
 
