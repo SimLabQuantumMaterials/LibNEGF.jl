@@ -15,6 +15,9 @@ end
 
 for systemx in systemNames
     for precx in precs
+        # check if there's enough memory for the allocations
+        check_if_enough_mem_rkd(npl, blockSize, precx)
+
         # create a flops and mems counter for each precision and thread
         counters = Vector{CountingData}()
         for ix = 1:Threads.nthreads()

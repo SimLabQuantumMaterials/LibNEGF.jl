@@ -1,6 +1,11 @@
 using LibNEGF, LinearAlgebra
 LinearAlgebra.BLAS.set_num_threads(Int(parse(Float64, ARGS[4])))
 
+# in this example we show how to compute, for given two block tridiagonal
+# matrices T and S, the block tridiagonal part of T^{-1} S T^{-H}. This is done in this
+# example in a recursive manner, and sequentially, via an algorithmic formulation
+# that we call here RKD
+
 npl = 128
 blockSize = 64
 precx = ComplexF64
@@ -14,6 +19,9 @@ precx = ComplexF64
 # to the sizes of the pricipal layers). Same applies to the middle operator
 # in Keldysh, but for that one the last parameter has to be 'true',
 # indicating that the operator is Hermitian
+
+# check if there's enough memory for the allocations
+check_if_enough_mem_rkd(npl, blockSize, precx)
 
 # non-Hermitian matrix
 Min = bm_create_synthetic_random(npl, blockSize, precx, false)

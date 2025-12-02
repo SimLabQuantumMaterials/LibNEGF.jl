@@ -20,6 +20,9 @@ export bndiag_of_inv_ddrgf_add_block_refs_to_permuted_matrix22!
 export bndiag_of_inv_ddrgf_compute_minus_THat11Inv_x_THat12_x_THatSInv!
 export bndiag_of_inv_ddrgf_compute_minus_x_THatSInv_THat21_x_THat11Inv!
 export bndiag_of_inv_ddrgf_compute_11_part!
+export check_if_enough_mem_rgf
+export check_if_enough_mem_rkd
+export check_if_enough_mem_ddrgf
 
 # from keldyshndiag.jl
 export keldyshndiag!

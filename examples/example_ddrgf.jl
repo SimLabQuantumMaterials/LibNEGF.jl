@@ -1,6 +1,11 @@
 using LibNEGF, LinearAlgebra
 LinearAlgebra.BLAS.set_num_threads(Int(parse(Float64, ARGS[4])))
 
+# in this example we show how to compute, for a given block tridiagonal
+# matrix, the block tridiagonal part of its inverse. This is done in this
+# example via a parallel alternative to sequential RGF, which we here
+# call DDRGF
+
 npl = 128
 blockSize = 64
 precx = ComplexF64
@@ -12,6 +17,8 @@ precx = ComplexF64
 # Min = bm_convert(M, blockSizes, Dict("in" => 3, "out" => 3), false),
 # where blockSizes is an array with the sizes of the blocks (corresponding
 # to the sizes of the pricipal layers)
+
+check_if_enough_mem_ddrgf(npl, blockSize, precx)
 
 # non-Hermitian matrix
 Min = bm_create_synthetic_random(npl, blockSize, precx, false)

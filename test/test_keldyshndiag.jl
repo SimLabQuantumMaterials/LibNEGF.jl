@@ -22,12 +22,15 @@ accFctr = 0.0
         for E in Epoints
             for k in kpoints
                 for precx in precs
+                    check_if_enough_mem_rkd(npl, blockSize, precx)
+
                     if precx == ComplexF64
                         global accFctr = accFctrBare
                     else
                         # extra relaxation in lower precision
                         global accFctr = accFctrBare
                     end
+
                     if whereFrom == 1
                         # load matrices and build M
                         listMatsToLoad = ["H", "S", "Sc"]

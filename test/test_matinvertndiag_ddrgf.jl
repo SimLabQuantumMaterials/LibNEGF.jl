@@ -22,6 +22,7 @@ for systemx in systemNames
     for E in [Epoints[1]]
         for k in [kpoints[1]]
             for precx in precs
+                check_if_enough_mem_ddrgf(npl, blockSize, precx)
                 if precx == ComplexF64
                     global accFctr = accFctrBare
                 else
