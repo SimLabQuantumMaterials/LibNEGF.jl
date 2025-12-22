@@ -48,6 +48,94 @@ struct AuxDataDDRGF
     buffMout::BlockMatrix
 end
 
+function check_if_enough_mem_rgf(npl::Int, blockSize::Int, precx::DataType)
+    # total system memory in MB
+    totalMem = Sys.total_memory() / 2^20
+
+    # +1 for a buffer identity
+    N1diag = 1
+    # +1 for the sparse original matrix, +1 for the conversion of that
+    # original matrix to the input block tridiagonal matrix, +1 for a buffer
+    # block tridiagonal matrix in RGF
+    N3diag = 3
+
+    # before allocating, check whether there is enough memory
+    # to allocate all the needed buffers
+    requiredMem::Float64 = required_mem_non_symm(npl, precx, N1diag, N3diag, blockSize)
+    if requiredMem > 0.8*totalMem
+        error("The required memory exceeds 80% of the total memory")
+    end
+end
+
+function check_if_enough_mem_ddrgf(npl::Int, blockSize::Int, precx::DataType)
+    # total system memory in MB
+    totalMem = Sys.total_memory() / 2^20
+    requiredMem::Float64 = 0.0
+
+    # RGF-wise
+
+    # +1 for a buffer identity
+    rgfN1diag = 1
+    # +1 for the sparse original matrix, +1 for the conversion of that
+    # original matrix to the input block tridiagonal matrix, +1 for a buffer
+    # block tridiagonal matrix in RGF
+    rgfN3diag = 3
+
+    # for DDRGF itself
+
+    # +1 buffTHat, +1 buffMout
+    ddrgfN3diag = 2
+    # IMPORTANT : in the DDRGF case, there isn't really a block diagonal
+    # buffer, but as estimating the memory requirement is a bit convoluted to
+    # integrate with the already-existing workflow of allocations (see the
+    # function allocate_aux_data_DDRGF(...)), then we're adding here an extra
+    # block diagonal memory to roughly take into account all of those extra
+    # allocations involved in DDRGF
+    ddrgfN1diag = 1
+
+    # before allocating, check whether there is enough memory
+    # to allocate all the needed buffers
+    requiredMem += required_mem_non_symm(npl, precx, rgfN1diag, rgfN3diag, blockSize)
+    requiredMem += required_mem_non_symm(npl, precx, ddrgfN1diag, ddrgfN3diag, blockSize)
+    if requiredMem > 0.8*totalMem
+        error("The required memory exceeds 80% of the total memory")
+    end
+end
+
+# get the memory required by non-symmetric matrices, in MB
+# npl : number of principal layers
+# N1diag : number of block diagonal matrices to be allocated
+# N3diag : number of block tridiagonal matrices to be allocated
+function required_mem_non_symm(npl::Int, precx::DataType, N1diag::Int, N3diag::Int, avgBlockSize::Int)::Float64
+    requiredMem::Float64 = 0.0
+
+    for ix = 1:npl
+        # left
+        if ix > 1
+            nx = avgBlockSize
+            ny = avgBlockSize
+            requiredMem += N3diag * (nx*ny)
+        end
+
+        # center
+        nx = avgBlockSize
+        ny = avgBlockSize
+        requiredMem += N3diag * (nx*ny)
+        requiredMem += N1diag * (nx*ny)
+
+        # right
+        if ix < npl
+            nx = avgBlockSize
+            ny = avgBlockSize
+            requiredMem += N3diag * (nx*ny)
+        end
+    end
+
+    requiredMem *= (2*sizeof(precx) / 2^20)
+
+    return requiredMem
+end
+
 """
 	allocate_aux_data_RGF(M::BlockMatrix, nrBLASThreadsOuter::Int, nrBLASThreadsInner::Int)
 
@@ -91,7 +179,7 @@ function get_rMLDIV(M::BlockMatrix, td::TimingData, cd::CountingData)::Float64
     A0 = be_random_array(M.nrsType, (avgBlockSize, avgBlockSize))
     B0 = be_random_array(M.nrsType, (avgBlockSize, avgBlockSize))
 
-    nrSamples::Int = floor(0.5E5 * 3.0E5 / (avgBlockSize^3)) + 10
+    nrSamples::Int = floor(1.0E4 * 3.0E5 / (avgBlockSize^3)) + 10
 
     # let's pre-run one GEMM, to avoid setup-ish times being accounted for
     be_gemm!('N', 'N', plusOneCmplx, A, B, plusOneCmplx, C, td, cd)
@@ -345,8 +433,14 @@ function opt_params(Min::BlockMatrix, nrBlocksInNonPivots::Int, rLU::Float64, rM
                 optCostOld = optCostNew
             end
 
-            if nrTasks < nrThreadsBare
-                break
+            if nrThreadsBare > 1
+                if nrTasks < nrThreadsBare
+                    break
+                end
+            else
+                if nrTasks <= nrThreadsBare
+                    break
+                end
             end
         end
     end
@@ -361,6 +455,11 @@ function allocate_aux_data_DDRGF(Min::BlockMatrix, splitType::Bool,
     cd::CountingData)::Vector{AuxDataDDRGF}
 
     # before anything else, find the optimal parameters for DDRGF
+
+    # IMPORTANT : below, nrLevels=1 means that we have a two-level DDRGF,
+    #             i.e., one domain decomposition application and then the
+    #             Schur complement inverse sequentially. This implies no
+    #             recursive call of DDRGF to itself
 
     # to do this, first obtain rMLDIV and rLU, and the threaded BLAS factor
     rLU::Float64 = get_rLU(Min, td, cd)
@@ -390,6 +489,7 @@ function allocate_aux_data_DDRGF(Min::BlockMatrix, splitType::Bool,
         end
     end
 
+    # uncomment to verify the DDRGF params after auto-tuning
     # println("DDRGF params :")
     # println("\tNumber of tasks = " * string(nrTasks))
     # println("\tNumber of non-pivot PLs = " * string(nrBlocksInNonPivots))

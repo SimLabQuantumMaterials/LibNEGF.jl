@@ -8,7 +8,8 @@ include("utils/parsing.jl")
 @ifdef "LIBNEGF_TEST_OR_BENCH" begin
     if ENV["LIBNEGF_TEST_OR_BENCH"]=="test" include("exports_test.jl")
     elseif ENV["LIBNEGF_TEST_OR_BENCH"]=="benchmark" include("exports_benchmark.jl")
-    elseif ENV["LIBNEGF_TEST_OR_BENCH"]=="documentation" include("exports_doc.jl") end
+    elseif ENV["LIBNEGF_TEST_OR_BENCH"]=="documentation" include("exports_doc.jl")
+    elseif ENV["LIBNEGF_TEST_OR_BENCH"]=="example" include("exports_example.jl") end
 end
 
 # from utils/
