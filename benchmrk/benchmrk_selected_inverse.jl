@@ -87,8 +87,8 @@ for systemx in systemNames
                                 td = TimingData()
                             end
                             timerTagLocalTotal = timerTagLocal * "_total"
-                            # @timeit timers[tId] timerTagLocalTotal blockMatrix_inverse!(blockMatrix_factorization!(Mins[tId]), true)
-                            @timeit timers[tId] timerTagLocalTotal blockMatrix_factorization!(Mins[tId])
+                            # @timeit timers[tId] timerTagLocalTotal blockMatrix_inverse(blockMatrix_factorization!(Mins[tId]), true, td, cd)
+                            @timeit timers[tId] timerTagLocalTotal blockMatrix_factorization!(Mins[tId], td, cd)
                         end
                     end
                     
