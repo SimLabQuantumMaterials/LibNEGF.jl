@@ -34,6 +34,7 @@ for systemx in systemNames
                 nrEgroups::Int = size(Epoints)[1] / Threads.nthreads()
                 for iEG = 1:nrEgroups
                     # preallocate large data per thread
+                    Min = Vector{Matrix}()
                     Mins = Vector{Matrix}()
                     Mouts = Vector{Matrix}()
                     for ix = 1:Threads.nthreads()
@@ -86,9 +87,11 @@ for systemx in systemNames
                             else
                                 td = TimingData()
                             end
+                            # timerTagLocalFacto = timerTagLocal * "_facto"
+                            # timerTagLocalInverse = timerTagLocal * "_inverse"
                             timerTagLocalTotal = timerTagLocal * "_total"
-                            # @timeit timers[tId] timerTagLocalTotal blockMatrix_inverse(blockMatrix_factorization!(Mins[tId]), true, td, cd)
-                            @timeit timers[tId] timerTagLocalTotal blockMatrix_factorization!(Mins[tId], td, cd)
+                            # @timeit timers[tId] timerTagLocalTotal blockMatrix_factorization!(Mins[tId], td, cd)
+                            @timeit timers[tId] timerTagLocalTotal blockMatrix_inverse(blockMatrix_factorization_noT!(Mins[tId]), true, td, cd)
                         end
                     end
                     

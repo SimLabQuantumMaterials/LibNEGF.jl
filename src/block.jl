@@ -12,7 +12,7 @@ mutable struct Block
 	"Full"
 	Full::Union{Array,UndefInitializer}
 	"Factors"
-	Factors::Union{LU,UndefInitializer}
+	Factors::Union{LU, Array, UndefInitializer}
 	"f_inv"
 	f_inv::Bool
 	"row"

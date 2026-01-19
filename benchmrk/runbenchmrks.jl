@@ -48,19 +48,19 @@ println("")
 # choose one of "rgf", "ddrgf", "keldysh"
 whichBM = "keldysh"
 
-if whichBM == "rgf"
-    to = TimerOutput()
-    include("benchmrk_matinvertndiag_rgf.jl")
-    println(to)
-elseif whichBM == "keldysh"
-    to = TimerOutput()
-    include("benchmrk_keldyshndiag.jl")
-    println(to)
-else
-    # to = TimerOutput()
-    # include("benchmrk_matinvertndiag_ddrgf.jl")
-    # println(to)
-end
+# if whichBM == "rgf"
+#     to = TimerOutput()
+#     include("benchmrk_matinvertndiag_rgf.jl")
+#     println(to)
+# elseif whichBM == "keldysh"
+#     to = TimerOutput()
+#     include("benchmrk_keldyshndiag.jl")
+#     println(to)
+# else
+#     # to = TimerOutput()
+#     # include("benchmrk_matinvertndiag_ddrgf.jl")
+#     # println(to)
+# end
 
 # legacy
 # include("benchmrk_matinvertndiag_direct.jl")

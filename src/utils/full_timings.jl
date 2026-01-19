@@ -190,8 +190,7 @@ function print_flops_and_mems_si(cd::CountingData, to::TimerOutput, prec::DataTy
     println("\nFlops and mems (" * string(prec) * " - master thread only):")
     println("\t -- nr calls : " * string(nrCalls))
     print_flops_and_mems_(cd, to, prec, "gemm", method, isSeq)
-    print_flops_and_mems_(cd, to, prec, "lu", method, isSeq)
+    # print_flops_and_mems_(cd, to, prec, "lu", method, isSeq)
     print_flops_and_mems_(cd, to, prec, "mldivide", method, isSeq)
-    print_flops_and_mems_(cd, to, prec, "mrdivide", method, isSeq)
     print_flops_and_mems_(cd, to, prec, "total", method, isSeq)
 end

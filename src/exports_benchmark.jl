@@ -53,6 +53,7 @@ export block_create_synthetic_random
 export prod_VecOfBlock!
 export prod_VecOfBlock
 export blockMatrix_factorization!
+export blockMatrix_factorization_noT!
 export blockMatrix_factorization
 export blockMatrix_inverse!
 export blockMatrix_inverse

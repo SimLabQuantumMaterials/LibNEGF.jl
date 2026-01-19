@@ -13,7 +13,7 @@ using LibNEGF, Test, LinearAlgebra
 	    for i in 1:npl
 	    	T[i,i].Full += n*I(bind[i])
 	    end
-	    T_LU = blockMatrix_factorization(T)
+	    T_LU = blockMatrix_factorization(T, TimingData(), CountingData())
 	    luT = lu(full(T), NoPivot())
 	    T_LU_Matrix = full(T_LU)
 	    appT_LU = UnitLowerTriangular(T_LU_Matrix) * UpperTriangular(T_LU_Matrix)
@@ -30,9 +30,27 @@ using LibNEGF, Test, LinearAlgebra
 	    for i in 1:npl
 	    	T[i,i].Full += n*I(bind[i])
 	    end
-	    T_app = blockMatrix_inverse(blockMatrix_factorization(T))
-	    @test norm(inv(full(T)) - full(T_app)) / norm(full(T_app)) <= 1e-15
-	    @test norm(full(T) * full(T_app) - I ) / norm(full(T) * full(T_app)) <= 1e-15
+		T_fact = blockMatrix_factorization(T, TimingData(), CountingData())
+	    T_app = blockMatrix_inverse(T_fact, true, TimingData(), CountingData())
+		
+		## Check if diag(A*si(A)) = 1 ##
+		check_diag = diag(full(T)*full(T_app))
+		for i in 1:npl
+			@test (1 - check_diag[i]) <= 1e-4
+		end
+
+		## Check shape(si(A)) == shape(inv(A)) ##
+		invT = inv(full(T))
+		invT = set_sparse_Block(invT, bind, true)
+		
+		## Check nonzeros block of si(A) equal to inv(A) blocks ##
+		for i in 1:npl
+			for j in 1:npl
+				if isassigned(T_app,i,j)
+					@test isapprox(T_app[i,j].Full, invT[i,j].Full, atol=1e-8)
+				end
+			end
+		end
     end
 end
 end # module TestLibNEGFSelectedinverse
