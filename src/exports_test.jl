@@ -38,6 +38,8 @@ export sum_BlockMatrix
 export prod_BlockMatrix
 export get_rcIndex
 export get_rcIndexAt
+export get_colIndexAt
+export get_rowIndexAt
 export get_rowSizes
 export get_colSizes
 export get_blockSizes
@@ -66,6 +68,7 @@ export prod_VecOfBlock!
 export prod_VecOfBlock
 export blockMatrix_factorization!
 export blockMatrix_factorization
+export blockMatrix_factorization_noT
 export blockMatrix_inverse!
 export blockMatrix_inverse
 

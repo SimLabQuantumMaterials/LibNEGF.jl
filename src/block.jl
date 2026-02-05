@@ -4,17 +4,14 @@
 # Fields
 - `Full::Matrix` : To store the full block matrix.
 - `Factors::LU` : To store LU factors (and plus if needed).
-- `f_inv::Bool` : Flag to know if the LU factors need to be inversed or not.
 - `row::Vector{Int}`: the row size.
 - `col::Vector{Int}`: the column size.
 """
 mutable struct Block
 	"Full"
-	Full::Union{Array,UndefInitializer}
+	Full::Union{Array, UndefInitializer}
 	"Factors"
 	Factors::Union{LU, Array, UndefInitializer}
-	"f_inv"
-	f_inv::Bool
 	"row"
 	row::Int
 	"col"
@@ -23,19 +20,23 @@ mutable struct Block
 	@doc "Inner constructor"
 	Block() =
 	begin
-		new(undef, undef, false, -1, -1)
+		new(undef, undef, -1, -1)
 	end
-	Block(M) =
+	Block(M::Array) =
 	begin
-		new(M, undef, false, size(M,1), size(M,2))
+		new(M, undef, size(M,1), size(M,2))
 	end
 	Block(M::LU) =
 	begin
-		new(undef, M, false, size(M.L,1), size(M.L,2))
+		new(undef, M, size(M.L,1), size(M.L,2))
 	end
 	Block(row::Int, col::Int) =
 	begin
-		new(undef, undef, false, row, col)
+		new(undef, undef, row, col)
+	end
+	Block(undef, row::Int, col::Int) =
+	begin
+		new(undef, undef, row, col)
 	end
 end
 
@@ -83,7 +84,7 @@ Overload the operator `==` to check if two `Block` `A` and `B` are equal.
 - `B::Block` : the second block for comparison.
 """
 function Base.:(==)(A::Block, B::Block)::Bool
-	return A.Full == B.Full && A.Factors == B.Factors && A.f_inv == B.f_inv && A.row == B.row && A.col == B.col
+	return A.Full == B.Full && A.Factors == B.Factors && A.row == B.row && A.col == B.col
 end
 
 ###
@@ -202,10 +203,21 @@ function Base.copy(A::Block)::Block
 	B = Block()
 	try B.Full = copy(A.Full) catch; nothing end
 	try B.Factors = copy(A.Factors) catch; nothing end
-	try B.f_inv = copy(A.f_inv) catch; nothing end
 	try B.row = copy(A.row) catch; nothing end
 	try B.col = copy(A.col) catch; nothing end
 	return B
+end
+
+"""
+	copy(A::Block)::Block
+
+Copy a `Block` object.
+"""
+function Base.copy!(B::Block, A::Block)
+	try copy!(B.Full, A.Full) catch; nothing end
+	try copy!(B.Factors, A.Factors) catch; nothing end
+	try copy!(B.row, A.row) catch; nothing end
+	try copy!(B.col, A.col) catch; nothing end
 end
 
 """
@@ -255,6 +267,18 @@ function bm_copy(A::Matrix)::Matrix
 	return B
 end
 
+function bm_copy!(B::Matrix, A::Matrix)
+	# B = Matrix(undef,size(A,1),size(A,2))
+	for i in 1:size(A,1)
+		for j in 1:size(A,2)
+			if isassigned(A,i,j)
+				copy!(B[i,j], A[i,j])
+			end
+		end
+	end
+	# return B
+end
+
 """
 	bm_similar(A::Matrix)::Matrix
 
@@ -279,7 +303,7 @@ function sum_BlockMatrix(A::Array, B::Array)::Array
 	for i in 1:size(A,1)
 		for j in 1:size(A,2)
 			if isassigned(A,i,j) && isassigned(B,i,j)
-				@assert A[i,j].row==B[i,j].row && A[i,j].col==B[i,j].col
+				@assert A[i,j].row == B[i,j].row && A[i,j].col == B[i,j].col
 				C[i,j] = Block(A[i,j] + B[i,j])
 			elseif isassigned(A,i,j)
 				C[i,j] = copy(A[i,j])
@@ -359,21 +383,78 @@ Get the rows and columns index where the matrix `M` is not `undef` for specific 
 - `colB::Int` : the starting index of column we analyze.
 - `colE::Int` : the ending index of column we analyze.
 """
-function get_rcIndexAt(M::Matrix, rowB::Int=1, rowE::Int=size(M,1), colB::Int=1, colE::Int=size(M,2))::Tuple{Vector{Int}, Vector{Int}}
+function get_rcIndexAt!(rcInd::Vector{Int}, M::Matrix, rowB::Int=1, rowE::Int=size(M,1), colB::Int=1, colE::Int=size(M,2), flag_row::Bool=true)
 
-	rowInd = Vector{Int}()
-	colInd = Vector{Int}()
+	if !isempty(rcInd)
+		empty!(rcInd)
+	end
 
 	for i in rowB:rowE
 		for j in colB:colE
 			if isassigned(M, i, j)
-				push!(rowInd,i)
-				push!(colInd,j)
+				if flag_row
+					push!(rcInd, i)
+				else
+					push!(rcInd, j)
+				end
+			end
+		end
+	end
+end
+
+function get_rcIndexAt(M::Matrix, rowB::Int=1, rowE::Int=size(M,1), colB::Int=1, colE::Int=size(M,2), flag_row::Bool=true)::Vector{Int}
+
+	rcInd = Vector{Int}()
+
+	for i in rowB:rowE
+		for j in colB:colE
+			if isassigned(M, i, j)
+				if flag_row
+					push!(rcInd, i)
+				else
+					push!(rcInd, j)
+				end
+			end
+		end
+	end
+	return rcInd
+end
+
+function get_rowIndexAt(M::Matrix, rowB::Int=1, rowE::Int=size(M,1), colB::Int=1, colE::Int=size(M,2))::Vector{Int}
+
+	# rowInd = Vector{Int}(-1,rowE)
+	rowInd = - ones(rowE-rowB+1)
+	mark = 1
+
+	for i in rowB:rowE
+		for j in colB:colE
+			if isassigned(M, i, j)
+				rowInd[mark] = i
+				mark += 1
 			end
 		end
 	end
 
-	return rowInd, colInd
+	# return filter(x -> x > 0, rowInd)
+	return rowInd[rowInd .> 0]
+end
+
+function get_colIndexAt(M::Matrix, rowB::Int=1, rowE::Int=size(M,1), colB::Int=1, colE::Int=size(M,2))::Vector{Int}
+
+	# colInd = Vector{Int}(-1,colE)
+	colInd = - ones(colE-colB+1)
+	mark = 1
+
+	for i in rowB:rowE
+		for j in colB:colE
+			if isassigned(M, i, j)
+				colInd[mark] = j
+				mark += 1
+			end
+		end
+	end
+
+	return colInd[colInd .> 0]
 end
 
 """

@@ -51,17 +51,20 @@ for systemx in systemNames
                             Min = set_sparse_Block(Msp, blockSizes)
                         else
                             Min = block_create_synthetic_random(npl, blockSize, precx, false)
+                            # Min = bm_create_synthetic_random(npl, blockSize, precx, false)
                         end
                         push!(Mins, Min)
                         push!(Mouts, bm_copy(Min))
                     end
 
                     # (?) force the garbage collector before doing the core computations
-                    # GC.gc()
+                    GC.gc()
 
                     tx(tId) = begin
                         ninvs = 10
                         # multiple inversions per energy point, for statistics purposes
+                        blockMatrix_factorization_noT!(Mins[tId])
+                        # bm_copy!(Mouts[tId], B)
                         for ix = 1:ninvs
                             # do a clear separation when timing the first inversion vs the others
                             if ix == 1
@@ -87,11 +90,9 @@ for systemx in systemNames
                             else
                                 td = TimingData()
                             end
-                            # timerTagLocalFacto = timerTagLocal * "_facto"
-                            # timerTagLocalInverse = timerTagLocal * "_inverse"
                             timerTagLocalTotal = timerTagLocal * "_total"
                             # @timeit timers[tId] timerTagLocalTotal blockMatrix_factorization!(Mins[tId], td, cd)
-                            @timeit timers[tId] timerTagLocalTotal blockMatrix_inverse(blockMatrix_factorization_noT!(Mins[tId]), true, td, cd)
+                            @timeit timers[tId] timerTagLocalTotal blockMatrix_inverse!(Mins[tId], td, cd)
                         end
                     end
                     

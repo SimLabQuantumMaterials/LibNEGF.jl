@@ -24,19 +24,20 @@ using LibNEGF, Test, LinearAlgebra
 	    npl = 5
 	    rind = [1,1,1,2,3,3,3,4,5]
 	    cind = [1,3,5,2,3,4,5,4,5]
-	    bind = repeat([100], npl)
+	    bind = repeat([1], npl)
 	    T = set_sparse_Block(bind, rind, cind, true)
 	    n = sum(bind)
 	    for i in 1:npl
 	    	T[i,i].Full += n*I(bind[i])
 	    end
 		T_fact = blockMatrix_factorization(T, TimingData(), CountingData())
-	    T_app = blockMatrix_inverse(T_fact, true, TimingData(), CountingData())
+	    T_app = blockMatrix_inverse(T_fact, TimingData(), CountingData())
+		
 		
 		## Check if diag(A*si(A)) = 1 ##
 		check_diag = diag(full(T)*full(T_app))
 		for i in 1:npl
-			@test (1 - check_diag[i]) <= 1e-4
+			@test (1 - check_diag[i]) <= 1e-11
 		end
 
 		## Check shape(si(A)) == shape(inv(A)) ##
@@ -47,7 +48,7 @@ using LibNEGF, Test, LinearAlgebra
 		for i in 1:npl
 			for j in 1:npl
 				if isassigned(T_app,i,j)
-					@test isapprox(T_app[i,j].Full, invT[i,j].Full, atol=1e-8)
+					@test isapprox(T_app[i,j].Full, invT[i,j].Full, atol=1e-13)
 				end
 			end
 		end

@@ -251,3 +251,27 @@ function be_getrf!(A::Array, td::TimingData, cd::CountingData)
         end
     end
 end
+
+function be_potrf!(uplo::Char, A::Array, td::TimingData, cd::CountingData)
+    if Threads.nthreads() > 1
+        LinearAlgebra.LAPACK.potrf!(uplo, A)
+    else
+        @timewrap td "_lu" begin
+            @countwrap cd "_lu" A A A begin
+				LinearAlgebra.LAPACK.potrf!(uplo, A)
+            end
+        end
+    end
+end
+
+function be_herk!(uplo::Char, tA::Char, alpha::Number, A::Array, beta::Number, C::Array, td::TimingData, cd::CountingData)
+    if Threads.nthreads() > 1
+        LinearAlgebra.BLAS.herk!(uplo, tA, alpha, A, beta, C)
+    else
+        @timewrap td "_gemm" begin
+            @countwrap cd "_gemm" A A C begin
+				LinearAlgebra.BLAS.herk!(uplo, tA, alpha, A, beta, C)
+            end
+        end
+    end
+end

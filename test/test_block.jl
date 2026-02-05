@@ -92,14 +92,16 @@ import LinearAlgebra
     end
     @testset "get_rcIndexAt" begin
         M = Matrix(undef, 5, 5)
-        idx, idy = get_rcIndexAt(M)
+        idx = get_rcIndexAt(M)
+        idy = get_rcIndexAt(M, 1, size(M,1), 1, size(M,2), true)
         @test isempty(idx)
         @test isempty(idy)
         idx = [1, 2, 3]
         idy = [1, 3]
         M[idx, idy] .= 1
-        @test get_rcIndexAt(M, 1, 1) == ([1, 1, 2, 2, 3, 3], [1, 3, 1, 3, 1, 3]) broken = true
-        @test get_rcIndexAt(M, 1, 1) == ([1, 1], [1, 3])
+        @test get_rcIndexAt(M) == ([1, 1, 2, 2, 3, 3], [1, 3, 1, 3, 1, 3]) broken = true
+        @test get_rcIndexAt(M, 1, 1) == [1, 1]
+        @test get_rcIndexAt(M, 1, 1, 1, size(M,2), false) == [1, 3]
     end
     @testset "bm_similar" begin
         M = Matrix(undef, 5, 5)
