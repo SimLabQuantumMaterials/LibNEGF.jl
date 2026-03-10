@@ -72,11 +72,11 @@ for precx in precs
                         Arandsp = (Arandsp + Arandsp') / convert(precx, 2.0)
                         Sn = bm_convert(Arandsp, Arandbm.blockSizes, Arandbm.ndiag, true)
                         push!(Sns, Sn)
-                        auxDataKeldysh = allocate_aux_data_Keldysh(Mins[1], Sns[1], parse(Int, ARGS[3]), parse(Int, ARGS[4]))
+                        auxDataKeldysh = allocate_aux_data_Keldysh(Mins[1], Sns[1])
                         push!(auxs, auxDataKeldysh)
                     end
                 catch OutOfMemoryError
-                    error("The application tried to allocated beyond the available system memory")
+                    error("The application tried to allocate beyond the available system memory")
                 end
 
                 # (?) force the garbage collector before doing the core computations
@@ -133,6 +133,6 @@ for precx in precs
     end
 end
 
-LinearAlgebra.BLAS.set_num_threads(1)
+# LinearAlgebra.BLAS.set_num_threads(1)
 
 Printf.@printf("\n")

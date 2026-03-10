@@ -1,4 +1,4 @@
-Printf.@printf("Benchmarking bndiag_of_inv_ddrgf!(...)\n")
+Printf.@printf("Benchmarking bndiag_of_inv_rgf!(...)\n")
 
 #LinearAlgebra.BLAS.set_num_threads(Int(parse(Float64, ARGS[4])))
 
@@ -33,7 +33,7 @@ for precx in precs
     # create array of timers
     timers = Vector{TimerOutput}()
     push!(timers, TimerOutput())
-    timerTagGlobal = "bndiag_of_inv_ddrgf_" * string(precx)
+    timerTagGlobal = "bndiag_of_inv_rgf_" * string(precx)
 
     for k in kpoints
         @timeit to timerTagGlobal begin
@@ -67,10 +67,10 @@ for precx in precs
                         push!(Mins, Min)
                         push!(Mouts, bm_copy(Min))
 
-                        @time push!(auxs, allocate_aux_data_RGF(Mins[1], parse(Int, ARGS[3]), parse(Int, ARGS[4])))
+                        @time push!(auxs, allocate_aux_data_RGF(Mins[1]))
                     end
                 catch OutOfMemoryError
-                    error("The application tried to allocated beyond the available system memory")
+                    error("The application tried to allocate beyond the available system memory")
                 end
 
                 # (?) force the garbage collector before doing the core computations
@@ -120,7 +120,7 @@ for precx in precs
 
     # print flops and mems counts for thread1 only
     if useFinerTimings == 1
-        print_flops_and_mems(counters[1], to, precx, "bndiag_of_inv_ddrgf", true)
+        print_flops_and_mems(counters[1], to, precx, "bndiag_of_inv_rgf", true)
     end
 end
 
