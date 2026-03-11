@@ -11,8 +11,6 @@ struct AuxDataRGF
     buffM::BlockMatrix
     bIdM::BlockMatrix
     buildFullInv::Bool
-    nrBLASThreadsOuter::Int
-    nrBLASThreadsInner::Int
 end
 
 struct AuxDataDDRGF
@@ -62,7 +60,7 @@ function check_if_enough_mem_rgf(npl::Int, blockSize::Int, precx::DataType)
     # before allocating, check whether there is enough memory
     # to allocate all the needed buffers
     requiredMem::Float64 = required_mem_non_symm(npl, precx, N1diag, N3diag, blockSize)
-    if requiredMem > 0.8*totalMem
+    if requiredMem > 0.8 * totalMem
         error("The required memory exceeds 80% of the total memory")
     end
 end
@@ -97,9 +95,9 @@ function check_if_enough_mem_ddrgf(npl::Int, blockSize::Int, precx::DataType)
     # to allocate all the needed buffers
     requiredMem += required_mem_non_symm(npl, precx, rgfN1diag, rgfN3diag, blockSize)
     requiredMem += required_mem_non_symm(npl, precx, ddrgfN1diag, ddrgfN3diag, blockSize)
-    if requiredMem > 0.8*totalMem
-        error("The required memory exceeds 80% of the total memory")
-    end
+    #if requiredMem > 0.8*totalMem
+    #    error("The required memory exceeds 80% of the total memory")
+    #end
 end
 
 # get the memory required by non-symmetric matrices, in MB
@@ -114,24 +112,24 @@ function required_mem_non_symm(npl::Int, precx::DataType, N1diag::Int, N3diag::I
         if ix > 1
             nx = avgBlockSize
             ny = avgBlockSize
-            requiredMem += N3diag * (nx*ny)
+            requiredMem += N3diag * (nx * ny)
         end
 
         # center
         nx = avgBlockSize
         ny = avgBlockSize
-        requiredMem += N3diag * (nx*ny)
-        requiredMem += N1diag * (nx*ny)
+        requiredMem += N3diag * (nx * ny)
+        requiredMem += N1diag * (nx * ny)
 
         # right
         if ix < npl
             nx = avgBlockSize
             ny = avgBlockSize
-            requiredMem += N3diag * (nx*ny)
+            requiredMem += N3diag * (nx * ny)
         end
     end
 
-    requiredMem *= (2*sizeof(precx) / 2^20)
+    requiredMem *= (2 * sizeof(precx) / 2^20)
 
     return requiredMem
 end
@@ -147,7 +145,7 @@ buffers in `AuxDataRGF`.
 - `nrBLASThreadsOuter::Int`.
 - `nrBLASThreadsInner::Int`.
 """
-function allocate_aux_data_RGF(M::BlockMatrix, nrBLASThreadsOuter::Int, nrBLASThreadsInner::Int)::AuxDataRGF
+function allocate_aux_data_RGF(M::BlockMatrix)::AuxDataRGF
     npl = size(M.blockSizes)[1]
 
     # in general, these type of auxiliary block matrices will contain
@@ -161,103 +159,158 @@ function allocate_aux_data_RGF(M::BlockMatrix, nrBLASThreadsOuter::Int, nrBLASTh
     bm_blocks_define_identity!(bIdM)
 
     # the final struct with the buffers
-    auxData = AuxDataRGF(buffM, bIdM, 0, nrBLASThreadsOuter, nrBLASThreadsInner)
+    auxData = AuxDataRGF(buffM, bIdM, 0)
 
     return auxData
 end
 
-function get_rMLDIV(M::BlockMatrix, td::TimingData, cd::CountingData)::Float64
+function get_rMLDIV(M::BlockMatrix, td::TimingData, cd::CountingData)::Vector{Float64}
     # we take the block size to be the average of the block sizes
     avgBlockSize = Int(floor((sum(M.blockSizes) / size(M.blockSizes)[1])))
-
-    # we obtain rMLDIV for that average block size
-
-    plusOneCmplx = convert(M.nrsType, 1.0)
-    A = be_random_array(M.nrsType, (avgBlockSize, avgBlockSize))
-    B = be_random_array(M.nrsType, (avgBlockSize, avgBlockSize))
-    C = be_random_array(M.nrsType, (avgBlockSize, avgBlockSize))
-    A0 = be_random_array(M.nrsType, (avgBlockSize, avgBlockSize))
-    B0 = be_random_array(M.nrsType, (avgBlockSize, avgBlockSize))
-
-    nrSamples::Int = floor(1.0E4 * 3.0E5 / (avgBlockSize^3)) + 10
-
-    # let's pre-run one GEMM, to avoid setup-ish times being accounted for
-    be_gemm!('N', 'N', plusOneCmplx, A, B, plusOneCmplx, C, td, cd)
-    # get the average time for a single GEMM
-    t1GEMM = time()
-    for ix = 1:nrSamples
-        be_copy_in_hw!(A, A0)
-        be_copy_in_hw!(B, B0)
-        be_gemm!('N', 'N', plusOneCmplx, A, B, plusOneCmplx, C, td, cd)
-    end
-    t2GEMM = time()
-    avgTimeGEMM::Float64 = (t2GEMM - t1GEMM) / nrSamples
-
-    # get the average time for a single LU
-    Alu = be_zero_lu(M.nrsType, avgBlockSize)
-    Alu0 = be_zero_lu(M.nrsType, avgBlockSize)
-    be_lu!(Alu, A, td, cd)
-    be_lu!(Alu0, A, td, cd)
-    t1MLDIV = time()
-    for ix = 1:nrSamples
-        # be_copy_in_hw!(A, A0)
-        # be_copy_in_hw!(B, B0)
-        # be_copy_in_hw!(Alu.A, Alu0.A)
-        be_mldivide!('N', B, A, Alu, td, cd)
-    end
-    t2MLDIV = time()
-    avgTimeMLDIV::Float64 = (t2MLDIV - t1MLDIV) / nrSamples
-
-    return avgTimeMLDIV / avgTimeGEMM
-end
-
-function get_rLU(M::BlockMatrix, td::TimingData, cd::CountingData)::Float64
-    # we take the block size to be the average of the block sizes
-    avgBlockSize = Int(floor((sum(M.blockSizes) / size(M.blockSizes)[1])))
+    # this is just a heuristic, based on experimentation, this perhaps should
+    # be formalized a bit better
+    nrSamples::Int = floor(1.0E4 * 1.0E5 / (avgBlockSize^3)) + 10
 
     # we obtain rLU for that average block size
 
     plusOneCmplx = convert(M.nrsType, 1.0)
 
-    A = be_random_array(M.nrsType, (avgBlockSize, avgBlockSize))
-    B = be_random_array(M.nrsType, (avgBlockSize, avgBlockSize))
-    C = be_random_array(M.nrsType, (avgBlockSize, avgBlockSize))
-    A0 = be_random_array(M.nrsType, (avgBlockSize, avgBlockSize))
-    B0 = be_random_array(M.nrsType, (avgBlockSize, avgBlockSize))
-
-    nrSamples::Int = floor(1.0E4 * 3.0E5 / (avgBlockSize^3)) + 10
+    # create three block-diagonal matrices
+    blockSizes = repeat([avgBlockSize], nrSamples)
+    A = bm_empty(blockSizes, nrSamples, 1, false, M.nrsType, false)
+    bm_blocks_define!(A, 2)
+    B = bm_empty(blockSizes, nrSamples, 1, false, M.nrsType, false)
+    bm_blocks_define!(B, 2)
+    C = bm_empty(blockSizes, nrSamples, 1, false, M.nrsType, false)
+    bm_blocks_define!(C, 2)
 
     # let's pre-run one GEMM, to avoid setup-ish times being accounted for
-    be_gemm!('N', 'N', plusOneCmplx, A, B, plusOneCmplx, C, td, cd)
-    # get the average time for a single GEMM
-    t1GEMM = time()
-    for ix = 1:nrSamples
-        be_copy_in_hw!(A, A0)
-        be_copy_in_hw!(B, B0)
-        be_gemm!('N', 'N', plusOneCmplx, A, B, plusOneCmplx, C, td, cd)
-    end
-    t2GEMM = time()
-    avgTimeGEMM::Float64 = (t2GEMM - t1GEMM) / nrSamples
+    be_gemm!('N', 'N', plusOneCmplx, A.M[1, 1], B.M[1, 1], plusOneCmplx, C.M[1, 1], td, cd)
 
-    # get the average time for a single LU
+    # let's pre-run one MLDIV, to avoid setup-ish times being accounted for
     Alu = be_zero_lu(M.nrsType, avgBlockSize)
-    be_lu!(Alu, A, td, cd)
-    t1LU = time()
-    for ix = 1:nrSamples
-        be_lu!(Alu, A, td, cd)
-    end
-    t2LU = time()
-    avgTimeLU::Float64 = (t2LU - t1LU) / nrSamples
+    be_lu!(Alu, A.M[1, 1], td, cd)
+    be_mldivide!('N', B.M[1, 1], A.M[1, 1], Alu, td, cd)
 
-    return avgTimeLU / avgTimeGEMM
+    timesGEMM::Vector{Float64} = zeros(Float64, nrSamples)
+    timesMLDIV::Vector{Float64} = zeros(Float64, nrSamples)
+
+    # get the GEMM times
+    for ix = 1:nrSamples
+        t1GEMM = time()
+        be_gemm!('N', 'N', plusOneCmplx, A.M[1, 1], B.M[1, 1], plusOneCmplx, C.M[1, 1], td, cd)
+        t2GEMM = time()
+        timesGEMM[ix] = t2GEMM - t1GEMM
+    end
+
+    # get the LU times
+    for ix = 1:nrSamples
+        be_lu!(Alu, A.M[ix, ix], td, cd)
+        t1MLDIV = time()
+        be_mldivide!('N', C.M[ix, ix], B.M[ix, ix], Alu, td, cd)
+        t2MLDIV = time()
+        timesMLDIV[ix] = t2MLDIV - t1MLDIV
+    end
+
+    # all the ratios MLDIV to GEMM
+    rMLDIVs::Vector{Float64} = timesMLDIV ./ timesGEMM
+
+    avgrMLDIV::Float64 = sum(rMLDIVs) / nrSamples
+    # standard deviation
+    stdrMLDIV::Float64 = sqrt(sum((rMLDIVs .- avgrMLDIV) .^ 2) / nrSamples)
+
+    # suggest cleanup to the garbage collector
+    A = nothing
+    B = nothing
+    C = nothing
+    GC.gc()
+
+    return [avgrMLDIV, stdrMLDIV]
+end
+
+function get_rLU(M::BlockMatrix, td::TimingData, cd::CountingData)::Vector{Float64}
+    # we take the block size to be the average of the block sizes
+    avgBlockSize = Int(floor((sum(M.blockSizes) / size(M.blockSizes)[1])))
+    # this is just a heuristic, based on experimentation, this perhaps should
+    # be formalized a bit better
+    nrSamples::Int = floor(1.0E4 * 1.0E5 / (avgBlockSize^3)) + 10
+
+    # we obtain rLU for that average block size
+
+    plusOneCmplx = convert(M.nrsType, 1.0)
+
+    # create three block-diagonal matrices
+    blockSizes = repeat([avgBlockSize], nrSamples)
+    A = bm_empty(blockSizes, nrSamples, 1, false, M.nrsType, false)
+    bm_blocks_define!(A, 2)
+    B = bm_empty(blockSizes, nrSamples, 1, false, M.nrsType, false)
+    bm_blocks_define!(B, 2)
+    C = bm_empty(blockSizes, nrSamples, 1, false, M.nrsType, false)
+    bm_blocks_define!(C, 2)
+
+    # let's pre-run one GEMM, to avoid setup-ish times being accounted for
+    be_gemm!('N', 'N', plusOneCmplx, A.M[1, 1], B.M[1, 1], plusOneCmplx, C.M[1, 1], td, cd)
+
+    # let's pre-run one LU, to avoid setup-ish times being accounted for
+    Alu = be_zero_lu(M.nrsType, avgBlockSize)
+    be_lu!(Alu, A.M[1, 1], td, cd)
+
+    timesGEMM::Vector{Float64} = zeros(Float64, nrSamples)
+    timesLU::Vector{Float64} = zeros(Float64, nrSamples)
+
+    # get the GEMM times
+    for ix = 1:nrSamples
+        t1GEMM = time()
+        be_gemm!('N', 'N', plusOneCmplx, A.M[ix, ix], B.M[ix, ix], plusOneCmplx, C.M[ix, ix], td, cd)
+        t2GEMM = time()
+        timesGEMM[ix] = t2GEMM - t1GEMM
+    end
+
+    # get the LU times
+    for ix = 1:nrSamples
+        t1LU = time()
+        be_lu!(Alu, A.M[ix, ix], td, cd)
+        t2LU = time()
+        timesLU[ix] = t2LU - t1LU
+    end
+
+    # all the ratios LU to GEMM
+    rLUs::Vector{Float64} = timesLU ./ timesGEMM
+
+    avgrLU::Float64 = sum(rLUs) / nrSamples
+    # standard deviation
+    stdrLU::Float64 = sqrt(sum((rLUs .- avgrLU) .^ 2) / nrSamples)
+
+    # suggest cleanup to the garbage collector
+    A = nothing
+    B = nothing
+    C = nothing
+    GC.gc()
+
+    return [avgrLU, stdrLU]
 end
 
 function cost_rgf(L::Int, rLU::Float64, rMLDIV::Float64, doFull::Bool)::Float64
     # counts for the three kernels
     nGEMMfull = 0
-    if doFull && L > 2
-        nGEMMfull += L * L - L - 2 * (L - 1)
+
+    if doFull && L > 4
+        error("Something is not OK: a block tridiagonal matrix with L>4 is being \
+               fully inverted with RGF")
+    elseif doFull && L == 3
+        nGEMMfull += 1
+    elseif doFull && L == 4
+        nGEMMfull += 3
     end
+
+    if doFull
+        if L == 3
+            nGEMMfull += 1 * 2
+        elseif L == 4
+            nGEMMfull += 2 * 3
+        end
+    end
+
     nGEMM = (L - 1) + 3 * (L - 1) + nGEMMfull
     nMLDIV = 2 * (L - 1) + 1 + (L - 1)
     nLU = L
@@ -274,21 +327,19 @@ function cost_ddrgf(rLU::Float64, rMLDIV::Float64, nrTasks::Int, nrThreads::Int,
     rDDRGF += (1.0 / nrThreads) * nrTasks * cost_rgf(blockSizeD1, rLU, rMLDIV, true)
 
     # r22(12) and r22(21) terms
-    rDDRGF += 2.0 * (1.0 / nrThreads) * (2 * nrTasks - 1) * blockSizeD1
+    rDDRGF += 2.0 * (1.0 / nrThreads) * 2 * nrTasks * blockSizeD1
 
     # r22S term
-    rDDRGF += (1.0 / nrThreads) * (4 * nrTasks - 3)
+    rDDRGF += (1.0 / nrThreads) * 4 * nrTasks
 
     # r12 term
-    rDDRGF += (1.0 / nrThreads) * ((2 * nrTasks - 1) * blockSizeD1 + 2 * (nrTasks - 1) *
-                                                                     blockSizeD1)
+    rDDRGF += (1.0 / nrThreads) * 4 * nrTasks * blockSizeD1
 
     # r21 term
-    rDDRGF += (1.0 / nrThreads) * (4 * nrTasks - 3)
+    rDDRGF += (1.0 / nrThreads) * 4 * nrTasks
 
     # r11 term
-    rDDRGF += (1.0 / nrThreads) * (2 * (nrTasks * (blockSizeD1 - 1) + (nrTasks - 1) *
-                                                                      (blockSizeD1 - 1)) + (2 * nrTasks - 1) * blockSizeD1)
+    rDDRGF += (1.0 / nrThreads) * nrTasks * (4 * (blockSizeD1 - 1) + 2 * blockSizeD1)
 
     # those are all GEMMs
     rDDRGF *= 1.0
@@ -296,163 +347,48 @@ function cost_ddrgf(rLU::Float64, rMLDIV::Float64, nrTasks::Int, nrThreads::Int,
     return rDDRGF
 end
 
-function get_damp_blas(M::BlockMatrix, td::TimingData, cd::CountingData)::Float64
-    nrThreads = Threads.nthreads()
-
-    # we take the block size to be the average of the block sizes
-    avgBlockSize = Int(floor((sum(M.blockSizes) / size(M.blockSizes)[1])))
-
-    # we obtain rLU for that average block size
-
-    plusOneCmplx = convert(M.nrsType, 1.0)
-
-    A = be_random_array(M.nrsType, (avgBlockSize, avgBlockSize))
-    B = be_random_array(M.nrsType, (avgBlockSize, avgBlockSize))
-    C = be_random_array(M.nrsType, (avgBlockSize, avgBlockSize))
-    A0 = be_random_array(M.nrsType, (avgBlockSize, avgBlockSize))
-    B0 = be_random_array(M.nrsType, (avgBlockSize, avgBlockSize))
-
-    nrSamples::Int = floor(1.0E4 * 3.0E5 / (avgBlockSize^3)) + 10
-
-    # get the average time for a single GEMM, single thread
-    t1GEMM = time()
-    for ix = 1:nrSamples
-        be_copy_in_hw!(A, A0)
-        be_copy_in_hw!(B, B0)
-        be_gemm!('N', 'N', plusOneCmplx, A, B, plusOneCmplx, C, td, cd)
+function bndiag_of_inv_ddrgf_get_nr_tasks(M::BlockMatrix, blockSizeD1::Int,
+    blockSizeD2::Int)::Vector{Int}
+    # check that blockSizeD2 has been set to 1
+    if blockSizeD2 != 1
+        error("The value of blockSizeD2 should be set to 1")
     end
-    t2GEMM = time()
-    avgTimeGEMMst::Float64 = (t2GEMM - t1GEMM) / nrSamples
 
-    # get the average time for a single GEMM, multiple threads
-    LinearAlgebra.BLAS.set_num_threads(nrThreads)
-    t1GEMM = time()
-    for ix = 1:nrSamples
-        be_copy_in_hw!(A, A0)
-        be_copy_in_hw!(B, B0)
-        be_gemm!('N', 'N', plusOneCmplx, A, B, plusOneCmplx, C, td, cd)
-    end
-    t2GEMM = time()
-    avgTimeGEMMmt::Float64 = (t2GEMM - t1GEMM) / nrSamples
-    LinearAlgebra.BLAS.set_num_threads(1)
+    # NOTE : we're assuming the splitType to be such that this is open-ended
 
-    dampFactor = avgTimeGEMMmt / avgTimeGEMMst
+    npl::Int = size(M.blockSizes)[1]
 
-    return dampFactor
-end
+    # number of principal layers per task, except possibly the last chunk
+    nplPerTask = blockSizeD1 + blockSizeD2
 
-function opt_params(Min::BlockMatrix, nrBlocksInNonPivots::Int, rLU::Float64, rMLDIV::Float64,
-    dampSeqF::Float64, splitType::Bool)::Tuple{Int,Int,Float64}
-    nplBare = size(Min.blockSizes)[1]
-    nrThreadsBare = Threads.nthreads()
+    # get the number of tasks and the (possible) last chunk
+    nrTasks = Int(floor(npl / nplPerTask)) + 1
+    nplLeftover = npl - (nrTasks - 1) * nplPerTask
 
-    optNrLevels::Int = 0
-    optNrTasks::Int = 1
-    optCostOld::Float64 = Inf
-    optCostNew::Float64 = Inf
-    nrThreads::Int = 0
-    listOfNrTasks = Vector{Int}()
+    # the leftover gets a 1 removed from the sub-domain 2 within
+    blockSizeD1Leftover = nplLeftover - 1
 
-    nrTasksBare::Int = floor(nplBare / (1 + nrBlocksInNonPivots)) + 1
-    if nrTasksBare - 1 < nrThreadsBare
-        println("ERROR: you need to decrease the number of Julia threads")
-        exit()
-    end
-    while nrTasksBare > 2
-        nrTasksBare -= 1
+    # possible scenarios at this point:
 
-        # fine grid
-        nrTasksF = nrTasksBare
-        npl = nplBare
-        nrTasksF, blockSizeD1, blockSizeD2F, lastSizeD2F = bndiag_of_inv_ddrgf_check_nr_tasks(npl, nrBlocksInNonPivots,
-            nrTasksF, splitType)
-        if nrTasksF < nrThreadsBare
-            break
-        end
-        nrThreadsF, maxNrTasksPerThread, lastNrTasksPerThread = bndiag_of_inv_ddrgf_check_nr_threads(nrThreadsBare, nrTasksF)
-        nrThreads = nrThreadsF
-
-        if nrTasksF ∈ listOfNrTasks
-            continue
+    # 1. the last chunk is void, which is perfect
+    if nplLeftover == 0
+        return [nrTasks - 1, 0]
+    else
+        if blockSizeD1Leftover == 0
+            # 2. the last chunk is not void, but the sub-domain 2 within is void.
+            # This situation is not possible to handle here, as we're doing open-ended
+            # distributions to have a proper load balance of the tasks. We return a -1
+            # to indicate that this case doesn't work
+            return [-1, 0]
         else
-            push!(listOfNrTasks, nrTasksF)
-        end
-
-        # the following also adds a comparison of DDRGF to RGF
-        # if nrTasksF == 1
-        #     # add <<RGF>> cost computation here
-        #     optCostNew = dampSeqF * cost_rgf(npl, rLU, rMLDIV, false)
-        #     # check if this new combination is optimal (up until now)
-        #     if optCostNew < optCostOld
-        #         optNrLevels = 0
-        #         optNrTasks = nrTasksF
-        #         optCostOld = optCostNew
-        #     end
-        #     break
-        # end
-
-        # add the DDRGF cost accummulation
-        optCostNewF = cost_ddrgf(rLU, rMLDIV, nrTasksF, nrThreadsF, blockSizeD1)
-
-        nrLevels::Int = 0
-        while true
-            nrLevels += 1
-
-            # coarse grids
-            nrTasks = nrTasksF
-            blockSizeD2 = blockSizeD2F
-            lastSizeD2 = lastSizeD2F
-            # reset the cost value accumulation to the finest only
-            optCostNew = optCostNewF
-            for ix = 1:nrLevels-1
-                # get the npl from the previous-level info
-                npl = (nrTasks - 1) * blockSizeD2 + lastSizeD2
-
-                nrTasks = nrTasksBare
-                nrTasks, blockSizeD1, blockSizeD2, lastSizeD2 = bndiag_of_inv_ddrgf_check_nr_tasks(npl, nrBlocksInNonPivots,
-                    nrTasks, splitType)
-                if nrTasks < nrThreadsBare
-                    # account for the coarsest-level RGF. We assume we're using BLAS threading within, but
-                    # we damp that by a factor
-                    optCostNew += dampSeqF * cost_rgf(npl, rLU, rMLDIV, false)
-                    break
-                end
-                nrThreadsC, maxNrTasksPerThread, lastNrTasksPerThread = bndiag_of_inv_ddrgf_check_nr_threads(nrThreadsBare, nrTasks)
-                if nrThreadsC > nrThreads
-                    nrThreads = nrThreadsC
-                end
-
-                # add the cost accummulation
-                optCostNew += cost_ddrgf(rLU, rMLDIV, nrTasks, nrThreadsC, blockSizeD1)
-            end
-
-            # check if this new combination is optimal (up until now)
-            if optCostNew < optCostOld
-                optNrLevels = nrLevels
-                optNrTasks = nrTasksF
-                optCostOld = optCostNew
-            end
-
-            if nrThreadsBare > 1
-                if nrTasks < nrThreadsBare
-                    break
-                end
-            else
-                if nrTasks <= nrThreadsBare
-                    break
-                end
-            end
+            # 3. this case is ok
+            return [nrTasks, blockSizeD1Leftover]
         end
     end
-
-    # TODO : in case optNrTasks==1, something needs to be done here as the optimal method is sequential RGF
-
-    return (optNrLevels, optNrTasks, optCostNew)
 end
 
-function allocate_aux_data_DDRGF(Min::BlockMatrix, splitType::Bool,
-    nrBLASThreadsOuter::Int, nrBLASThreadsInner::Int, td::TimingData,
-    cd::CountingData)::Vector{AuxDataDDRGF}
+function allocate_aux_data_DDRGF(Min::BlockMatrix, splitType::Bool, nrJuliaThreads::Int,
+    nrBLASThreads::Int, td::TimingData, cd::CountingData)::Vector{AuxDataDDRGF}
 
     # before anything else, find the optimal parameters for DDRGF
 
@@ -462,9 +398,32 @@ function allocate_aux_data_DDRGF(Min::BlockMatrix, splitType::Bool,
     #             recursive call of DDRGF to itself
 
     # to do this, first obtain rMLDIV and rLU, and the threaded BLAS factor
-    rLU::Float64 = get_rLU(Min, td, cd)
-    rMLDIV::Float64 = get_rMLDIV(Min, td, cd)
-    dampSeqF = get_damp_blas(Min, td, cd)
+    rLUavg::Float64, rLUstd::Float64 = get_rLU(Min, td, cd)
+
+    rMLDIVavg::Float64, rMLDIVstd::Float64 = get_rMLDIV(Min, td, cd)
+
+    # TODO : remove, this is not needed anymore in our current cost model
+    # dampSeqF = get_damp_blas(Min, td, cd)
+
+    println("Ratio factor LU = " * string(rLUavg) * " (with std dev = " * string(rLUstd) * ")")
+    println("Ratio factor MLDIV = " * string(rMLDIVavg) * " (with std dev = " * string(rMLDIVstd) * ")")
+
+    # we fix blockSizeD2 = 1, in the paper it's explained why
+    blockSizeD2 = 1
+
+    blockSizeD1 = 4
+
+    nrTasks, blockSizeD1Leftover = bndiag_of_inv_ddrgf_get_nr_tasks(Min, blockSizeD1, blockSizeD2)
+
+    println(nrTasks)
+    println(blockSizeD1Leftover)
+
+    # TODO / FIXME / IMPORTANT : note that the code is designed, at the moment, to accommodate for always
+    # having the same blockSizeD1 for all those sub-domains in domain 1 ... but the way we're changing it
+    # now requires to extend that !! One way to proceed could be to go step by step .. enabling this new
+    # extension. This will not represent too many changes, but has to be done carefully and test-driven
+
+    exit()
 
     # IMPORTANT:
     # fixed params (these might change, though, for achieving good load balance and to reduce energy waste) : 
@@ -479,24 +438,56 @@ function allocate_aux_data_DDRGF(Min::BlockMatrix, splitType::Bool,
     nrLevels::Int = 0
     totCost::Float64 = Inf
 
-    for blockSizeD1 = 1:4
-        nrLevelsNew, nrTasksNew, totCostNew = opt_params(Min, blockSizeD1, rLU, rMLDIV, dampSeqF, splitType)
-        if totCostNew < totCost
-            nrLevels = nrLevelsNew
-            nrTasks = nrTasksNew
-            totCost = totCostNew
-            nrBlocksInNonPivots = blockSizeD1
-        end
-    end
+    #for blockSizeD1 = 1:4
+    #    nrLevelsNew, nrTasksNew, totCostNew = opt_params(Min, blockSizeD1, rLU, rMLDIV, dampSeqF, splitType)
+    #    #println("DDRGF params :")
+    #    #println("\tNumber of tasks = " * string(nrTasksNew))
+    #    #println("\tNumber of non-pivot PLs = " * string(blockSizeD1))
+    #    #println("\tNumber of levels = " * string(nrLevelsNew))
+    #    #println("\tTot cost = " * string(totCostNew))
+    #    #println("\n")
+    #    if totCostNew < totCost
+    #        nrLevels = nrLevelsNew
+    #        nrTasks = nrTasksNew
+    #        totCost = totCostNew
+    #        nrBlocksInNonPivots = blockSizeD1
+    #    end
+    #end
+
+    #nrBlocksInNonPivotsList::Vector{Int} = [5-1,4-1,3-1,3-1]
+    #nrBlocksInNonPivotsList::Vector{Int} = [4-1,3-1,2-1,2-1]
+    #nrBlocksInNonPivotsList::Vector{Int} = [3-1,2-1,2-1,2-1]
+    #nrBlocksInNonPivotsList::Vector{Int} = [2-1,2-1,2-1,2-1]
+
+    #nrBlocksInNonPivotsList::Vector{Int} = [4-1,4-1]
+
+    nrBlocksInNonPivotsList::Vector{Int} = [5 - 1, 4 - 1, 3 - 1]
+
+    nrLevels = 3
+
+    #nrTasksList::Vector{Int} = [1440,288,72,24]
+    #nrTasksList::Vector{Int} = [1440,360,120,60]
+    #nrTasksList::Vector{Int} = [1440,480,240,120]
+    #nrTasksList::Vector{Int} = [1440,720,360,180]
+
+    #nrTasksList::Vector{Int} = [96,24]
+
+    nrTasksList::Vector{Int} = [576, 144, 48]
+
+    #nrBlocksInNonPivots = 4
+    #nrLevels = 3
+    #nrTasks = 400
 
     # uncomment to verify the DDRGF params after auto-tuning
-    # println("DDRGF params :")
-    # println("\tNumber of tasks = " * string(nrTasks))
-    # println("\tNumber of non-pivot PLs = " * string(nrBlocksInNonPivots))
-    # println("\tNumber of levels = " * string(nrLevels))
-    # println("\tTot cost = " * string(totCost))
+    #println("DDRGF params :")
+    #println("\tNumber of tasks = " * string(nrTasks))
+    #println("\tNumber of non-pivot PLs = " * string(nrBlocksInNonPivots))
+    #println("\tNumber of levels = " * string(nrLevels))
+    #println("\tTot cost = " * string(totCost))
 
-    nrTasksBare = nrTasks
+    #exit()
+
+    #nrTasksBare = nrTasks
 
     # -------
 
@@ -504,19 +495,23 @@ function allocate_aux_data_DDRGF(Min::BlockMatrix, splitType::Bool,
     listOfAuxDataPar = Vector{AuxDataDDRGF}()
 
     # fine grid
-    auxDataSeq = allocate_aux_data_RGF(Min, nrBLASThreadsOuter, nrBLASThreadsInner)
-    auxDataPar = allocate_aux_data_DDRGF_single_level(Min, nrBlocksInNonPivots, splitType, auxDataSeq,
-        nrTasksBare, nrBLASThreadsOuter, nrBLASThreadsInner)
+    @time auxDataSeq = allocate_aux_data_RGF(Min)
+    @time auxDataPar = allocate_aux_data_DDRGF_single_level(Min, nrBlocksInNonPivotsList[1], splitType, auxDataSeq,
+        nrTasksList[1], nrBLASThreadsOuter, nrBLASThreadsInner)
     push!(listOfAuxDataPar, auxDataPar)
+
+    #println("Block size D2 = " * string(listOfAuxDataPar[1].blockSizeD2))
 
     # coarse grids
     nrDDRGFLevels = nrLevels
     for ix = 1:nrDDRGFLevels-1
-        auxDataSeq2 = allocate_aux_data_RGF(listOfAuxDataPar[ix].buffTHat22inv, nrBLASThreadsOuter, nrBLASThreadsInner)
-        auxDataPar2 = allocate_aux_data_DDRGF_single_level(listOfAuxDataPar[ix].buffTHat22inv, nrBlocksInNonPivots, splitType, auxDataSeq2,
-            nrTasksBare, nrBLASThreadsOuter, nrBLASThreadsInner)
+        @time auxDataSeq2 = allocate_aux_data_RGF(listOfAuxDataPar[ix].buffTHat22inv)
+        @time auxDataPar2 = allocate_aux_data_DDRGF_single_level(listOfAuxDataPar[ix].buffTHat22inv, nrBlocksInNonPivotsList[ix+1], splitType, auxDataSeq2,
+            nrTasksList[ix+1], nrBLASThreadsOuter, nrBLASThreadsInner)
         push!(listOfAuxDataPar, auxDataPar2)
     end
+
+    #exit()
 
     return listOfAuxDataPar
 end
@@ -586,6 +581,12 @@ function allocate_aux_data_DDRGF_single_level(M::BlockMatrix, nrBlocksInNonPivot
 
     # the appropriate number of threads for good load balance and not wasting energy
     nrThreads, maxNrTasksPerThread, lastNrTasksPerThread = bndiag_of_inv_ddrgf_check_nr_threads(Threads.nthreads(), nrTasks)
+
+    println("Number of threads = " * string(nrThreads))
+    println("Number of tasks = " * string(nrTasks))
+    println("Number of layers = " * string(size(M.blockSizes)[1]))
+    println("Block size D1 = " * string(blockSizeD1))
+    println("Block size D2 = " * string(blockSizeD2))
 
     buffMPerm = bndiag_of_inv_ddrgf_create_permuted_matrix(auxDataSeq.buffM, permVec)
     bIdMPerm = bndiag_of_inv_ddrgf_create_permuted_matrix(auxDataSeq.bIdM, permVec)
@@ -689,6 +690,8 @@ function bndiag_of_inv_rgf_local!(Mout::BlockMatrix, Min::BlockMatrix, auxData::
     # TODO : extend this code to n-diagonal, otherwise rename this function
     #        to keep it as the simple traditional RGF
 
+    # we call this function if we want to call standalone RGF
+
     minusOneCmplx = convert(Min.nrsType, -1.0)
     plusOneCmplx = convert(Min.nrsType, 1.0)
     zeroCmplx = convert(Min.nrsType, 0.0)
@@ -772,96 +775,241 @@ end
 
 function bndiag_of_inv_rgf_global!(Mout::BlockMatrix, Min::BlockMatrix, auxData::AuxDataRGF, td::TimingData,
     cd::CountingData)
-    # set the number of chosen BLAS threads
-    if auxData.nrBLASThreadsOuter * auxData.nrBLASThreadsInner > 1
-        LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsOuter * auxData.nrBLASThreadsInner)
-    end
+
+    # we call this function from within DDRGF, at the "coarsest" level
+
+    LinearAlgebra.BLAS.set_num_threads(Threads.nthreads())
 
     bndiag_of_inv_rgf_local!(Mout, Min, auxData, td, cd)
 
     # restore the number of BLAS threads to 1
-    if auxData.nrBLASThreadsOuter * auxData.nrBLASThreadsInner > 1
-        LinearAlgebra.BLAS.set_num_threads(1)
-    end
-end
-"""
-    bndiag_of_inv_pddrgf_check_nr_tasks(M::BlockMatrix, nrTasks::Int, nrBlocksInPivots::Int, splitType::Bool)
-
-This function checks whether the desired number of tasks is possible, and if not, gives back
-an alternative, let's call this nrTasksOut. Then, it checks whether the total number of Julia
-threads times the total number of BLAS threads is divisible by nrTasksOut, and if not then returns
-1 indicating that it is not possible to more forward with the desired parallelization (i.e. then
-do sequential RGF).
-
-# Arguments
-- `M::BlockMatrix`: the matrix of the system.
-- `nrTasks::Int`: number of subdomains in which domain 1 is to be divided.
-- `nrBlocksInPivots::Int`: number of principal layers in each of the subdomains of domain 2.
-- `splitType::Int`: whether we add an extra pivot at the very end or not.
-"""
-function bndiag_of_inv_ddrgf_check_nr_tasks(M::BlockMatrix, nrBlocksInNonPivots::Int, nrTasks::Int,
-    splitType::Bool)::Tuple{Int,Int,Int,Int}
-
-    if nrTasks == 1
-        # if nrTasks = 1, the other two values are irrelevant
-        return nrTasks, 0, 0
-    end
-
-    npl = size(M.blockSizes)[1]
-
-    if splitType == Bool(0)
-        nrPivots = nrTasks
-    else
-        nrPivots = nrTasks + 1
-    end
-    nrNonPivots = nrTasks
-
-    blockSizeD1 = nrBlocksInNonPivots
-    totalSizeD1 = blockSizeD1 * nrNonPivots
-    totalSizeD2 = npl - totalSizeD1
-
-    blockSizeD2 = Int(ceil(totalSizeD2 / nrTasks))
-    ceilOfTotalSizeD2 = (nrTasks - 1) * blockSizeD2
-    restOfTotalSizeD2 = totalSizeD2 - ceilOfTotalSizeD2
-
-    if restOfTotalSizeD2 <= 0
-        nrTasks, blockSizeD1, blockSizeD2, restOfTotalSizeD2 = bndiag_of_inv_ddrgf_check_nr_tasks(M, nrBlocksInNonPivots,
-            nrTasks - 1, splitType)
-    end
-
-    return nrTasks, blockSizeD1, blockSizeD2, restOfTotalSizeD2
+    #if auxData.nrBLASThreadsOuter * auxData.nrBLASThreadsInner > 1
+    #    LinearAlgebra.BLAS.set_num_threads(1)
+    #end
+    LinearAlgebra.BLAS.set_num_threads(1)
 end
 
-function bndiag_of_inv_ddrgf_check_nr_tasks(npl::Int, nrBlocksInNonPivots::Int, nrTasks::Int,
-    splitType::Bool)::Tuple{Int,Int,Int,Int}
+# function opt_params(Min::BlockMatrix, nrBlocksInNonPivots::Int, rLU::Float64, rMLDIV::Float64,
+#     dampSeqF::Float64, splitType::Bool)::Tuple{Int,Int,Float64}
+#     nplBare = size(Min.blockSizes)[1]
+#     nrThreadsBare = Threads.nthreads()
 
-    if nrTasks == 1
-        # if nrTasks = 1, the other two values are irrelevant
-        return nrTasks, 0, 0, 0
-    end
+#     optNrLevels::Int = 0
+#     optNrTasks::Int = 1
+#     optCostOld::Float64 = Inf
+#     optCostNew::Float64 = Inf
+#     nrThreads::Int = 0
+#     listOfNrTasks = Vector{Int}()
 
-    if splitType == Bool(0)
-        nrPivots = nrTasks
-    else
-        nrPivots = nrTasks + 1
-    end
-    nrNonPivots = nrTasks
+#     nrTasksBare::Int = floor(nplBare / (1 + nrBlocksInNonPivots)) + 1
+#     if nrTasksBare - 1 < nrThreadsBare
+#         println("ERROR: you need to decrease the number of Julia threads")
+#         exit()
+#     end
+#     while nrTasksBare > 2
+#         nrTasksBare -= 1
 
-    blockSizeD1 = nrBlocksInNonPivots
-    totalSizeD1 = blockSizeD1 * nrNonPivots
-    totalSizeD2 = npl - totalSizeD1
+#         # fine grid
+#         nrTasksF = nrTasksBare
+#         npl = nplBare
+#         nrTasksF, blockSizeD1, blockSizeD2F, lastSizeD2F = bndiag_of_inv_ddrgf_check_nr_tasks(npl, nrBlocksInNonPivots,
+#             nrTasksF, splitType)
+#         if nrTasksF < nrThreadsBare
+#             #println("BREAKING!!")
+#             break
+#         end
+#         nrThreadsF, maxNrTasksPerThread, lastNrTasksPerThread = bndiag_of_inv_ddrgf_check_nr_threads(nrThreadsBare, nrTasksF)
+#         nrThreads = nrThreadsF
 
-    blockSizeD2 = Int(ceil(totalSizeD2 / nrTasks))
-    ceilOfTotalSizeD2 = (nrTasks - 1) * blockSizeD2
-    restOfTotalSizeD2 = totalSizeD2 - ceilOfTotalSizeD2
+#         #println("Number of tasks = " * string(nrTasksF))
+#         #println("Number of threads = " * string(nrThreads))
+#         #println("------")
 
-    if restOfTotalSizeD2 <= 0
-        nrTasks, blockSizeD1, blockSizeD2, restOfTotalSizeD2 = bndiag_of_inv_ddrgf_check_nr_tasks(npl, nrBlocksInNonPivots,
-            nrTasks - 1, splitType)
-    end
+#         if nrTasksF ∈ listOfNrTasks
+#             continue
+#         else
+#             push!(listOfNrTasks, nrTasksF)
+#         end
 
-    return nrTasks, blockSizeD1, blockSizeD2, restOfTotalSizeD2
-end
+#         # the following also adds a comparison of DDRGF to RGF
+#         # if nrTasksF == 1
+#         #     # add <<RGF>> cost computation here
+#         #     optCostNew = dampSeqF * cost_rgf(npl, rLU, rMLDIV, false)
+#         #     # check if this new combination is optimal (up until now)
+#         #     if optCostNew < optCostOld
+#         #         optNrLevels = 0
+#         #         optNrTasks = nrTasksF
+#         #         optCostOld = optCostNew
+#         #     end
+#         #     break
+#         # end
+
+#         # add the DDRGF cost accummulation
+#         optCostNewF = cost_ddrgf(rLU, rMLDIV, nrTasksF, nrThreadsF, blockSizeD1)
+
+#         endBecThreadsNotEnough::Bool = false
+
+#         nrLevels::Int = 0
+#         while nrLevels < 5
+#             nrLevels += 1
+
+#             # coarse grids
+#             nrTasks = nrTasksF
+#             blockSizeD2 = blockSizeD2F
+#             lastSizeD2 = lastSizeD2F
+#             nrTasksC = nrTasks
+#             blockSizeD2C = blockSizeD2
+#             lastSizeD2C = lastSizeD2
+
+#             # reset the cost value accumulation to the finest only
+#             optCostNew = optCostNewF
+#             for ix = 1:nrLevels-1
+#                 # get the npl from the previous-level info
+#                 npl = (nrTasks - 1) * blockSizeD2 + lastSizeD2
+
+#                 nrTasksC = nrTasksBare
+#                 nrTasksC, blockSizeD1C, blockSizeD2C, lastSizeD2C = bndiag_of_inv_ddrgf_check_nr_tasks(npl, nrBlocksInNonPivots,
+#                     nrTasksC, splitType)
+
+#                 if nrTasksC < nrThreadsBare
+#                     endBecThreadsNotEnough = true
+#                     break
+#                 end
+
+#                 nrTasks = nrTasksC
+#                 blockSizeD1 = blockSizeD1C
+#                 blockSizeD2 = blockSizeD2C
+#                 lastSizeD2 = lastSizeD2C
+
+#                 #if nrTasks < nrThreadsBare
+#                 #    # account for the coarsest-level RGF. We assume we're using BLAS threading within, but
+#                 #    # we damp that by a factor
+#                 #    optCostNew += dampSeqF * cost_rgf(npl, rLU, rMLDIV, false)
+#                 #    break
+#                 #end
+
+#                 nrThreadsC, maxNrTasksPerThread, lastNrTasksPerThread = bndiag_of_inv_ddrgf_check_nr_threads(nrThreadsBare, nrTasks)
+#                 if nrThreadsC > nrThreads
+#                     nrThreads = nrThreadsC
+#                 end
+
+#                 # add the cost accummulation
+#                 optCostNew += cost_ddrgf(rLU, rMLDIV, nrTasks, nrThreadsC, blockSizeD1)
+#             end
+
+#             # need to account for the coarsest level, and for this we need to get the npl
+#             # from the previous-level info
+#             npl = (nrTasks - 1) * blockSizeD2 + lastSizeD2
+#             optCostNew += dampSeqF * cost_rgf(npl, rLU, rMLDIV, false)
+
+#             # check if this new combination is optimal (up until now)
+#             if optCostNew < optCostOld
+#                 optNrLevels = nrLevels
+#                 optNrTasks = nrTasksF
+#                 optCostOld = optCostNew
+#             end
+
+#             if endBecThreadsNotEnough
+#                 break
+#             end
+
+#             # TODO : double-check the following logic
+#             if nrThreadsBare == 1
+#                 if nrTasksC <= nrThreadsBare
+#                     break
+#                 end
+#             end
+#         end
+#     end
+
+#     # TODO : in case optNrTasks==1, something needs to be done here as the optimal method is sequential RGF
+
+#     return (optNrLevels, optNrTasks, optCostNew)
+# end
+
+# """
+#     bndiag_of_inv_pddrgf_check_nr_tasks(M::BlockMatrix, nrTasks::Int, nrBlocksInPivots::Int, splitType::Bool)
+
+# This function checks whether the desired number of tasks is possible, and if not, gives back
+# an alternative, let's call this nrTasksOut. Then, it checks whether the total number of Julia
+# threads times the total number of BLAS threads is divisible by nrTasksOut, and if not then returns
+# 1 indicating that it is not possible to more forward with the desired parallelization (i.e. then
+# do sequential RGF).
+
+# # Arguments
+# - `M::BlockMatrix`: the matrix of the system.
+# - `nrTasks::Int`: number of subdomains in which domain 1 is to be divided.
+# - `nrBlocksInPivots::Int`: number of principal layers in each of the subdomains of domain 2.
+# - `splitType::Int`: whether we add an extra pivot at the very end or not.
+# """
+# function bndiag_of_inv_ddrgf_check_nr_tasks(M::BlockMatrix, nrBlocksInNonPivots::Int, nrTasks::Int,
+#     splitType::Bool)::Tuple{Int,Int,Int,Int}
+
+#     if nrTasks == 1
+#         # if nrTasks = 1, the other two values are irrelevant
+#         return nrTasks, 0, 0
+#     end
+
+#     # let's fix blockSizeD2 = 1
+#     blockSizeD2 = 1
+
+#     npl = size(M.blockSizes)[1]
+
+#     nrPivots = nrTasks
+#     if splitType != Bool(0)
+#         nrPivots += 1
+#     end
+#     nrNonPivots = nrTasks
+
+#     blockSizeD1 = nrBlocksInNonPivots
+#     totalSizeD2 = blockSizeD2 * nrPivots
+#     totalSizeD1 = npl - totalSizeD2
+
+#     # totalSizeD1 = blockSizeD1 * nrNonPivots
+#     # totalSizeD2 = npl - totalSizeD1
+
+#     blockSizeD2 = Int(ceil(totalSizeD2 / nrTasks))
+#     ceilOfTotalSizeD2 = (nrTasks - 1) * blockSizeD2
+#     restOfTotalSizeD2 = totalSizeD2 - ceilOfTotalSizeD2
+
+#     if restOfTotalSizeD2 <= 0
+#         nrTasks, blockSizeD1, blockSizeD2, restOfTotalSizeD2 = bndiag_of_inv_ddrgf_check_nr_tasks(M, nrBlocksInNonPivots,
+#             nrTasks - 1, splitType)
+#     end
+
+#     return nrTasks, blockSizeD1, blockSizeD2, restOfTotalSizeD2
+# end
+
+# function bndiag_of_inv_ddrgf_check_nr_tasks(npl::Int, nrBlocksInNonPivots::Int, nrTasks::Int,
+#     splitType::Bool)::Tuple{Int,Int,Int,Int}
+
+#     if nrTasks == 1
+#         # if nrTasks = 1, the other two values are irrelevant
+#         return nrTasks, 0, 0, 0
+#     end
+
+#     if splitType == Bool(0)
+#         nrPivots = nrTasks
+#     else
+#         nrPivots = nrTasks + 1
+#     end
+#     nrNonPivots = nrTasks
+
+#     blockSizeD1 = nrBlocksInNonPivots
+#     totalSizeD1 = blockSizeD1 * nrNonPivots
+#     totalSizeD2 = npl - totalSizeD1
+
+#     blockSizeD2 = Int(ceil(totalSizeD2 / nrTasks))
+#     ceilOfTotalSizeD2 = (nrTasks - 1) * blockSizeD2
+#     restOfTotalSizeD2 = totalSizeD2 - ceilOfTotalSizeD2
+
+#     if restOfTotalSizeD2 <= 0
+#         nrTasks, blockSizeD1, blockSizeD2, restOfTotalSizeD2 = bndiag_of_inv_ddrgf_check_nr_tasks(npl, nrBlocksInNonPivots,
+#             nrTasks - 1, splitType)
+#     end
+
+#     return nrTasks, blockSizeD1, blockSizeD2, restOfTotalSizeD2
+# end
 
 function bndiag_of_inv_ddrgf_check_nr_threads(nrThreads::Int, nrTasks::Int)::Tuple{Int,Int,Int}
     maxNrTasksPerThread = Int(ceil(nrTasks / nrThreads))
@@ -873,6 +1021,7 @@ function bndiag_of_inv_ddrgf_check_nr_threads(nrThreads::Int, nrTasks::Int)::Tup
 
     return nrThreads, maxNrTasksPerThread, restOfTotalNrTasksPerThread
 end
+
 """
     bndiag_of_inv_pddrgf_create_permutation_vector(M::BlockMatrix, nrTasks::Int,
     nrBlocksInPivots::Int, splitType::Bool)
