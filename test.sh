@@ -41,10 +41,12 @@ if exists_in_list "$HWs" " " $1; then
     export LIBNEGF_FINER_TIMINGS=0
     export LIBNEGF_TEST_OR_BENCH=test
     # if we want to really mimic C's ifdef, we need to force recompilation,
-    # which we do by removing the precompiled binaries
-    JULIA_MAJOR_VERSION=$(julia --version | egrep -o '[0-9].[0-9][0-9]')
-    BINS_JULIA=$(ls ~/.julia/compiled/v$JULIA_MAJOR_VERSION/LibNEGF/*.ji)
-    rm $BINS_JULIA
+    # which we do by removing the precompiled binaries. If you're a developer
+    # and want to mimic C's ifdef, uncomment the following lines and change
+    # correspondingly
+    #JULIA_MAJOR_VERSION=$(julia --version | egrep -o '[0-9].[0-9][0-9]')
+    #BINS_JULIA=$(ls ~/.julia/compiled/v$JULIA_MAJOR_VERSION/LibNEGF/*.ji)
+    #rm $BINS_JULIA
 
     export NUM_BLAS_THREADS_OUTER=$JULIA_NUM_THREADS
     export NUM_BLAS_THREADS_INNER=1
