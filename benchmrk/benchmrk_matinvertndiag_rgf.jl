@@ -69,8 +69,13 @@ for precx in precs
 
                         @time push!(auxs, allocate_aux_data_RGF(Mins[1]))
                     end
-                catch OutOfMemoryError
-                    error("The application tried to allocate beyond the available system memory")
+                catch e
+                    if e isa OutOfMemoryError
+                        # TODO : handle this better, but perhaps a suggestion in params change
+                        error("The application tried to allocate beyond the available system memory")
+                    else
+                        rethrow(e)
+                    end
                 end
 
                 # (?) force the garbage collector before doing the core computations

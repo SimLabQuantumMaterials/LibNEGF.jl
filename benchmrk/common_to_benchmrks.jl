@@ -1,7 +1,7 @@
 # 1 from disk, 2 is random
 whereFrom = 2
 # values for the synthetic matrix
-npl = 720
+npl = 182
 blockSize = 64
 
 useFinerTimings = Int(parse(Float64, ARGS[2]))

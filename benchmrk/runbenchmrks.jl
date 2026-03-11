@@ -28,7 +28,7 @@ Printf.@printf("  -- nr of BLAS threads: %d\n", parse(Int, ARGS[4]))
 # Printf.@printf("  -- nr of energy points: %d\n\n", size(Epoints)[1])
 
 # choose one of "rgf", "ddrgf", "rkd"
-whichBM = "rkd"
+whichBM = "ddrgf"
 
 if whichBM == "rgf"
     to = TimerOutput()

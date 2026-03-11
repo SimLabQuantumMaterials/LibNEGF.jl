@@ -39,7 +39,6 @@ for precx in precs
     timerTagGlobal = "keldyshndiag_" * string(precx)
 
     for k in kpoints
-
         @timeit to timerTagGlobal begin
             # loop over bunches of energy points - fixed to 1 for now
             nrEgroups::Int = 1
@@ -64,6 +63,7 @@ for precx in precs
 
                 auxs = Vector{AuxDataKeldysh}()
                 try
+                    # the @time is added only for checking total allocated memory
                     @time begin
                         Min = bm_create_synthetic_random(npl, blockSize, precx, false)
                         push!(Mins, Min)
@@ -75,8 +75,13 @@ for precx in precs
                         auxDataKeldysh = allocate_aux_data_Keldysh(Mins[1], Sns[1])
                         push!(auxs, auxDataKeldysh)
                     end
-                catch OutOfMemoryError
-                    error("The application tried to allocate beyond the available system memory")
+                catch e
+                    if e isa OutOfMemoryError
+                        # TODO : handle this better, but perhaps a suggestion in params change
+                        error("The application tried to allocate beyond the available system memory")
+                    else
+                        rethrow(e)
+                    end
                 end
 
                 # (?) force the garbage collector before doing the core computations
