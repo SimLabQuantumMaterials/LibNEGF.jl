@@ -1090,9 +1090,9 @@ end
 
 function bndiag_of_inv_ddrgf_compute_THat11Inv_x_THat12!(Min::BlockMatrix, auxData::AuxDataDDRGF,
     td::TimingData, cd::CountingData)
-    if auxData.nrBLASThreadsInner > 1
-        LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
-    end
+    # if auxData.nrBLASThreadsInner > 1
+    #     LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
+    # end
 
     blockSizeD1 = auxData.blockSizeD1
     nrTasks = auxData.nrTasks
@@ -1107,6 +1107,8 @@ function bndiag_of_inv_ddrgf_compute_THat11Inv_x_THat12!(Min::BlockMatrix, auxDa
 
     iOffset = sum(sizeDomains22)
 
+    buffBlockSizeD1 = blockSizeD1
+
     Threads.@threads for ixo = 1:auxData.nrThreads
         if ixo < auxData.nrThreads
             nrTasksPerThread = auxData.maxNrTasksPerThread
@@ -1120,6 +1122,10 @@ function bndiag_of_inv_ddrgf_compute_THat11Inv_x_THat12!(Min::BlockMatrix, auxDa
             # index of each individual task
             ix_ = (ixo - 1) * auxData.maxNrTasksPerThread + ixi
 
+            if ix_ == auxData.nrTasks
+                buffBlockSizeD1 = auxData.lastSizeD1
+            end
+
             if ixi > 1
                 iAccum += sizeDomains11[ix_-1]
             end
@@ -1128,7 +1134,7 @@ function bndiag_of_inv_ddrgf_compute_THat11Inv_x_THat12!(Min::BlockMatrix, auxDa
             # first, the central sub-domain
             jAccum += sizeDomains22[ix_]
             jxLperm = jAccum
-            for ix = 1:blockSizeD1
+            for ix = 1:buffBlockSizeD1
                 ixLperm = ixLpermOffset + ix
 
                 be_gemm!('N', 'N', plusOneCmplx, buffTHat.M[ixLperm, ixLpermOffset+1], Min.M[ixLpermOffset+1, jxLperm],
@@ -1138,26 +1144,27 @@ function bndiag_of_inv_ddrgf_compute_THat11Inv_x_THat12!(Min::BlockMatrix, auxDa
             if ix_ < nrTasks
                 # then, the right sub-domain
                 jxLperm += 1
-                for ix = 1:blockSizeD1
+                for ix = 1:buffBlockSizeD1
                     ixLperm = ixLpermOffset + ix
 
-                    be_gemm!('N', 'N', plusOneCmplx, buffTHat.M[ixLperm, ixLpermOffset+blockSizeD1], Min.M[ixLpermOffset+blockSizeD1, jxLperm],
+                    be_gemm!('N', 'N', plusOneCmplx, buffTHat.M[ixLperm, ixLpermOffset+buffBlockSizeD1],
+                        Min.M[ixLpermOffset+buffBlockSizeD1, jxLperm],
                         zeroCmplx, buffTHat.M[ixLperm, jxLperm], td, cd)
                 end
             end
         end
     end
 
-    if auxData.nrBLASThreadsInner > 1
-        LinearAlgebra.BLAS.set_num_threads(1)
-    end
+    # if auxData.nrBLASThreadsInner > 1
+    #     LinearAlgebra.BLAS.set_num_threads(1)
+    # end
 end
 
 function bndiag_of_inv_ddrgf_compute_minus_THat11Inv_x_THat12_x_THatSInv!(Mout::BlockMatrix, auxData::AuxDataDDRGF,
     td::TimingData, cd::CountingData)
-    if auxData.nrBLASThreadsInner > 1
-        LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
-    end
+    # if auxData.nrBLASThreadsInner > 1
+    #     LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
+    # end
 
     blockSizeD1 = auxData.blockSizeD1
     nrTasks = auxData.nrTasks
@@ -1174,6 +1181,8 @@ function bndiag_of_inv_ddrgf_compute_minus_THat11Inv_x_THat12_x_THatSInv!(Mout::
 
     iOffset = sum(sizeDomains22)
 
+    buffBlockSizeD1 = blockSizeD1
+
     Threads.@threads for ixo = 1:auxData.nrThreads
         if ixo < auxData.nrThreads
             nrTasksPerThread = auxData.maxNrTasksPerThread
@@ -1187,6 +1196,10 @@ function bndiag_of_inv_ddrgf_compute_minus_THat11Inv_x_THat12_x_THatSInv!(Mout::
             # index of each individual task
             ix_ = (ixo - 1) * auxData.maxNrTasksPerThread + ixi
 
+            if ix_ == auxData.nrTasks
+                buffBlockSizeD1 = auxData.lastSizeD1
+            end
+
             if ixi > 1
                 iAccum += sizeDomains11[ix_-1]
             end
@@ -1195,7 +1208,7 @@ function bndiag_of_inv_ddrgf_compute_minus_THat11Inv_x_THat12_x_THatSInv!(Mout::
             # first, the central sub-domain
             jAccum += sizeDomains22[ix_]
             jxLperm = jAccum
-            for ix = 1:blockSizeD1
+            for ix = 1:buffBlockSizeD1
                 ixLperm = ixLpermOffset + ix
 
                 # buffM.M[ixLperm, jxLperm] = - buffTHat.M[ixLperm, jxLperm] * buffTHat.M[jxLperm, jxLperm]
@@ -1217,7 +1230,7 @@ function bndiag_of_inv_ddrgf_compute_minus_THat11Inv_x_THat12_x_THatSInv!(Mout::
             if ix_ < nrTasks
                 # then, the right sub-domain
                 jxLperm += 1
-                for ix = 1:blockSizeD1
+                for ix = 1:buffBlockSizeD1
                     ixLperm = ixLpermOffset + ix
 
                     # buffM.M[ixLperm, jxLperm] = - buffTHat[ixLperm, jxLperm-1] * buffTHat[jxLperm-1, jxLperm]
@@ -1228,7 +1241,7 @@ function bndiag_of_inv_ddrgf_compute_minus_THat11Inv_x_THat12_x_THatSInv!(Mout::
                     be_gemm!('N', 'N', minusOneCmplx, buffTHat.M[ixLperm, jxLperm], Mout.M[jxLperm, jxLperm],
                         plusOneCmplx, buffM.M[ixLperm, jxLperm], td, cd)
 
-                    if ix == blockSizeD1
+                    if ix == buffBlockSizeD1
                         be_copy_in_hw!(Mout.M[ixLperm, jxLperm], buffM.M[ixLperm, jxLperm])
                     end
                 end
@@ -1236,16 +1249,16 @@ function bndiag_of_inv_ddrgf_compute_minus_THat11Inv_x_THat12_x_THatSInv!(Mout::
         end
     end
 
-    if auxData.nrBLASThreadsInner > 1
-        LinearAlgebra.BLAS.set_num_threads(1)
-    end
+    # if auxData.nrBLASThreadsInner > 1
+    #     LinearAlgebra.BLAS.set_num_threads(1)
+    # end
 end
 
 function bndiag_of_inv_ddrgf_compute_THat21_x_THat11Inv!(Min::BlockMatrix, auxData::AuxDataDDRGF,
     td::TimingData, cd::CountingData)
-    if auxData.nrBLASThreadsInner > 1
-        LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
-    end
+    # if auxData.nrBLASThreadsInner > 1
+    #     LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
+    # end
 
     blockSizeD1 = auxData.blockSizeD1
     nrTasks = auxData.nrTasks
@@ -1260,6 +1273,8 @@ function bndiag_of_inv_ddrgf_compute_THat21_x_THat11Inv!(Min::BlockMatrix, auxDa
 
     jOffset = sum(sizeDomains22)
 
+    buffBlockSizeD1 = blockSizeD1
+
     Threads.@threads for jxo = 1:auxData.nrThreads
         if jxo < auxData.nrThreads
             nrTasksPerThread = auxData.maxNrTasksPerThread
@@ -1273,6 +1288,10 @@ function bndiag_of_inv_ddrgf_compute_THat21_x_THat11Inv!(Min::BlockMatrix, auxDa
             # index of each individual task
             jx_ = (jxo - 1) * auxData.maxNrTasksPerThread + jxi
 
+            if jx_ == auxData.nrTasks
+                buffBlockSizeD1 = auxData.lastSizeD1
+            end
+
             if jxi > 1
                 jAccum += sizeDomains11[jx_-1]
             end
@@ -1281,7 +1300,7 @@ function bndiag_of_inv_ddrgf_compute_THat21_x_THat11Inv!(Min::BlockMatrix, auxDa
             # first, the central sub-domain
             iAccum += sizeDomains22[jx_]
             ixLperm = iAccum
-            for jx = 1:blockSizeD1
+            for jx = 1:buffBlockSizeD1
                 jxLperm = jxLpermOffset + jx
 
                 be_gemm!('N', 'N', plusOneCmplx, Min.M[ixLperm, jxLpermOffset+1], buffTHat.M[jxLpermOffset+1, jxLperm],
@@ -1291,26 +1310,27 @@ function bndiag_of_inv_ddrgf_compute_THat21_x_THat11Inv!(Min::BlockMatrix, auxDa
             if jx_ < nrTasks
                 # then, the right sub-domain
                 ixLperm += 1
-                for jx = 1:blockSizeD1
+                for jx = 1:buffBlockSizeD1
                     jxLperm = jxLpermOffset + jx
 
-                    be_gemm!('N', 'N', plusOneCmplx, Min.M[ixLperm, jxLpermOffset+blockSizeD1], buffTHat.M[jxLpermOffset+blockSizeD1, jxLperm],
+                    be_gemm!('N', 'N', plusOneCmplx, Min.M[ixLperm, jxLpermOffset+buffBlockSizeD1],
+                        buffTHat.M[jxLpermOffset+buffBlockSizeD1, jxLperm],
                         zeroCmplx, buffTHat.M[ixLperm, jxLperm], td, cd)
                 end
             end
         end
     end
 
-    if auxData.nrBLASThreadsInner > 1
-        LinearAlgebra.BLAS.set_num_threads(1)
-    end
+    # if auxData.nrBLASThreadsInner > 1
+    #     LinearAlgebra.BLAS.set_num_threads(1)
+    # end
 end
 
 function bndiag_of_inv_ddrgf_compute_minus_x_THatSInv_THat21_x_THat11Inv!(Mout::BlockMatrix, auxData::AuxDataDDRGF,
     td::TimingData, cd::CountingData)
-    if auxData.nrBLASThreadsInner > 1
-        LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
-    end
+    # if auxData.nrBLASThreadsInner > 1
+    #     LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
+    # end
 
     # TODO : based on analyzing this function a bit more, can we reduce the cost of the
     #        function bndiag_of_inv_ddrgf_compute_THat21_x_THat11Inv!(...) ?
@@ -1329,6 +1349,8 @@ function bndiag_of_inv_ddrgf_compute_minus_x_THatSInv_THat21_x_THat11Inv!(Mout::
 
     jOffset = sum(sizeDomains22)
 
+    buffBlockSizeD1 = blockSizeD1
+
     Threads.@threads for jxo = 1:auxData.nrThreads
         if jxo < auxData.nrThreads
             nrTasksPerThread = auxData.maxNrTasksPerThread
@@ -1342,6 +1364,10 @@ function bndiag_of_inv_ddrgf_compute_minus_x_THatSInv_THat21_x_THat11Inv!(Mout::
             # index of each individual task
             jx_ = (jxo - 1) * auxData.maxNrTasksPerThread + jxi
 
+            if jx_ == auxData.nrTasks
+                buffBlockSizeD1 = auxData.lastSizeD1
+            end
+
             if jxi > 1
                 jAccum += sizeDomains11[jx_-1]
             end
@@ -1350,7 +1376,7 @@ function bndiag_of_inv_ddrgf_compute_minus_x_THatSInv_THat21_x_THat11Inv!(Mout::
             # first, the central sub-domain
             iAccum += sizeDomains22[jx_]
             ixLperm = iAccum
-            for jx = 1:blockSizeD1
+            for jx = 1:buffBlockSizeD1
                 jxLperm = jxLpermOffset + jx
 
                 if jx == 1
@@ -1366,10 +1392,10 @@ function bndiag_of_inv_ddrgf_compute_minus_x_THatSInv_THat21_x_THat11Inv!(Mout::
             if jx_ < nrTasks
                 # then, the bottom sub-domain
                 ixLperm += 1
-                for jx = 1:blockSizeD1
+                for jx = 1:buffBlockSizeD1
                     jxLperm = jxLpermOffset + jx
 
-                    if jx == blockSizeD1
+                    if jx == buffBlockSizeD1
                         be_gemm!('N', 'N', minusOneCmplx, Mout.M[ixLperm, ixLperm-1], buffTHat.M[ixLperm-1, jxLperm],
                             zeroCmplx, Mout.M[ixLperm, jxLperm], td, cd)
                         be_gemm!('N', 'N', minusOneCmplx, Mout.M[ixLperm, ixLperm], buffTHat.M[ixLperm, jxLperm],
@@ -1380,16 +1406,16 @@ function bndiag_of_inv_ddrgf_compute_minus_x_THatSInv_THat21_x_THat11Inv!(Mout::
         end
     end
 
-    if auxData.nrBLASThreadsInner > 1
-        LinearAlgebra.BLAS.set_num_threads(1)
-    end
+    # if auxData.nrBLASThreadsInner > 1
+    #     LinearAlgebra.BLAS.set_num_threads(1)
+    # end
 end
 
 function bndiag_of_inv_ddrgf_compute_11_part!(Mout::BlockMatrix, auxData::AuxDataDDRGF,
     td::TimingData, cd::CountingData)
-    if auxData.nrBLASThreadsInner > 1
-        LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
-    end
+    # if auxData.nrBLASThreadsInner > 1
+    #     LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
+    # end
 
     blockSizeD1 = auxData.blockSizeD1
     nrTasks = auxData.nrTasks
@@ -1406,6 +1432,8 @@ function bndiag_of_inv_ddrgf_compute_11_part!(Mout::BlockMatrix, auxData::AuxDat
 
     iOffset = sum(sizeDomains22)
 
+    buffBlockSizeD1 = blockSizeD1
+
     Threads.@threads for ixo = 1:auxData.nrThreads
         if ixo < auxData.nrThreads
             nrTasksPerThread = auxData.maxNrTasksPerThread
@@ -1419,6 +1447,10 @@ function bndiag_of_inv_ddrgf_compute_11_part!(Mout::BlockMatrix, auxData::AuxDat
             # index of each individual task
             ix_ = (ixo - 1) * auxData.maxNrTasksPerThread + ixi
 
+            if ix_ == auxData.nrTasks
+                buffBlockSizeD1 = auxData.lastSizeD1
+            end
+
             if ixi > 1
                 iAccum += sizeDomains11[ix_-1]
             end
@@ -1426,7 +1458,7 @@ function bndiag_of_inv_ddrgf_compute_11_part!(Mout::BlockMatrix, auxData::AuxDat
 
             jAccum += sizeDomains22[ix_]
             jxLperm = jAccum
-            for ix = 1:blockSizeD1
+            for ix = 1:buffBlockSizeD1
                 ixLperm = ixLpermOffset + ix
 
                 # FIRST : left term : [ixLperm, ixLperm-1]
@@ -1457,7 +1489,7 @@ function bndiag_of_inv_ddrgf_compute_11_part!(Mout::BlockMatrix, auxData::AuxDat
                 end
 
                 # THIRD : right term : [ixLperm, ixLperm+1]
-                if ix < blockSizeD1
+                if ix < buffBlockSizeD1
                     be_copy_in_hw!(Mout.M[ixLperm, ixLperm+1], buffTHat.M[ixLperm, ixLperm+1])
                     # Mout.M[ixLperm, ixLperm+1] =  buffM.M[ixLperm, jxLperm] * buffTHat.M[jxLperm, ixLperm+1]
                     # Mout.M[ixLperm, ixLperm+1] += buffM.M[ixLperm, jxLperm+1] * buffTHat.M[jxLperm+1, ixLperm+1]
@@ -1472,16 +1504,16 @@ function bndiag_of_inv_ddrgf_compute_11_part!(Mout::BlockMatrix, auxData::AuxDat
         end
     end
 
-    if auxData.nrBLASThreadsInner > 1
-        LinearAlgebra.BLAS.set_num_threads(1)
-    end
+    # if auxData.nrBLASThreadsInner > 1
+    #     LinearAlgebra.BLAS.set_num_threads(1)
+    # end
 end
 
 function bndiag_of_inv_ddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataDDRGF, td::TimingData,
     cd::CountingData)
-    if auxData.nrBLASThreadsInner > 1
-        LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
-    end
+    # if auxData.nrBLASThreadsInner > 1
+    #     LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
+    # end
 
     # the blocks in the following matrices contain references to blocks
     buffM1 = auxData.buffMPerm
@@ -1542,9 +1574,9 @@ function bndiag_of_inv_ddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataDDRG
         end
     end
 
-    if auxData.nrBLASThreadsInner > 1
-        LinearAlgebra.BLAS.set_num_threads(1)
-    end
+    # if auxData.nrBLASThreadsInner > 1
+    #     LinearAlgebra.BLAS.set_num_threads(1)
+    # end
 end
 
 function bndiag_of_inv_ddrgf_error_inv_of_T11(Min_::BlockMatrix, Mout_::BlockMatrix,
@@ -1599,9 +1631,9 @@ end
 
 function bndiag_of_inv_ddrgf_build_Schur_compl!(Min_::BlockMatrix, auxData::AuxDataDDRGF, td::TimingData,
     cd::CountingData)
-    if auxData.nrBLASThreadsInner > 1
-        LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
-    end
+    # if auxData.nrBLASThreadsInner > 1
+    #     LinearAlgebra.BLAS.set_num_threads(auxData.nrBLASThreadsInner)
+    # end
 
     minusOneCmplx = convert(Min_.nrsType, -1.0)
     plusOneCmplx = convert(Min_.nrsType, 1.0)
@@ -1754,9 +1786,9 @@ function bndiag_of_inv_ddrgf_build_Schur_compl!(Min_::BlockMatrix, auxData::AuxD
         end
 
     end
-    if auxData.nrBLASThreadsInner > 1
-        LinearAlgebra.BLAS.set_num_threads(1)
-    end
+    # if auxData.nrBLASThreadsInner > 1
+    #     LinearAlgebra.BLAS.set_num_threads(1)
+    # end
 end
 
 function bndiag_of_inv_ddrgf_inv_Schur_compl!(Mout_::BlockMatrix, listOfAuxData::Vector{AuxDataDDRGF}, td::TimingData,
@@ -1796,6 +1828,7 @@ function bndiag_of_inv_ddrgf_inv_of_Schur_compl!(Mout_::BlockMatrix, Min_::Block
 
     # compute the nonzero blocks in THat_{11}^{-1} * THat_{12}, saving the output to the 12 part of buffTHat
     bndiag_of_inv_ddrgf_compute_THat11Inv_x_THat12!(Min, auxData, td, cd)
+
     # and then those of THat_{21} * THat_{11}^{-1}, saving the output to the 21 part of buffTHat
     bndiag_of_inv_ddrgf_compute_THat21_x_THat11Inv!(Min, auxData, td, cd)
 

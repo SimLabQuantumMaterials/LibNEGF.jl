@@ -57,6 +57,8 @@ for precx in precs
             #     Min = bm_create_synthetic_random(npl, blockSize, precx, false)
             # end
 
+            listOfListOfAuxDataPar = Vector{Vector{AuxDataDDRGF}}()
+
             try
                 # the @time is added only for checking total allocated memory
                 @time begin
@@ -79,7 +81,6 @@ for precx in precs
                     #     tdSetup, cdSetup)
                     listOfAuxDataPar = allocate_aux_data_DDRGF(Mins[1], tdSetup, cdSetup)
 
-                    listOfListOfAuxDataPar = Vector{Vector{AuxDataDDRGF}}()
                     push!(listOfListOfAuxDataPar, listOfAuxDataPar)
                 end
             catch e
@@ -88,9 +89,6 @@ for precx in precs
                     error("The application tried to allocate beyond the available system memory")
                 else rethrow(e) end
             end
-
-            println("BREAKPOINT!")
-            exit()
 
             @timeit to timerTagGlobal begin
                 tx(tId) = begin
