@@ -345,14 +345,48 @@ function cost_ddrgf(rLU::Float64, rMLDIV::Float64, nrTasks::Int, nrThreads::Int,
     return rDDRGF
 end
 
-function bndiag_of_inv_ddrgf_get_nr_tasks(M::BlockMatrix, blockSizeD1::Int,
+function bndiag_of_inv_ddrgf_get_nr_tasks(npl, blockSizeD1::Int,
     blockSizeD2::Int)::Vector{Int}
     # check that blockSizeD2 has been set to 1
     if blockSizeD2 != 1
         error("The value of blockSizeD2 should be set to 1")
     end
 
-    # NOTE : we're assuming the splitType to be such that this is open-ended
+    # number of principal layers per task, except possibly the last chunk
+    nplPerTask = blockSizeD1 + blockSizeD2
+
+    # get the number of tasks and the (possible) last chunk
+    nrTasks = Int(floor(npl / nplPerTask)) + 1
+    nplLeftover = npl - (nrTasks - 1) * nplPerTask
+
+    # the leftover gets a 1 removed from the sub-domain 2 within
+    blockSizeD1Leftover = nplLeftover - 1
+
+    # possible scenarios at this point:
+
+    # 1. the last chunk is void, which is perfect
+    if nplLeftover == 0
+        return [nrTasks - 1, 0]
+    else
+        if blockSizeD1Leftover == 0
+            # 2. the last chunk is not void, but the sub-domain 2 within is void.
+            # This situation is not possible to handle here, as we're doing open-ended
+            # distributions to have a proper load balance of the tasks. We return a -1
+            # to indicate that this case doesn't work
+            return [-1, 0]
+        else
+            # 3. this case is ok
+            return [nrTasks, blockSizeD1Leftover]
+        end
+    end
+end
+
+function bndiag_of_inv_ddrgf_get_nr_tasks(M::BlockMatrix, blockSizeD1::Int,
+    blockSizeD2::Int)::Vector{Int}
+    # check that blockSizeD2 has been set to 1
+    if blockSizeD2 != 1
+        error("The value of blockSizeD2 should be set to 1")
+    end
 
     npl::Int = size(M.blockSizes)[1]
 
@@ -411,7 +445,7 @@ function allocate_aux_data_DDRGF(Min::BlockMatrix,
     # totCost  : scalar
     nrLevels::Int, nrTasksList::Vector{Int}, blockSizeD1List::Vector{Int}, optCost::Float64 =
         opt_params(Min, rLUavg, rMLDIVavg)
-
+    
     nrBlocksInNonPivotsList = blockSizeD1List
 
     # allocation of auxiliary data for DDRGF
@@ -481,7 +515,7 @@ function allocate_aux_data_DDRGF_single_level(M::BlockMatrix, nrBlocksInNonPivot
         jx::Int = 0
         buffBlockSizeD1 = blockSizeD1
         for ix = 1:nrTasks
-            if ix == nrTasks
+            if (lastSizeD1 != 0) && (ix == nrTasks)
                 buffBlockSizeD1 = lastSizeD1
             end
 
@@ -526,6 +560,7 @@ function allocate_aux_data_DDRGF_single_level(M::BlockMatrix, nrBlocksInNonPivot
     smallBlockSizes22 = Vector{Vector{Int}}()
     smallMbmIn22 = Vector{BlockMatrix}()
     smallMbmBuffTHat22 = Vector{BlockMatrix}()
+
     for ix = 1:nrThreads
         push!(smallBlockSizes11, copy(M.blockSizes[1:blockSizeD1]))
         push!(smallAuxDataSeq11, AuxDataRGF(BlockMatrix(copy(smallBlockSizes11[ix]), ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
@@ -732,11 +767,15 @@ function opt_params(Min::BlockMatrix, rLU::Float64, rMLDIV::Float64)::Tuple{Int,
     nrTasksList = Vector{Int}()
     blockSizeD1List = Vector{Int}()
 
+    npl = size(Min.blockSizes)[1]
+
     optCostOld::Float64 = Inf
     optCostNew::Float64 = 0.0
     coarseCost::Float64 = 0.0
+
     nrLevels::Int = 0
-    nrThreads::Int = 0
+    nrTasksPrev::Int = npl
+
     # this is a loop increasing the number of levels one by one, and will continue looping
     # as long as the cost continues to go down as we increase the number of levels
     while optCostNew < optCostOld
@@ -748,10 +787,12 @@ function opt_params(Min::BlockMatrix, rLU::Float64, rMLDIV::Float64)::Tuple{Int,
 
         # we would rather have blockSizeD2 = 4, but it might not always be possible
         for blockSizeD1 = 4:-1:1
-            nrTasks, blockSizeD1Leftover = bndiag_of_inv_ddrgf_get_nr_tasks(Min, blockSizeD1, blockSizeD2)
+            nrTasks, blockSizeD1Leftover = bndiag_of_inv_ddrgf_get_nr_tasks(nrTasksPrev, blockSizeD1, blockSizeD2)
             if nrTasks==-1
                 continue
             end
+
+            nrTasksPrev = nrTasks
 
             nrThreads, maxNrTasksPerThread, lastNrTasksPerThread = bndiag_of_inv_ddrgf_check_nr_threads(nrThreadsBare, nrTasks)
             # the tasks map directy to the coarse grid
@@ -772,7 +813,7 @@ function opt_params(Min::BlockMatrix, rLU::Float64, rMLDIV::Float64)::Tuple{Int,
         end
 
         # don't let the number of levels grow too much, let's put a cap
-        if nrLevels > 10
+        if nrLevels == 6
             break
         end
     end
@@ -832,9 +873,14 @@ function bndiag_of_inv_ddrgf_create_permutation_vector(M::BlockMatrix,
 
     sizeDomains = Vector{Int}(undef, nrSubdomains)
 
-    # blockSizeD1 = nrBlocksInNonPivots
-    totalSizeD1 = (nrNonPivots - 1) * blockSizeD1 + lastSizeD1
+    totalSizeD1 = 0
+    if lastSizeD1 == 0
+        totalSizeD1 = nrNonPivots * blockSizeD1
+    else
+        totalSizeD1 = (nrNonPivots - 1) * blockSizeD1 + lastSizeD1
+    end
     totalSizeD2 = npl - totalSizeD1
+
     # blockSizeD2 = ceil(totalSizeD2 / nrTasks)
     # lastSizeD2 = totalSizeD2 - blockSizeD2 * (nrTasks - 1)
 
@@ -948,7 +994,7 @@ function bndiag_of_inv_ddrgf_add_block_refs_to_permuted_matrix11!(M::BlockMatrix
         jx1::Int = (auxData.nrTasks - 1) * auxData.blockSizeD2 + 1
         jx2::Int = 0
         for ix = 1:auxData.nrTasks
-            if ix == auxData.nrTasks
+            if (auxData.lastSizeD1 != 0) && (ix == auxData.nrTasks)
                 buffBlockSizeD1 = auxData.lastSizeD1
             end
 
@@ -1015,7 +1061,7 @@ function bndiag_of_inv_ddrgf_add_block_refs_to_permuted_matrix12!(M1::BlockMatri
     for ix_ = 1:nrTasks
         ixLpermOffset = sum(sizeDomains22) + sum(sizeDomains11[1:ix_-1])
 
-        if ix_ == nrTasks
+        if (auxData.lastSizeD1 != 0) && (ix_ == nrTasks)
             buffBlockSizeD1 = auxData.lastSizeD1
         end
 
@@ -1058,7 +1104,7 @@ function bndiag_of_inv_ddrgf_add_block_refs_to_permuted_matrix21!(M1::BlockMatri
     for jx_ = 1:nrTasks
         jxLpermOffset = sum(sizeDomains22) + sum(sizeDomains11[1:jx_-1])
 
-        if jx_ == nrTasks
+        if (auxData.lastSizeD1 != 0) && (jx_ == nrTasks)
             buffBlockSizeD1 = auxData.lastSizeD1
         end
 
@@ -1107,9 +1153,9 @@ function bndiag_of_inv_ddrgf_compute_THat11Inv_x_THat12!(Min::BlockMatrix, auxDa
 
     iOffset = sum(sizeDomains22)
 
-    buffBlockSizeD1 = blockSizeD1
-
     Threads.@threads for ixo = 1:auxData.nrThreads
+        buffBlockSizeD1 = blockSizeD1
+
         if ixo < auxData.nrThreads
             nrTasksPerThread = auxData.maxNrTasksPerThread
         else
@@ -1122,7 +1168,10 @@ function bndiag_of_inv_ddrgf_compute_THat11Inv_x_THat12!(Min::BlockMatrix, auxDa
             # index of each individual task
             ix_ = (ixo - 1) * auxData.maxNrTasksPerThread + ixi
 
-            if ix_ == auxData.nrTasks
+            if (auxData.lastSizeD1 != 0) && (ix_ == auxData.nrTasks)
+                if ixo == 1
+                    println("this is weird")
+                end
                 buffBlockSizeD1 = auxData.lastSizeD1
             end
 
@@ -1181,9 +1230,9 @@ function bndiag_of_inv_ddrgf_compute_minus_THat11Inv_x_THat12_x_THatSInv!(Mout::
 
     iOffset = sum(sizeDomains22)
 
-    buffBlockSizeD1 = blockSizeD1
-
     Threads.@threads for ixo = 1:auxData.nrThreads
+        buffBlockSizeD1 = blockSizeD1
+    
         if ixo < auxData.nrThreads
             nrTasksPerThread = auxData.maxNrTasksPerThread
         else
@@ -1196,7 +1245,7 @@ function bndiag_of_inv_ddrgf_compute_minus_THat11Inv_x_THat12_x_THatSInv!(Mout::
             # index of each individual task
             ix_ = (ixo - 1) * auxData.maxNrTasksPerThread + ixi
 
-            if ix_ == auxData.nrTasks
+            if (auxData.lastSizeD1 != 0) && (ix_ == auxData.nrTasks)
                 buffBlockSizeD1 = auxData.lastSizeD1
             end
 
@@ -1273,9 +1322,9 @@ function bndiag_of_inv_ddrgf_compute_THat21_x_THat11Inv!(Min::BlockMatrix, auxDa
 
     jOffset = sum(sizeDomains22)
 
-    buffBlockSizeD1 = blockSizeD1
-
     Threads.@threads for jxo = 1:auxData.nrThreads
+        buffBlockSizeD1 = blockSizeD1
+
         if jxo < auxData.nrThreads
             nrTasksPerThread = auxData.maxNrTasksPerThread
         else
@@ -1288,7 +1337,7 @@ function bndiag_of_inv_ddrgf_compute_THat21_x_THat11Inv!(Min::BlockMatrix, auxDa
             # index of each individual task
             jx_ = (jxo - 1) * auxData.maxNrTasksPerThread + jxi
 
-            if jx_ == auxData.nrTasks
+            if (auxData.lastSizeD1 != 0) && (jx_ == auxData.nrTasks)
                 buffBlockSizeD1 = auxData.lastSizeD1
             end
 
@@ -1349,9 +1398,9 @@ function bndiag_of_inv_ddrgf_compute_minus_x_THatSInv_THat21_x_THat11Inv!(Mout::
 
     jOffset = sum(sizeDomains22)
 
-    buffBlockSizeD1 = blockSizeD1
-
     Threads.@threads for jxo = 1:auxData.nrThreads
+        buffBlockSizeD1 = blockSizeD1
+
         if jxo < auxData.nrThreads
             nrTasksPerThread = auxData.maxNrTasksPerThread
         else
@@ -1364,7 +1413,7 @@ function bndiag_of_inv_ddrgf_compute_minus_x_THatSInv_THat21_x_THat11Inv!(Mout::
             # index of each individual task
             jx_ = (jxo - 1) * auxData.maxNrTasksPerThread + jxi
 
-            if jx_ == auxData.nrTasks
+            if auxData.lastSizeD1 != 0 && jx_ == auxData.nrTasks
                 buffBlockSizeD1 = auxData.lastSizeD1
             end
 
@@ -1432,9 +1481,9 @@ function bndiag_of_inv_ddrgf_compute_11_part!(Mout::BlockMatrix, auxData::AuxDat
 
     iOffset = sum(sizeDomains22)
 
-    buffBlockSizeD1 = blockSizeD1
-
     Threads.@threads for ixo = 1:auxData.nrThreads
+        buffBlockSizeD1 = blockSizeD1
+
         if ixo < auxData.nrThreads
             nrTasksPerThread = auxData.maxNrTasksPerThread
         else
@@ -1447,7 +1496,7 @@ function bndiag_of_inv_ddrgf_compute_11_part!(Mout::BlockMatrix, auxData::AuxDat
             # index of each individual task
             ix_ = (ixo - 1) * auxData.maxNrTasksPerThread + ixi
 
-            if ix_ == auxData.nrTasks
+            if (auxData.lastSizeD1 != 0) && (ix_ == auxData.nrTasks)
                 buffBlockSizeD1 = auxData.lastSizeD1
             end
 

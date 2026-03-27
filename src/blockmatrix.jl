@@ -579,7 +579,7 @@ function bm_blocks_define_complement12!(M_::BlockMatrix, auxData, filling::Int)
     for ix_ = 1:nrTasks
         ixLpermOffset = sum(sizeDomains22) + sum(sizeDomains11[1:ix_-1])
 
-        if ix_ == nrTasks
+        if lastSizeD1 != 0 && ix_ == nrTasks
             buffBlockSizeD1 = lastSizeD1
         end
         # first, the central sub-domain
@@ -646,7 +646,7 @@ function bm_blocks_define_complement21!(M_::BlockMatrix, auxData, filling::Int)
     for jx_ = 1:nrTasks
         jxLpermOffset = sum(sizeDomains22) + sum(sizeDomains11[1:jx_-1])
 
-        if jx_ == nrTasks
+        if lastSizeD1 != 0 && jx_ == nrTasks
             buffBlockSizeD1 = lastSizeD1
         end
 

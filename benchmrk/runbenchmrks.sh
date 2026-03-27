@@ -44,7 +44,7 @@ if exists_in_list "$HWs" " " $1; then
     export OPENBLAS_NUM_THREADS=1
 
     # this is for inter-block threading in DDRGF
-    export JULIA_NUM_THREADS=1
+    export JULIA_NUM_THREADS=2
 
     # variables used to mimic C's ifdef
     export LIBNEGF_HW=$1
@@ -55,18 +55,17 @@ if exists_in_list "$HWs" " " $1; then
     # which we do by removing the precompiled binaries. If you're a developer
     # and want to mimic C's ifdef, uncomment the following lines and change
     # correspondingly
-    #JULIA_MAJOR_VERSION=$(julia --version | egrep -o '[0-9].[0-9][0-9]')
-    #BINS_JULIA=$(ls ~/.julia/compiled/v$JULIA_MAJOR_VERSION/LibNEGF/*.ji)
-    #rm $BINS_JULIA
+    JULIA_MAJOR_VERSION=$(julia --version | egrep -o '[0-9].[0-9][0-9]')
+    BINS_JULIA=$(ls ~/.julia/compiled/v$JULIA_MAJOR_VERSION/LibNEGF/*.ji)
+    rm $BINS_JULIA
 
     # # the outer threads is used only by DDRGF
     # export NUM_BLAS_THREADS_OUTER=1
     # export NUM_BLAS_THREADS_INNER=1
 
     # NOTE : JULIA_EXCLUSIVE=1 cannot be set on systems/clusters where pinning is
-    # already happening. On local systems, e.g., laptops, using this is encouraged
-    #JULIA_EXCLUSIVE=1 
-    julia --threads=$JULIA_NUM_THREADS runbenchmrks.jl $1 $2 $JULIA_NUM_THREADS $OPENBLAS_NUM_THREADS
+    # already happening. On local systems, e.g., laptops, using this is suggested
+    JULIA_EXCLUSIVE=1 julia --threads=$JULIA_NUM_THREADS runbenchmrks.jl $1 $2 $JULIA_NUM_THREADS $OPENBLAS_NUM_THREADS
 else
     echo "The hardware $1 is not in the list, not running the tests"
 fi
