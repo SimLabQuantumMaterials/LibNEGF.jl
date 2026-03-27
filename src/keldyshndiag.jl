@@ -76,11 +76,10 @@ function required_mem_symm(npl::Int, precx::DataType, N1diag::Int, N3diag::Int, 
     return requiredMem
 end
 
-function allocate_aux_data_Keldysh(M::BlockMatrix, S::BlockMatrix, nrBLASThreadsOuter::Int,
-    nrBLASThreadsInner)::AuxDataKeldysh
+function allocate_aux_data_Keldysh(M::BlockMatrix, S::BlockMatrix)::AuxDataKeldysh
     npl = size(M.blockSizes)[1]
 
-    auxDataRGF = allocate_aux_data_RGF(M, nrBLASThreadsOuter, nrBLASThreadsInner)
+    auxDataRGF = allocate_aux_data_RGF(M)
 
     # # the number of block diagonals
     # m = 1 + 2 * (M.ndiag["in"] - 1)
