@@ -75,8 +75,9 @@ for precx in precs
                     else
                         tdSetup = TimingData()
                     end
-                    listOfAuxDataPar = allocate_aux_data_DDRGF(Mins[1], false, parse(Int, ARGS[3]), parse(Int, ARGS[4]),
-                        tdSetup, cdSetup)
+                    # listOfAuxDataPar = allocate_aux_data_DDRGF(Mins[1], false, parse(Int, ARGS[3]), parse(Int, ARGS[4]),
+                    #     tdSetup, cdSetup)
+                    listOfAuxDataPar = allocate_aux_data_DDRGF(Mins[1], tdSetup, cdSetup)
 
                     listOfListOfAuxDataPar = Vector{Vector{AuxDataDDRGF}}()
                     push!(listOfListOfAuxDataPar, listOfAuxDataPar)

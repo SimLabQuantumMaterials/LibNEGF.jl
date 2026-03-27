@@ -566,6 +566,7 @@ Sets/pre-allocates, within `M`, the extra `12` part for DDRGF.
 """
 function bm_blocks_define_complement12!(M_::BlockMatrix, auxData, filling::Int)
     blockSizeD1 = auxData.blockSizeD1
+    lastSizeD1 = auxData.lastSizeD1
     permVecInv = auxData.permVecInv
     M = M_
     blockSizes = M.blockSizes
@@ -574,12 +575,16 @@ function bm_blocks_define_complement12!(M_::BlockMatrix, auxData, filling::Int)
     sizeDomains22 = sizeDomains[1:nrTasks]
     sizeDomains11 = sizeDomains[nrTasks+1:2*nrTasks]
 
+    buffBlockSizeD1 = blockSizeD1
     for ix_ = 1:nrTasks
         ixLpermOffset = sum(sizeDomains22) + sum(sizeDomains11[1:ix_-1])
 
+        if ix_ == nrTasks
+            buffBlockSizeD1 = lastSizeD1
+        end
         # first, the central sub-domain
         jxLperm = sum(sizeDomains22[1:ix_])
-        for ix = 2:blockSizeD1
+        for ix = 2:buffBlockSizeD1
             ixLperm = ixLpermOffset + ix
 
             ixL = permVecInv[ixLperm]
@@ -597,7 +602,7 @@ function bm_blocks_define_complement12!(M_::BlockMatrix, auxData, filling::Int)
         if ix_ < nrTasks
             # then, the right sub-domain
             jxLperm = sum(sizeDomains22[1:ix_]) + 1
-            for ix = 1:blockSizeD1-1
+            for ix = 1:buffBlockSizeD1-1
                 ixLperm = ixLpermOffset + ix
 
                 ixL = permVecInv[ixLperm]
@@ -628,6 +633,7 @@ Sets/pre-allocates, within `M`, the extra `21` part for DDRGF.
 """
 function bm_blocks_define_complement21!(M_::BlockMatrix, auxData, filling::Int)
     blockSizeD1 = auxData.blockSizeD1
+    lastSizeD1 = auxData.lastSizeD1
     permVecInv = auxData.permVecInv
     M = M_
     blockSizes = M.blockSizes
@@ -636,12 +642,17 @@ function bm_blocks_define_complement21!(M_::BlockMatrix, auxData, filling::Int)
     sizeDomains22 = sizeDomains[1:nrTasks]
     sizeDomains11 = sizeDomains[nrTasks+1:2*nrTasks]
 
+    buffBlockSizeD1 = blockSizeD1
     for jx_ = 1:nrTasks
         jxLpermOffset = sum(sizeDomains22) + sum(sizeDomains11[1:jx_-1])
 
+        if jx_ == nrTasks
+            buffBlockSizeD1 = lastSizeD1
+        end
+
         # first, the central sub-domain
         ixLperm = sum(sizeDomains22[1:jx_])
-        for jx = 2:blockSizeD1
+        for jx = 2:buffBlockSizeD1
             jxLperm = jxLpermOffset + jx
 
             ixL = permVecInv[ixLperm]
@@ -659,7 +670,7 @@ function bm_blocks_define_complement21!(M_::BlockMatrix, auxData, filling::Int)
         if jx_ < nrTasks
             # then, the right sub-domain
             ixLperm = sum(sizeDomains22[1:jx_]) + 1
-            for jx = 1:blockSizeD1-1
+            for jx = 1:buffBlockSizeD1-1
                 jxLperm = jxLpermOffset + jx
 
                 ixL = permVecInv[ixLperm]
