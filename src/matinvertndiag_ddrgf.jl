@@ -1169,9 +1169,9 @@ function bndiag_of_inv_ddrgf_compute_THat11Inv_x_THat12!(Min::BlockMatrix, auxDa
             ix_ = (ixo - 1) * auxData.maxNrTasksPerThread + ixi
 
             if (auxData.lastSizeD1 != 0) && (ix_ == auxData.nrTasks)
-                if ixo == 1
-                    println("this is weird")
-                end
+                # if ixo == 1
+                #     println("this is weird")
+                # end
                 buffBlockSizeD1 = auxData.lastSizeD1
             end
 
