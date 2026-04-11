@@ -9,7 +9,7 @@ begin
 end
 
 # choose one of "rgf", "ddrgf", "rkd"
-whichExample = "ddrgf"
+whichExample = "rgf"
 
 if whichExample == "rgf"
     include("example_rgf.jl")
