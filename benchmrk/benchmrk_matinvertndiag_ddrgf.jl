@@ -61,7 +61,7 @@ for precx in precs
 
             try
                 # the @time is added only for checking total allocated memory
-                @time begin
+                begin
                     Min = bm_create_synthetic_random(npl, blockSize, precx, false)
                     push!(Mins, Min)
                     push!(Mouts, bm_copy(Min))
@@ -85,7 +85,7 @@ for precx in precs
                 end
             catch e
                 if e isa OutOfMemoryError
-                    # TODO : handle this better, but perhaps a suggestion in params change
+                    # TODO : handle this better, with perhaps a suggestion in params change
                     error("The application tried to allocate beyond the available system memory")
                 else rethrow(e) end
             end

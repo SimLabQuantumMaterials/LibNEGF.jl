@@ -196,7 +196,7 @@ function get_rMLDIV(M::BlockMatrix, td::TimingData, cd::CountingData)::Vector{Fl
     # get the GEMM times
     for ix = 1:nrSamples
         t1GEMM = time()
-        be_gemm!('N', 'N', plusOneCmplx, A.M[1, 1], B.M[1, 1], plusOneCmplx, C.M[1, 1], td, cd)
+        be_gemm!('N', 'N', plusOneCmplx, A.M[ix, ix], B.M[ix, ix], plusOneCmplx, C.M[ix, ix], td, cd)
         t2GEMM = time()
         timesGEMM[ix] = t2GEMM - t1GEMM
     end
@@ -451,17 +451,19 @@ function allocate_aux_data_DDRGF(Min::BlockMatrix,
     # allocation of auxiliary data for DDRGF
     listOfAuxDataPar = Vector{AuxDataDDRGF}()
 
+    println("\nDDRGF allocations:")
+
     # fine grid
-    @time auxDataSeq = allocate_aux_data_RGF(Min)
-    @time auxDataPar = allocate_aux_data_DDRGF_single_level(Min, nrBlocksInNonPivotsList[1], auxDataSeq,
+    auxDataSeq = allocate_aux_data_RGF(Min)
+    auxDataPar = allocate_aux_data_DDRGF_single_level(Min, nrBlocksInNonPivotsList[1], auxDataSeq,
         nrTasksList[1])
     push!(listOfAuxDataPar, auxDataPar)
 
     # coarse grids
-    nrDDRGFLevels = nrLevels
+    nrDDRGFLevels = nrLevels-1
     for ix = 1:nrDDRGFLevels-1
-        @time auxDataSeq2 = allocate_aux_data_RGF(listOfAuxDataPar[ix].buffTHat22inv)
-        @time auxDataPar2 = allocate_aux_data_DDRGF_single_level(listOfAuxDataPar[ix].buffTHat22inv,
+        auxDataSeq2 = allocate_aux_data_RGF(listOfAuxDataPar[ix].buffTHat22inv)
+        auxDataPar2 = allocate_aux_data_DDRGF_single_level(listOfAuxDataPar[ix].buffTHat22inv,
             nrBlocksInNonPivotsList[ix+1], auxDataSeq2, nrTasksList[ix+1])
         push!(listOfAuxDataPar, auxDataPar2)
     end
@@ -543,11 +545,13 @@ function allocate_aux_data_DDRGF_single_level(M::BlockMatrix, nrBlocksInNonPivot
     # the appropriate number of threads for good load balance and not wasting energy
     nrThreads, maxNrTasksPerThread, lastNrTasksPerThread = bndiag_of_inv_ddrgf_check_nr_threads(Threads.nthreads(), nrTasks)
 
-    println("Number of threads = " * string(nrThreads))
-    println("Number of tasks = " * string(nrTasks))
-    println("Number of layers = " * string(size(M.blockSizes)[1]))
-    println("Block size D1 = " * string(blockSizeD1))
-    println("Block size D2 = " * string(blockSizeD2))
+    # IMPORTANT : these prints allow us double-checking the DDRGF recursive construction
+    println("* New level in DDRGF:")
+    println("\tNumber of threads = " * string(nrThreads))
+    println("\tNumber of tasks = " * string(nrTasks))
+    println("\tNumber of layers = " * string(size(M.blockSizes)[1]))
+    println("\tBlock size D1 = " * string(blockSizeD1))
+    println("\tBlock size D2 = " * string(blockSizeD2))
 
     buffMPerm = bndiag_of_inv_ddrgf_create_permuted_matrix(auxDataSeq.buffM, permVec)
     bIdMPerm = bndiag_of_inv_ddrgf_create_permuted_matrix(auxDataSeq.bIdM, permVec)

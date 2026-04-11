@@ -3,8 +3,6 @@ Printf.@printf("Benchmarking keldyshndiag!(...)\n")
 # choose the version of Keldysh's implementation to benchmark (see src/keldyshndiag.jl)
 keldyshVersion = "v2"
 
-# LinearAlgebra.BLAS.set_num_threads(Int(parse(Float64, ARGS[4])))
-
 # TODO : restore the following commented block if we want to go back
 # to using whereFrom = 1
 # first, check if the number of threads divides the number of energy points,
@@ -15,16 +13,16 @@ keldyshVersion = "v2"
 #    exit()
 #end
 
-# NOTE : RGF should be run with one Julia thread, and possible multiple
+# NOTE : RKD should be run with one Julia thread, and possible multiple
 # BLAS threads
 
 if Threads.nthreads() != 1
-    error("The number of Julia threads when running RGF must be 1")
+    error("The number of Julia threads when running RKD must be 1")
 end
 
 for precx in precs
-    # check if there's enough memory for the allocations
-    check_if_enough_mem_rkd(npl, blockSize, precx)
+    # # check if there's enough memory for the allocations
+    # check_if_enough_mem_rkd(npl, blockSize, precx)
 
     # create a flops and mems counter for each precision and thread
     counters = Vector{CountingData}()
@@ -63,18 +61,15 @@ for precx in precs
 
                 auxs = Vector{AuxDataKeldysh}()
                 try
-                    # the @time is added only for checking total allocated memory
-                    @time begin
-                        Min = bm_create_synthetic_random(npl, blockSize, precx, false)
-                        push!(Mins, Min)
-                        Arandbm = bm_similar(Mins[1], 2)
-                        Arandsp = bm_convert(Arandbm)
-                        Arandsp = (Arandsp + Arandsp') / convert(precx, 2.0)
-                        Sn = bm_convert(Arandsp, Arandbm.blockSizes, Arandbm.ndiag, true)
-                        push!(Sns, Sn)
-                        auxDataKeldysh = allocate_aux_data_Keldysh(Mins[1], Sns[1])
-                        push!(auxs, auxDataKeldysh)
-                    end
+                    Min = bm_create_synthetic_random(npl, blockSize, precx, false)
+                    push!(Mins, Min)
+                    Arandbm = bm_similar(Mins[1], 2)
+                    Arandsp = bm_convert(Arandbm)
+                    Arandsp = (Arandsp + Arandsp') / convert(precx, 2.0)
+                    Sn = bm_convert(Arandsp, Arandbm.blockSizes, Arandbm.ndiag, true)
+                    push!(Sns, Sn)
+                    auxDataKeldysh = allocate_aux_data_Keldysh(Mins[1], Sns[1])
+                    push!(auxs, auxDataKeldysh)
                 catch e
                     if e isa OutOfMemoryError
                         # TODO : handle this better, but perhaps a suggestion in params change
@@ -137,7 +132,5 @@ for precx in precs
         print_flops_and_mems(counters[1], to, precx, "keldyshndiag", true)
     end
 end
-
-# LinearAlgebra.BLAS.set_num_threads(1)
 
 Printf.@printf("\n")

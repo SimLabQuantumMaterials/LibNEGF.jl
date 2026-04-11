@@ -44,7 +44,7 @@ if exists_in_list "$HWs" " " $1; then
     export OPENBLAS_NUM_THREADS=1
 
     # this is for inter-block threading in DDRGF
-    export JULIA_NUM_THREADS=2
+    export JULIA_NUM_THREADS=1
 
     # variables used to mimic C's ifdef
     export LIBNEGF_HW=$1

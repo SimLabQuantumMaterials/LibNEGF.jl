@@ -5,6 +5,12 @@
 #     push!(Epoints, key)
 # end
 
+# 1 from disk, 2 is random
+whereFrom = 2
+# values for the synthetic matrix
+npl = 183
+blockSize = 64
+
 # list of the precisions to be tested
 # ComplexF16 not fully functional in general
 # precs = [ComplexF16, ComplexF32, ComplexF64]
@@ -28,3 +34,6 @@ roundoffs = Dict{DataType,Float64}(ComplexF16 => 1.0E-3,
 # list of k points
 # do we want to have more than k=1 in this tests?
 kpoints = [1]
+
+# nrEPoints = size(Epoints)[1]
+nrEPoints = 1
