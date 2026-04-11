@@ -196,7 +196,7 @@ function get_rMLDIV(M::BlockMatrix, td::TimingData, cd::CountingData)::Vector{Fl
     # get the GEMM times
     for ix = 1:nrSamples
         t1GEMM = time()
-        be_gemm!('N', 'N', plusOneCmplx, A.M[1, 1], B.M[1, 1], plusOneCmplx, C.M[1, 1], td, cd)
+        be_gemm!('N', 'N', plusOneCmplx, A.M[ix, ix], B.M[ix, ix], plusOneCmplx, C.M[ix, ix], td, cd)
         t2GEMM = time()
         timesGEMM[ix] = t2GEMM - t1GEMM
     end
