@@ -32,7 +32,10 @@ end
 include("matloader.jl")
 include("blockmatrix.jl")
 include("matinvertndiag_direct.jl")
-include("matinvertndiag_ddrgf.jl")
+include("matinvertndiag_rgf.jl")
+include("matinvertndiag_ddrgf_core.jl")
+include("matinvertndiag_ddrgf_setup.jl")
+include("matinvertndiag_ddrgf_utils.jl")
 include("keldyshndiag.jl")
 
 end
