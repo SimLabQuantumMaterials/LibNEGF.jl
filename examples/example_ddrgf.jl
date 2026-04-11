@@ -24,7 +24,16 @@ check_if_enough_mem_ddrgf(npl, blockSize, precx)
 Min = bm_create_synthetic_random(npl, blockSize, precx, false)
 Mout = bm_copy(Min)
 
-listOfAuxDataPar = allocate_aux_data_DDRGF(Min, false, parse(Int, ARGS[3]), parse(Int, ARGS[4]), TimingData(), CountingData())
+listOfAuxDataPar = nothing
+try
+    listOfAuxDataPar = allocate_aux_data_DDRGF(Min, false, parse(Int, ARGS[3]), parse(Int, ARGS[4]), TimingData(), CountingData())
+catch
+    if e isa OutOfMemoryError
+        # TODO : handle this better, with perhaps a suggestion in params change
+        error("The application tried to allocate beyond the available system memory")
+    else rethrow(e) end
+end
+
 bndiag_of_inv_ddrgf!(Min, listOfAuxDataPar, TimingData(), CountingData(), 1)
 bm_copy!(Mout, listOfAuxDataPar[1].buffMout)
 

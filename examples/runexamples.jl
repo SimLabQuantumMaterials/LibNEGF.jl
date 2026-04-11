@@ -8,13 +8,13 @@ begin
     Pkg.instantiate()
 end
 
-# choose one of "rgf", "ddrgf", "keldysh"
-whichExample = "keldysh"
+# choose one of "rgf", "ddrgf", "rkd"
+whichExample = "rgf"
 
 if whichExample == "rgf"
     include("example_rgf.jl")
 elseif whichExample == "ddrgf"
     include("example_ddrgf.jl")
-elseif whichExample == "keldysh"
+elseif whichExample == "rkd"
     include("example_keldysh.jl")
 end
