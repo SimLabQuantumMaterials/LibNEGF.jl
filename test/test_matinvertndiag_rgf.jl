@@ -6,12 +6,6 @@ include("common_to_test.jl")
 # this factor relaxes the required relative tolerance
 accFctr = 1.0E4
 
-# 1 from disk, 2 is random
-whereFrom = 2
-# # values for the synthetic matrix
-# npl = 128
-# blockSize = 64
-
 if whereFrom == 1
     for systemx in systemNames
         for E in [Epoints[1]]

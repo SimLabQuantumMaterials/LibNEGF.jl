@@ -11,9 +11,9 @@ import LinearAlgebra, PROPACK
     # @testset "Matinverter Direct Inverse Ndiag" begin
     #     include("test_matinvertndiag_direct.jl")
     # end
-    # @testset "Matinverter RGF Ndiag" begin
-    #     include("test_matinvertndiag_rgf.jl")
-    # end
+    @testset "Matinverter RGF Ndiag" begin
+        include("test_matinvertndiag_rgf.jl")
+    end
     @testset "Matinverter DDRGF Ndiag" begin
         include("test_matinvertndiag_ddrgf.jl")
     end
