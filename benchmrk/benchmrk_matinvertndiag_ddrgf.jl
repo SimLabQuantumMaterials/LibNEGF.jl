@@ -61,7 +61,7 @@ for precx in precs
 
             try
                 # the @time is added only for checking total allocated memory
-                @time begin
+                begin
                     Min = bm_create_synthetic_random(npl, blockSize, precx, false)
                     push!(Mins, Min)
                     push!(Mouts, bm_copy(Min))

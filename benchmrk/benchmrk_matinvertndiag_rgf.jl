@@ -1,7 +1,5 @@
 Printf.@printf("Benchmarking bndiag_of_inv_rgf!(...)\n")
 
-#LinearAlgebra.BLAS.set_num_threads(Int(parse(Float64, ARGS[4])))
-
 # TODO : restore the following commented block if we want to go back
 # to using whereFrom = 1
 # first, check if the number of threads divides the number of energy points,
@@ -61,13 +59,12 @@ for precx in precs
 
                 auxs = Vector{AuxDataRGF}()
                 try
-                    # the @time is added only for checking total allocated memory
-                    @time begin
+                    begin
                         Min = bm_create_synthetic_random(npl, blockSize, precx, false)
                         push!(Mins, Min)
                         push!(Mouts, bm_copy(Min))
 
-                        @time push!(auxs, allocate_aux_data_RGF(Mins[1]))
+                        push!(auxs, allocate_aux_data_RGF(Mins[1]))
                     end
                 catch e
                     if e isa OutOfMemoryError
@@ -128,7 +125,5 @@ for precx in precs
         print_flops_and_mems(counters[1], to, precx, "bndiag_of_inv_rgf", true)
     end
 end
-
-#LinearAlgebra.BLAS.set_num_threads(1)
 
 Printf.@printf("\n")
