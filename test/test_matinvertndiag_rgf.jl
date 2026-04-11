@@ -1,6 +1,11 @@
 # computing the block n-diagonal of the inverse of T
 # by the DD-RGF method
 
+using Random
+
+# fix seed to have reproducible tests
+Random.seed!(1234)
+
 include("common_to_test.jl")
 
 # this factor relaxes the required relative tolerance

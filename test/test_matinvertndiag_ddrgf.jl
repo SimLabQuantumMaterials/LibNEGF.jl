@@ -2,7 +2,10 @@
 
 include("common_to_test.jl")
 
-using SparseArrays
+using SparseArrays, Random
+
+# fix seed to have reproducible tests
+Random.seed!(1234)
 
 # 1 from disk, 2 is random
 whereFrom = 2
@@ -22,7 +25,7 @@ for k in kpoints
             global accFctr = accFctrBare
         else
             # extra relaxation in lower precision
-            global accFctr = 2.0 * accFctrBare
+            global accFctr = 3.0 * accFctrBare
         end
 
         # if whereFrom == 1

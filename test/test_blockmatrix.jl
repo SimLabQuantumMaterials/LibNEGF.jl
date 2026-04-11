@@ -1,7 +1,10 @@
 module TestLibNEGFBlockMatrix
 
-using LibNEGF, Test, SparseArrays
+using LibNEGF, Test, SparseArrays, Random
 import LinearAlgebra
+
+# fix seed to have reproducible tests
+Random.seed!(1234)
 
 @testset "Blockmatrix" begin
     @testset "Blockmatrix convert and back" begin

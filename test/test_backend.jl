@@ -1,7 +1,10 @@
 module TestLibNEGFBackend
 
-using LibNEGF, Test
+using LibNEGF, Test, Random
 import LinearAlgebra
+
+# fix seed to have reproducible tests
+Random.seed!(1234)
 
 # TODO : documentation
 # the two blocks passed live on the device
