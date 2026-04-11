@@ -33,8 +33,12 @@ if exists_in_list "$HWs" " " $1; then
     cp Manifest_$1.toml Manifest.toml
     # create usable copy of Project_common.toml
     cp Project_common.toml Project.toml
+
+    # this one is for threading within blocks in RGF
     export OPENBLAS_NUM_THREADS=1
-    export JULIA_NUM_THREADS=1
+
+    # this is for inter-block threading in DDRGF
+    export JULIA_NUM_THREADS=2
 
     # variables used to mimic C's ifdef
     export LIBNEGF_HW=$1
@@ -44,14 +48,11 @@ if exists_in_list "$HWs" " " $1; then
     # which we do by removing the precompiled binaries. If you're a developer
     # and want to mimic C's ifdef, uncomment the following lines and change
     # correspondingly
-    #JULIA_MAJOR_VERSION=$(julia --version | egrep -o '[0-9].[0-9][0-9]')
-    #BINS_JULIA=$(ls ~/.julia/compiled/v$JULIA_MAJOR_VERSION/LibNEGF/*.ji)
-    #rm $BINS_JULIA
+    JULIA_MAJOR_VERSION=$(julia --version | egrep -o '[0-9].[0-9][0-9]')
+    BINS_JULIA=$(ls ~/.julia/compiled/v$JULIA_MAJOR_VERSION/LibNEGF/*.ji)
+    rm $BINS_JULIA
 
-    export NUM_BLAS_THREADS_OUTER=$JULIA_NUM_THREADS
-    export NUM_BLAS_THREADS_INNER=1
-
-    julia --threads=$JULIA_NUM_THREADS test.jl $1 $NUM_BLAS_THREADS_OUTER $NUM_BLAS_THREADS_INNER
+    julia --threads=$JULIA_NUM_THREADS test.jl $1 $JULIA_NUM_THREADS $OPENBLAS_NUM_THREADS
 else
     echo "The hardware $1 is not in the list, not running the tests"
 fi

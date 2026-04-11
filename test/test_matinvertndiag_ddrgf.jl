@@ -1,10 +1,6 @@
-# computing the block n-diagonal of the inverse of T
-# by the DD-RGF method
+# computing the block n-diagonal of the inverse of T by the DD-RGF method
 
 include("common_to_test.jl")
-
-# TODO : remove after some temporary dirty tests in here
-# import BenchmarkTools
 
 using SparseArrays
 
@@ -18,13 +14,10 @@ blockSize = 64
 accFctrBare = 2.5E5
 accFctr = 0.0
 
-# for systemx in systemNames
-
-# for E in [Epoints[1]]
-
-for k in [kpoints[1]]
+for k in kpoints
     for precx in precs
-        check_if_enough_mem_ddrgf(npl, blockSize, precx)
+        # check_if_enough_mem_ddrgf(npl, blockSize, precx)
+
         if precx == ComplexF64
             global accFctr = accFctrBare
         else
@@ -32,73 +25,87 @@ for k in [kpoints[1]]
             global accFctr = 2.0 * accFctrBare
         end
 
-        if whereFrom == 1
-            # load matrices and build M
-            listMatsToLoad = ["H", "S", "Sc"]
-            loadedMats, blockSizes = load_matrices(systemx, E, k,
-                listMatsToLoad, precx, whereFrom)
-            H = loadedMats[1]
-            S = loadedMats[2]
-            Se = loadedMats[3]
-            M = build_M_from_HS(H, S, Se, energVals[E])
+        # if whereFrom == 1
+        #     # load matrices and build M
+        #     listMatsToLoad = ["H", "S", "Sc"]
+        #     loadedMats, blockSizes = load_matrices(systemx, E, k,
+        #         listMatsToLoad, precx, whereFrom)
+        #     H = loadedMats[1]
+        #     S = loadedMats[2]
+        #     Se = loadedMats[3]
+        #     M = build_M_from_HS(H, S, Se, energVals[E])
 
-            # we don't really need Gr, we do checks for DDRGF against RGF
-            # # load Gr
-            # listMatsToLoad = ["Gr"]
-            # loadedMats, blockSizes = load_matrices(systemx, E, k,
-            #     listMatsToLoad, precx, whereFrom)
-            # Gr = loadedMats[1]
+        #     # we don't really need Gr, we do checks for DDRGF against RGF
+        #     # # load Gr
+        #     # listMatsToLoad = ["Gr"]
+        #     # loadedMats, blockSizes = load_matrices(systemx, E, k,
+        #     #     listMatsToLoad, precx, whereFrom)
+        #     # Gr = loadedMats[1]
 
-            # loading blockSizes only - this is redundant, but illustrates
-            # that this can be done without any matrix loading
-            listMatsToLoad = Vector{String}()
-            loadedMats, blockSizes = load_matrices(systemx, E, k,
-                listMatsToLoad, precx, whereFrom)
+        #     # loading blockSizes only - this is redundant, but illustrates
+        #     # that this can be done without any matrix loading
+        #     listMatsToLoad = Vector{String}()
+        #     loadedMats, blockSizes = load_matrices(systemx, E, k,
+        #         listMatsToLoad, precx, whereFrom)
 
-            # convert to BlockMatrix
-            MbmFromData = bm_convert(M, blockSizes, Dict("in" => 3, "out" => 3), false)
+        #     # convert to BlockMatrix
+        #     MbmFromData = bm_convert(M, blockSizes, Dict("in" => 3, "out" => 3), false)
 
-            # crate synthetic matrix
-            MbmSynth = bm_create_synthetic(MbmFromData, npl, blockSize)
-        else
-            MbmSynth = bm_create_synthetic_random(npl, blockSize, precx, false)
+        #     # crate synthetic matrix
+        #     MbmSynth = bm_create_synthetic(MbmFromData, npl, blockSize)
+        # else
+        #     MbmSynth = bm_create_synthetic_random(npl, blockSize, precx, false)
+        # end
+
+        MbmSynth = nothing
+        try
+            MbmSynth = bm_create_synthetic_random(npl, blockSize, precx, false)            
+        catch
+            if e isa OutOfMemoryError
+                # TODO : handle this better, with perhaps a suggestion in params change
+                error("The application tried to allocate beyond the available system memory")
+            else rethrow(e) end
         end
 
         # -----------------------------
 
         # first, some minor checks, mostly related to permutations
 
+        # reference to the block matrix coming from data
+        MbmSeq = MbmSynth
+
         begin
+            MbmSeqSpPerm = nothing
+            MbmSeqPermSp = nothing
+            try
+                listOfAuxDataPar = allocate_aux_data_DDRGF(MbmSeq, TimingData(), CountingData())
+                auxDataPar = listOfAuxDataPar[1]
 
-            # reference to the block matrix coming from data
-            MbmSeq = MbmSynth
+                # the blocks in the following matrices are references to the blocks in Min
+                MbmSeqPerm = bndiag_of_inv_ddrgf_create_permuted_matrix(MbmSeq, auxDataPar.permVec)
 
-            # pre-allocate buffer data for parallel RGF
-            # listOfAuxDataPar = allocate_aux_data_DDRGF(MbmSeq, false, parse(Int, ARGS[2]),
-            #     parse(Int, ARGS[3]), TimingData(), CountingData())
+                # covert MbmSeq to sparse
+                MbmSeqSp = bm_convert(MbmSeq)
+                # permute that sparse matrix
+                PermMat = bndiag_of_inv_ddrgf_create_sparse_permutator(auxDataPar.permVec, MbmSeq.blockSizes, MbmSeq.nrsType)
+                MbmSeqSpPerm = PermMat * (MbmSeqSp * PermMat')
+                # convert MbmSeqPerm to sparse
+                MbmSeqPermSp = bm_convert(MbmSeqPerm, auxDataPar.permVec)
+            catch
+                if e isa OutOfMemoryError
+                    # TODO : handle this better, with perhaps a suggestion in params change
+                    error("The application tried to allocate beyond the available system memory")
+                else rethrow(e) end
+            end
 
-            listOfAuxDataPar = allocate_aux_data_DDRGF(MbmSeq, TimingData(), CountingData())
-            auxDataPar = listOfAuxDataPar[1]
-
-            # the blocks in the following matrices are references to the blocks in Min
-            MbmSeqPerm = bndiag_of_inv_ddrgf_create_permuted_matrix(MbmSeq, auxDataPar.permVec)
-
-            # covert MbmSeq to sparse
-            MbmSeqSp = bm_convert(MbmSeq)
-            # permute that sparse matrix
-            PermMat = bndiag_of_inv_ddrgf_create_sparse_permutator(auxDataPar.permVec, MbmSeq.blockSizes, MbmSeq.nrsType)
-            MbmSeqSpPerm = PermMat * (MbmSeqSp * PermMat')
-            # convert MbmSeqPerm to sparse
-            MbmSeqPermSp = bm_convert(MbmSeqPerm, auxDataPar.permVec)
             # compare both
             relErr = LinearAlgebra.norm(Array(MbmSeqSpPerm - MbmSeqPermSp), 2) / LinearAlgebra.norm(Array(MbmSeqSpPerm), 2)
             @test relErr < roundoffs[precx]
 
             # freeing some data
-            auxDataSeq = 0
-            auxDataPar = 0
+            auxDataSeq = nothing
+            auxDataPar = nothing
             GC.gc()
-
         end
 
         # -----------------------------
@@ -112,8 +119,17 @@ for k in [kpoints[1]]
             MbmSeq = MbmSynth
             # pre-allocate the output matrix
             MbmInvNdiagSeq = bm_similar(MbmSeq, 1)
-            # pre-allocate buffer data for sequential RGF
-            auxDataSeq = allocate_aux_data_RGF(MbmSeq)
+
+            auxDataSeq = nothing
+            try
+                # pre-allocate buffer data for sequential RGF
+                auxDataSeq = allocate_aux_data_RGF(MbmSeq)
+            catch
+                if e isa OutOfMemoryError
+                    # TODO : handle this better, with perhaps a suggestion in params change
+                    error("The application tried to allocate beyond the available system memory")
+                else rethrow(e) end
+            end
 
             # call sequential RGF
             bndiag_of_inv_rgf_global!(MbmInvNdiagSeq, MbmSeq, auxDataSeq, TimingData(), CountingData())
@@ -127,8 +143,16 @@ for k in [kpoints[1]]
             # pre-allocate the output matrix
             MbmInvNdiagPar = bm_similar(MbmPar, 1)
 
-            # pre-allocate buffer data for parallel RGF
-            listOfAuxDataPar = allocate_aux_data_DDRGF(MbmPar, TimingData(), CountingData())
+            listOfAuxDataPar = nothing
+            try
+                # pre-allocate buffer data for parallel RGF
+                listOfAuxDataPar = allocate_aux_data_DDRGF(MbmPar, TimingData(), CountingData())
+            catch
+                if e isa OutOfMemoryError
+                    # TODO : handle this better, with perhaps a suggestion in params change
+                    error("The application tried to allocate beyond the available system memory")
+                else rethrow(e) end
+            end
 
             # relErr::Float64 = bndiag_of_inv_ddrgf_error_inv_of_T11(MbmPar, MbmInvNdiagPar, auxDataPar, TimingData(), CountingData())
             # @test relErr < roundoffs[precx] * 1.0E6
@@ -259,7 +283,3 @@ for k in [kpoints[1]]
         end
     end
 end
-
-# end
-
-# end

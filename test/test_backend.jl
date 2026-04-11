@@ -3,9 +3,6 @@ module TestLibNEGFBackend
 using LibNEGF, Test
 import LinearAlgebra
 
-# 1 from disk, 2 is random
-whereFrom = 2
-
 # TODO : documentation
 # the two blocks passed live on the device
 function check_if_equal(B1, B2, roundoff, relxFctr::Float64)
