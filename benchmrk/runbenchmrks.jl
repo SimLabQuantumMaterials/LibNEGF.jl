@@ -26,7 +26,7 @@ Printf.@printf("  -- nr of Julia threads: %d\n", parse(Int, ARGS[3]))
 Printf.@printf("  -- nr of BLAS threads: %d\n", parse(Int, ARGS[4]))
 
 # choose one of "rgf", "ddrgf", "rkd"
-whichBM = "rkd"
+whichBM = "ddrgf"
 
 if whichBM == "rgf"
     to = TimerOutput()

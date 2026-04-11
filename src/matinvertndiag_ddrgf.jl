@@ -460,7 +460,7 @@ function allocate_aux_data_DDRGF(Min::BlockMatrix,
     push!(listOfAuxDataPar, auxDataPar)
 
     # coarse grids
-    nrDDRGFLevels = nrLevels
+    nrDDRGFLevels = nrLevels-1
     for ix = 1:nrDDRGFLevels-1
         auxDataSeq2 = allocate_aux_data_RGF(listOfAuxDataPar[ix].buffTHat22inv)
         auxDataPar2 = allocate_aux_data_DDRGF_single_level(listOfAuxDataPar[ix].buffTHat22inv,
