@@ -10,9 +10,12 @@ using SparseArrays
 # Pkg.add("JuliaC") # Or Pkg.develop("JuliaC") for the latest master
 
 # # then, do the compilation and creation of the shared library
-# juliac /path/to/YourPackageDir --output-lib LibNEGFCInterface --compile-callable --trim --privatize --export-ai --bundle LibNEGFCInterfaceBundle
+# juliac /path/to/YourPackageDir --output-lib LibNEGFCInterface --compile-callable
+#       --trim --privatize --export-ai --bundle LibNEGFCInterfaceBundle
 
-# # above, the flag --export-ai generate a JSON file, which in turn can be used to generate the header for the shared library .. I don't think this is really needed at the moment, right?
+# # above, the flag --export-ai generate a JSON file, which in turn can be used to
+# # generate the header for the shared library .. I don't think this is really needed
+# # at the moment, right? Because we have manually created our own interface header
 # using JuliaLibWrapping
 # # Translates the JSON spec into LibNEGFCInterface.h
 # generate_c_header("LibNEGFCInterface.json", "LibNEGFCInterface.h")
