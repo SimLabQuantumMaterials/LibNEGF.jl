@@ -2,7 +2,7 @@
 
 julia_version = "1.12.6"
 manifest_format = "2.0"
-project_hash = "3f137bcc6c7e35abab611d765e46a86b68e4fd7f"
+project_hash = "7d912bfc679ef1b3668fcc2caafc944e966a4cce"
 
 [[deps.Adapt]]
 deps = ["LinearAlgebra", "Requires"]
@@ -328,7 +328,7 @@ uuid = "e37daf67-58a4-590a-8e99-b0245dd2ffc5"
 version = "1.9.0+0"
 
 [[deps.LibNEGF]]
-deps = ["BenchmarkTools", "CSV", "LinearAlgebra", "MAT", "Metal", "PROPACK", "Printf", "Random", "SparseArrays", "TimerOutputs"]
+deps = ["BenchmarkTools", "CSV", "LinearAlgebra", "MAT", "PROPACK", "Printf", "Random", "SparseArrays", "TimerOutputs"]
 path = "."
 uuid = "b1aedd77-0951-42a6-b91d-75b8799e6157"
 version = "0.1.0-DEV"
