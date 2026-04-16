@@ -9,6 +9,7 @@ include("utils/parsing.jl")
     if ENV["LIBNEGF_TEST_OR_BENCH"]=="test" include("exports_test.jl")
     elseif ENV["LIBNEGF_TEST_OR_BENCH"]=="benchmark" include("exports_benchmark.jl")
     elseif ENV["LIBNEGF_TEST_OR_BENCH"]=="documentation" include("exports_doc.jl")
+    elseif ENV["LIBNEGF_TEST_OR_BENCH"]=="compile" include("exports_compile.jl")
     elseif ENV["LIBNEGF_TEST_OR_BENCH"]=="example" include("exports_example.jl") end
 end
 
@@ -37,5 +38,12 @@ include("matinvertndiag_ddrgf_core.jl")
 include("matinvertndiag_ddrgf_setup.jl")
 include("matinvertndiag_ddrgf_utils.jl")
 include("keldyshndiag.jl")
+
+@ifdef "LIBNEGF_COMPILE" begin
+    if ENV["LIBNEGF_COMPILE"]=="yes"
+        # for C compilation and shared library generation
+        include("c_interface/libnegf_c_interface.jl")
+    end
+end
 
 end

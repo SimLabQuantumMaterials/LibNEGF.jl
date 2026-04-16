@@ -1,18 +1,22 @@
-module LibNEGFCInterface
-
-using SparseArrays
-
 # ------------------------------------------------------------------------------
 # instructions to compile and create the shared library file
 
-# # first, install JuliaC
-# using Pkg
-# Pkg.add("JuliaC") # Or Pkg.develop("JuliaC") for the latest master
+# NOTE : it seems that the main directory needs to be renamed
+# to LibNEGF.jl
 
-# # then, do the compilation and creation of the shared library
-# juliac /path/to/YourPackageDir --output-lib LibNEGFCInterface --compile-callable
-#       --trim --privatize --export-ai --bundle LibNEGFCInterfaceBundle
+# # install JuliaC
+# # 1. from the terminal
+# LibNEGF.jl% julia
+# # 2. open Julia's REPL
+# julia> ]
+# # 3. install JuliaC
+# (@v1.12) pkg> app add JuliaC
 
+# # then, go to the root directory of this project (which has been
+# # renamed at this point as LibNEGF.jl) and run from the terminal:
+# LibNEGF.jl% ./compile.sh cpu
+
+# FIXME : is the following commented block still relevant?
 # # above, the flag --export-ai generate a JSON file, which in turn can be used to
 # # generate the header for the shared library .. I don't think this is really needed
 # # at the moment, right? Because we have manually created our own interface header
@@ -105,5 +109,3 @@ Base.@ccallable function run_bndiag_wrapper(
         Ptr{Cint}(out_colptr_ptr), Ptr{Cint}(out_rowval_ptr), Ptr{ComplexF64}(out_nzval_ptr)
     )
 end
-
-end # module
