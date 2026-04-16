@@ -53,9 +53,15 @@ if exists_in_list "$HWs" " " $1; then
     BINS_JULIA=$(ls ~/.julia/compiled/v$JULIA_MAJOR_VERSION/LibNEGF/*.ji)
     rm $BINS_JULIA
 
+    # FIRST : create the shared library
+
     # julia --threads=$JULIA_NUM_THREADS test.jl $1 $JULIA_NUM_THREADS $OPENBLAS_NUM_THREADS
     # ~/.julia/bin/juliac . --output-lib libNEGF_C --compile-ccallable --trim --privatize --export-ai --bundle LibNEGFCInterfaceBundle
     ~/.julia/bin/juliac . --output-lib libNEGF_C --compile-ccallable --trim --privatize --bundle LibNEGFCInterfaceBundle
+
+    # SECOND : compile the C code, linking to the just-created shared library
+
+    gcc src/c_interface/libnegf_c_example.c -o my_app -L./LibNEGFCInterfaceBundle/lib -lNEGF_C -Wl,-rpath,@executable_path/LibNEGFCInterfaceBundle/lib
 else
     echo "The hardware $1 is not in the list, not running the tests"
 fi
