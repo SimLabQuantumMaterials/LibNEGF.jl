@@ -44,7 +44,7 @@
 function bndiag_of_inv_rgf_local_wrapper(MspIN::SparseArrays.SparseMatrixCSC{ComplexF64,Int}, blockSizes::Vector{Int},
     ndiag::Dict{String,Int}, isHermitian::Bool)::SparseArrays.SparseMatrixCSC{ComplexF64,Int}
 
-    println("Blah")
+    println(Core.stdout, "Blah")
 
     # # convert the sparse input matrix to BlockMatrix type first
     # MbmIN::BlockMatrix = bm_convert(MspIN, blockSizes, ndiag, isHermitian)
