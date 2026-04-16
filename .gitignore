@@ -3,3 +3,4 @@ deps/build.log
 matrices/
 Manifest.toml
 Project.toml
+LibNEGFCInterfaceBundle/
