@@ -29,7 +29,7 @@
 function bndiag_of_inv_rgf_local_wrapper(MspIN::SparseArrays.SparseMatrixCSC{FieldType,Int}, blockSizes::Vector{Int},
     ndiag::Dict{String,Int}, isHermitian::Bool)::SparseArrays.SparseMatrixCSC{FieldType,Int}
 
-    println(Core.stdout, "Blah")
+    println(Core.stdout, "Running sequential RGF from its C interface function")
 
     # # convert the sparse input matrix to BlockMatrix type first
     MbmIN::BlockMatrix = bm_convert(MspIN, blockSizes, ndiag, isHermitian)

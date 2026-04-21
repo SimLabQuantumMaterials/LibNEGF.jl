@@ -44,6 +44,7 @@ if exists_in_list "$HWs" " " $1; then
     export LIBNEGF_HW=$1
     export LIBNEGF_FINER_TIMINGS=0
     export LIBNEGF_TEST_OR_BENCH=test
+    export LIBNEGF_COMPILE=no
     # if we want to really mimic C's ifdef, we need to force recompilation,
     # which we do by removing the precompiled binaries. If you're a developer
     # and want to mimic C's ifdef, uncomment the following lines and change

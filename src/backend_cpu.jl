@@ -67,6 +67,18 @@ function be_ctranspose!(Mout::Array, Min::Array, td::TimingData, cd::CountingDat
     end
 end
 
+function be_ctranspose(Min::Array, td::TimingData, cd::CountingData)::Array
+    if Threads.nthreads() > 1
+        return adjoint(Min)
+    else
+        @timewrap td "_ctranspose" begin
+            @countwrap cd "_ctranspose" Min Min Min begin
+                return adjoint(Min)
+            end
+        end
+    end
+end
+
 function be_random_array(dimsOfArr::Tuple{Int,Int})::Array
     return rand(FieldType, dimsOfArr)
 end
