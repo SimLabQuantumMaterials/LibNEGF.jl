@@ -24,6 +24,14 @@ include("utils/common.jl")
     include("utils/"*which_timer*"_timings.jl")
 end
 
+# specifying the underlying data type
+const FieldType = ComplexF64
+# we must give the dimension of Array to the compiler, so it maps
+# it directly to Matrix
+const ArrayWithType = Array{FieldType, 2}
+# the previous line will be the following in case of using Metal.jl
+# const ArrayWithType = Metal.MtlArray{FieldType, 2}
+
 # # include the backend for the desired harwdware, replace
 # # HW by one of cpu, apple, nvidia, etc
 @ifdef "LIBNEGF_HW" begin

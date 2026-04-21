@@ -18,6 +18,8 @@ int main() {
     // Seed the random number generator
     srand(time(NULL));
 
+    printf("\nLibNEGF.jl C wrapper example\n\n");
+
     printf("--- Generating Block-Tridiagonal Complex CSC Matrix ---\n");
 
     // 1. Matrix parameters
@@ -85,11 +87,11 @@ int main() {
 
     // 5. Construct the Dictionary inputs
     int32_t n_dict = 2;
-    const char* dict_keys_in[] = {"max_iter", "tolerance"};
-    int32_t dict_vals_in[] = {1000, 1};
+    const char* dict_keys_in[] = {"in", "out"};
+    int32_t dict_vals_in[] = {3, 3};
 
     // 6. Boolean 
-    int32_t is_hermitian = 1;
+    int32_t is_hermitian = 0;
 
     printf("\n--- Calling Julia Library ---\n\n");
 
@@ -105,13 +107,13 @@ int main() {
     printf("Returned Matrix Size: %d x %d\n", result.m, result.n);
     printf("Returned Non-zeros: %d\n", result.nnz);
 
-    // Print just the first few values to verify
-    if (result.nnz > 0) {
-        printf("First 3 Complex Values Returned:\n");
-        for (int i = 0; i < 3 && i < result.nnz; i++) {
-            printf("  [%d]: %f + %fi\n", i, creal(result.nzval[i]), cimag(result.nzval[i]));
-        }
-    }
+    // // Print just the first few values to verify
+    // if (result.nnz > 0) {
+    //     printf("First 3 Complex Values Returned:\n");
+    //     for (int i = 0; i < 3 && i < result.nnz; i++) {
+    //         printf("  [%d]: %f + %fi\n", i, creal(result.nzval[i]), cimag(result.nzval[i]));
+    //     }
+    // }
 
     // 8. CRITICAL: Cleanup Memory
     // Free the arrays we dynamically allocated for the inputs

@@ -7,7 +7,7 @@ Encapsulates the bare data needed for `LU`-like-related computations. The data
 lives entirely on the Metal GPU.
 """
 struct MtlLU
-    A::Metal.MtlArray
+    A::Metal.MtlArray{FieldType, 2}
     piv::Metal.MtlVector
 end
 
@@ -19,7 +19,7 @@ on the CPU, and it is used by device code either for mimicking the CPU or for co
 in tests.
 """
 mutable struct CpuLU
-    A::Array
+    A::Array{FieldType, 2}
     piv::Vector{Int}
 end
 
@@ -29,7 +29,7 @@ end
 Contains a Metal `Array`, Metal `LU factor` and/or `undef`, with blocks stored
 in the (GPU) device. This is at the base of BlockMatrix.
 """
-ArrayOrLUUnder_ = Union{Metal.MtlArray,MtlLU,Nothing}
+ArrayOrLUUnder_ = Union{ArrayWithType,MtlLU,Nothing}
 ArrayOrLU_ = Matrix{ArrayOrLUUnder_}
 ArrayOrLUView_ = SubArray{ArrayOrLUUnder_,2,ArrayOrLU_,Tuple{UnitRange{Int},UnitRange{Int}},false}
 
