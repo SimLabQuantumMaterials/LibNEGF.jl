@@ -102,7 +102,10 @@ function bm_convert(M::BlockMatrix)::SparseArrays.SparseMatrixCSC
                 if !M.isHermitian
                     A[ibeg:iend, jbeg:jend] = sparse(be_copy_from_hw(M.M[ix, jx]))
                 else
-                    A[ibeg:iend, jbeg:jend] = sparse(be_copy_from_hw(M.M[jx, ix]))'
+                    tmpM = be_copy_from_hw(M.M[jx, ix])
+                    Ix, Jx, Valsx = findnz(tmpM)
+                    tmpMadj = sparse(Jx, Ix, conj.(Valsx), size(tmpM, 2), size(tmpM, 1))
+                    copy!(A[ibeg:iend, jbeg:jend], tmpMadj)
                 end
             end
         end

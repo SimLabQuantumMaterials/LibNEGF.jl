@@ -16,8 +16,16 @@ end
 # from utils/
 # this is the core set of utils, where some macros are included
 # empty, and if then utils_optnl.jl is included those empty macros
-# are replaced
-include("utils/common.jl")
+# are replaced@ifdef "LIBNEGF_COMPILE" begin
+@ifdef "LIBNEGF_COMPILE" begin
+    if ENV["LIBNEGF_COMPILE"]=="yes"
+        # for C compilation and shared library generation
+        include("utils/empty_common.jl")
+    else
+        include("utils/common.jl")
+    end
+end
+
 @ifdef "LIBNEGF_FINER_TIMINGS" begin
     if ENV["LIBNEGF_FINER_TIMINGS"]=="0" which_timer = "empty"
     else which_timer = "full" end
