@@ -333,8 +333,11 @@ Receives a BlockMatrix object, and sets its dense blocks to either zero or rando
 """
 function bm_blocks_define!(M::BlockMatrix, filling::Int)
     if filling == 2 && M.isArrayOrLU == 1
-        println(Core.stdout, "ERROR: filling up BlockMatrix with random blocks and block-diagonal LUs
-                 makes no sense")
+        println(
+            Core.stdout,
+            "ERROR: filling up BlockMatrix with random blocks and block-diagonal LUs
+            makes no sense"
+        )
         exit()
     end
 

@@ -133,7 +133,7 @@ function bndiag_of_inv_ddrgf_compute_minus_THat11Inv_x_THat12_x_THatSInv!(Mout::
 
     Threads.@threads for ixo = 1:auxData.nrThreads
         buffBlockSizeD1 = blockSizeD1
-    
+
         if ixo < auxData.nrThreads
             nrTasksPerThread = auxData.maxNrTasksPerThread
         else

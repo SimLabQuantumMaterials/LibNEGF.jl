@@ -323,7 +323,7 @@ function opt_params(Min::BlockMatrix, rLU::Float64, rMLDIV::Float64)::Tuple{Int,
         # we would rather have blockSizeD2 = 4, but it might not always be possible
         for blockSizeD1 = 4:-1:1
             nrTasks, blockSizeD1Leftover = bndiag_of_inv_ddrgf_get_nr_tasks(nrTasksPrev, blockSizeD1, blockSizeD2)
-            if nrTasks==-1
+            if nrTasks == -1
                 continue
             end
 

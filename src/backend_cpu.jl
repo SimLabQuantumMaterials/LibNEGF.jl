@@ -5,7 +5,7 @@ Encapsulates the bare data needed for `LU`-like-related computations. This lives
 on the CPU.
 """
 mutable struct CpuLU
-    A::Array{FieldType, 2}
+    A::Array{FieldType,2}
     piv::Vector{Int}
 end
 

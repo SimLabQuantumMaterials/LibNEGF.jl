@@ -42,7 +42,9 @@ catch e
     if e isa OutOfMemoryError
         # TODO : handle this better, with perhaps a suggestion in params change
         error("The application tried to allocate beyond the available system memory")
-    else rethrow(e) end
+    else
+        rethrow(e)
+    end
 end
 
 keldyshndiag!(Min, Sn, auxDataKeldysh, TimingData(), CountingData())

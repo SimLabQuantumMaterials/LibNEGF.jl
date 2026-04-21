@@ -37,7 +37,7 @@ function check_if_enough_mem_rkd(npl::Int, blockSize::Int, precx::DataType)
     # to allocate all the needed buffers
     requiredMem += required_mem_non_symm(npl, precx, rgfN1diag, rgfN3diag, blockSize)
     requiredMem += required_mem_symm(npl, precx, rkdN1diag, rkdN3diag, blockSize)
-    if requiredMem > 0.8*totalMem
+    if requiredMem > 0.8 * totalMem
         error("The required memory exceeds 80% of the total memory")
     end
 end
@@ -60,18 +60,18 @@ function required_mem_symm(npl::Int, precx::DataType, N1diag::Int, N3diag::Int, 
         # center
         nx = avgBlockSize
         ny = avgBlockSize
-        requiredMem += N3diag * (nx*ny)
-        requiredMem += N1diag * (nx*ny)
+        requiredMem += N3diag * (nx * ny)
+        requiredMem += N1diag * (nx * ny)
 
         # right
         if ix < npl
             nx = avgBlockSize
             ny = avgBlockSize
-            requiredMem += N3diag * (nx*ny)
+            requiredMem += N3diag * (nx * ny)
         end
     end
 
-    requiredMem *= (2*sizeof(precx) / 2^20)
+    requiredMem *= (2 * sizeof(precx) / 2^20)
 
     return requiredMem
 end

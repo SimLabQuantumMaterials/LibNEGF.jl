@@ -144,22 +144,28 @@ function print_flops_and_mems_(cd::CountingData, to::TimerOutput, prec::DataType
             # avoiding KeyError with try/catch. This could be done better
             try
                 totTimeAvg += (TimerOutputs.time(to[method*"_"*string(prec)]["wo_first_total"]["wo_first_T11inv"]["wo_first_"*suffx]) * 1.0E-9) / nrCalls
-            catch e end
+            catch e
+            end
             try
                 totTimeAvg += (TimerOutputs.time(to[method*"_"*string(prec)]["wo_first_total"]["wo_first_SCinv"]["wo_first_"*suffx]) * 1.0E-9) / nrCalls
-            catch e end
+            catch e
+            end
             try
                 totTimeAvg += (TimerOutputs.time(to[method*"_"*string(prec)]["wo_first_total"]["wo_first_SCinv"]["wo_first_SeqInv"]["wo_first_"*suffx]) * 1.0E-9) / nrCalls
-            catch e end
+            catch e
+            end
             try
                 totTimeAvg += (TimerOutputs.time(to[method*"_"*string(prec)]["wo_first_total"]["wo_first_Hopp12"]["wo_first_"*suffx]) * 1.0E-9) / nrCalls
-            catch e end
+            catch e
+            end
             try
                 totTimeAvg += (TimerOutputs.time(to[method*"_"*string(prec)]["wo_first_total"]["wo_first_Hopp21"]["wo_first_"*suffx]) * 1.0E-9) / nrCalls
-            catch e end
+            catch e
+            end
             try
                 totTimeAvg += (TimerOutputs.time(to[method*"_"*string(prec)]["wo_first_total"]["wo_first_11"]["wo_first_"*suffx]) * 1.0E-9) / nrCalls
-            catch e end
+            catch e
+            end
         end
     end
 

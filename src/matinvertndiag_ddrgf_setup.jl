@@ -24,7 +24,7 @@ function allocate_aux_data_DDRGF(Min::BlockMatrix,
     # totCost  : scalar
     nrLevels::Int, nrTasksList::Vector{Int}, blockSizeD1List::Vector{Int}, optCost::Float64 =
         opt_params(Min, rLUavg, rMLDIVavg)
-    
+
     nrBlocksInNonPivotsList = blockSizeD1List
 
     # allocation of auxiliary data for DDRGF
@@ -39,7 +39,7 @@ function allocate_aux_data_DDRGF(Min::BlockMatrix,
     push!(listOfAuxDataPar, auxDataPar)
 
     # coarse grids
-    nrDDRGFLevels = nrLevels-1
+    nrDDRGFLevels = nrLevels - 1
     for ix = 1:nrDDRGFLevels-1
         auxDataSeq2 = allocate_aux_data_RGF(listOfAuxDataPar[ix].buffTHat22inv)
         auxDataPar2 = allocate_aux_data_DDRGF_single_level(listOfAuxDataPar[ix].buffTHat22inv,
@@ -147,8 +147,8 @@ function allocate_aux_data_DDRGF_single_level(M::BlockMatrix, nrBlocksInNonPivot
     for ix = 1:nrThreads
         push!(smallBlockSizes11, copy(M.blockSizes[1:blockSizeD1]))
         push!(smallAuxDataSeq11, AuxDataRGF(BlockMatrix(copy(smallBlockSizes11[ix]), ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
-            buffMPerm.ndiag, 0, false), BlockMatrix(copy(smallBlockSizes11[ix]), ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
-            bIdMPerm.ndiag, 0, false), true))
+                buffMPerm.ndiag, 0, false), BlockMatrix(copy(smallBlockSizes11[ix]), ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
+                bIdMPerm.ndiag, 0, false), true))
         push!(smallMbmIn11, BlockMatrix(copy(smallBlockSizes11[ix]), ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
             M.ndiag, 0, false))
         push!(smallMbmOut11, BlockMatrix(copy(smallBlockSizes11[ix]), ArrayOrLU_(undef, blockSizeD1, blockSizeD1),

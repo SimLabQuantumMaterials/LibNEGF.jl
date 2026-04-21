@@ -116,54 +116,54 @@ end
                 # B3x = 0
                 # GC.gc()
 
-            #     B = be_copy_in_hw(Abm.M[1, 2])
-            #     Bz = be_zero_array(size(Abm.M[1, 2]))
-            #     Blu = be_lu(Abm.M[1, 1], td, cd)
-            #     be_mldivide!('N', Bz, B, Blu, td, cd)
-            #     Bout = be_mul(Abm.M[1, 1], Bz)
-            #     check_if_equal(Bout, B, roundoffs[precx], 1.0E3)
-            #     B = 0
-            #     Bz = 0
-            #     Blu = 0
-            #     Bout = 0
-            #     GC.gc()
+                #     B = be_copy_in_hw(Abm.M[1, 2])
+                #     Bz = be_zero_array(size(Abm.M[1, 2]))
+                #     Blu = be_lu(Abm.M[1, 1], td, cd)
+                #     be_mldivide!('N', Bz, B, Blu, td, cd)
+                #     Bout = be_mul(Abm.M[1, 1], Bz)
+                #     check_if_equal(Bout, B, roundoffs[precx], 1.0E3)
+                #     B = 0
+                #     Bz = 0
+                #     Blu = 0
+                #     Bout = 0
+                #     GC.gc()
 
-            #     A = be_copy_in_hw(Abm.M[1, 1])
-            #     B = be_copy_in_hw(Abm.M[1, 2])
-            #     C = be_copy_in_hw(B)
-            #     Acpu = be_copy_from_hw(A)
-            #     Bcpu = be_copy_from_hw(B)
-            #     Ccpu = be_copy_from_hw(C)
-            #     Ccpu = Ccpu - Acpu * Bcpu
-            #     be_gemm!('N', 'N', convert(FieldType, -1.0), A, B, convert(FieldType, 1.0), C, td, cd)
-            #     Cx = be_copy_to_hw(Ccpu)
-            #     # the 1.0E1 is for some roundings, mostly due to GPUs
-            #     check_if_equal(C, Cx, roundoffs[precx], 1.0E1)
-            #     A = 0
-            #     B = 0
-            #     C = 0
-            #     Acpu = 0
-            #     Bcpu = 0
-            #     Ccpu = 0
-            #     Cx = 0
-            #     GC.gc()
+                #     A = be_copy_in_hw(Abm.M[1, 1])
+                #     B = be_copy_in_hw(Abm.M[1, 2])
+                #     C = be_copy_in_hw(B)
+                #     Acpu = be_copy_from_hw(A)
+                #     Bcpu = be_copy_from_hw(B)
+                #     Ccpu = be_copy_from_hw(C)
+                #     Ccpu = Ccpu - Acpu * Bcpu
+                #     be_gemm!('N', 'N', convert(FieldType, -1.0), A, B, convert(FieldType, 1.0), C, td, cd)
+                #     Cx = be_copy_to_hw(Ccpu)
+                #     # the 1.0E1 is for some roundings, mostly due to GPUs
+                #     check_if_equal(C, Cx, roundoffs[precx], 1.0E1)
+                #     A = 0
+                #     B = 0
+                #     C = 0
+                #     Acpu = 0
+                #     Bcpu = 0
+                #     Ccpu = 0
+                #     Cx = 0
+                #     GC.gc()
 
-            #     Alu = be_lu(Abm.M[1, 1], td, cd)
-            #     Ainv = be_copy_in_hw(Abm.M[1, 1])
-            #     be_inv_from_lu!(Ainv, Alu)
-            #     idM = be_identity(size(Abm.M[1, 1])[1])
-            #     idMx = be_mul(Abm.M[1, 1], Ainv)
-            #     if precx == ComplexF32
-            #         relxFctr = 1.0E4
-            #     elseif precx == ComplexF64
-            #         relxFctr = 1.0E3
-            #     end
-            #     check_if_equal(idM, idMx, roundoffs[precx], relxFctr)
-            #     Alu = 0
-            #     Ainv = 0
-            #     idM = 0
-            #     idMx = 0
-            #     GC.gc()
+                #     Alu = be_lu(Abm.M[1, 1], td, cd)
+                #     Ainv = be_copy_in_hw(Abm.M[1, 1])
+                #     be_inv_from_lu!(Ainv, Alu)
+                #     idM = be_identity(size(Abm.M[1, 1])[1])
+                #     idMx = be_mul(Abm.M[1, 1], Ainv)
+                #     if precx == ComplexF32
+                #         relxFctr = 1.0E4
+                #     elseif precx == ComplexF64
+                #         relxFctr = 1.0E3
+                #     end
+                #     check_if_equal(idM, idMx, roundoffs[precx], relxFctr)
+                #     Alu = 0
+                #     Ainv = 0
+                #     idM = 0
+                #     idMx = 0
+                #     GC.gc()
             end
         end
     end
