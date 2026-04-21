@@ -42,22 +42,22 @@ function get_rMLDIV(M::BlockMatrix, td::TimingData, cd::CountingData)::Vector{Fl
 
     # we obtain rLU for that average block size
 
-    plusOneCmplx = convert(M.nrsType, 1.0)
+    plusOneCmplx = convert(FieldType, 1.0)
 
     # create three block-diagonal matrices
     blockSizes = repeat([avgBlockSize], nrSamples)
-    A = bm_empty(blockSizes, nrSamples, 1, false, M.nrsType, false)
+    A = bm_empty(blockSizes, nrSamples, 1, false, false)
     bm_blocks_define!(A, 2)
-    B = bm_empty(blockSizes, nrSamples, 1, false, M.nrsType, false)
+    B = bm_empty(blockSizes, nrSamples, 1, false, false)
     bm_blocks_define!(B, 2)
-    C = bm_empty(blockSizes, nrSamples, 1, false, M.nrsType, false)
+    C = bm_empty(blockSizes, nrSamples, 1, false, false)
     bm_blocks_define!(C, 2)
 
     # let's pre-run one GEMM, to avoid setup-ish times being accounted for
     be_gemm!('N', 'N', plusOneCmplx, A.M[1, 1], B.M[1, 1], plusOneCmplx, C.M[1, 1], td, cd)
 
     # let's pre-run one MLDIV, to avoid setup-ish times being accounted for
-    Alu = be_zero_lu(M.nrsType, avgBlockSize)
+    Alu = be_zero_lu(avgBlockSize)
     be_lu!(Alu, A.M[1, 1], td, cd)
     be_mldivide!('N', B.M[1, 1], A.M[1, 1], Alu, td, cd)
 
@@ -106,22 +106,22 @@ function get_rLU(M::BlockMatrix, td::TimingData, cd::CountingData)::Vector{Float
 
     # we obtain rLU for that average block size
 
-    plusOneCmplx = convert(M.nrsType, 1.0)
+    plusOneCmplx = convert(FieldType, 1.0)
 
     # create three block-diagonal matrices
     blockSizes = repeat([avgBlockSize], nrSamples)
-    A = bm_empty(blockSizes, nrSamples, 1, false, M.nrsType, false)
+    A = bm_empty(blockSizes, nrSamples, 1, false, false)
     bm_blocks_define!(A, 2)
-    B = bm_empty(blockSizes, nrSamples, 1, false, M.nrsType, false)
+    B = bm_empty(blockSizes, nrSamples, 1, false, false)
     bm_blocks_define!(B, 2)
-    C = bm_empty(blockSizes, nrSamples, 1, false, M.nrsType, false)
+    C = bm_empty(blockSizes, nrSamples, 1, false, false)
     bm_blocks_define!(C, 2)
 
     # let's pre-run one GEMM, to avoid setup-ish times being accounted for
     be_gemm!('N', 'N', plusOneCmplx, A.M[1, 1], B.M[1, 1], plusOneCmplx, C.M[1, 1], td, cd)
 
     # let's pre-run one LU, to avoid setup-ish times being accounted for
-    Alu = be_zero_lu(M.nrsType, avgBlockSize)
+    Alu = be_zero_lu(avgBlockSize)
     be_lu!(Alu, A.M[1, 1], td, cd)
 
     timesGEMM::Vector{Float64} = zeros(Float64, nrSamples)
@@ -487,7 +487,7 @@ end
 function bndiag_of_inv_ddrgf_create_permuted_matrix(M::BlockMatrix, permVec::Vector{Int})::BlockMatrix
     npl = size(M.blockSizes)[1]
     ndiag = M.ndiag
-    Mhat = BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl), M.ndiag, M.nrsType, 0, M.isHermitian)
+    Mhat = BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl), M.ndiag, 0, M.isHermitian)
     pv = permVec
 
     # loop over the block sizes, conversely over the block rows
@@ -671,8 +671,8 @@ end
 
 function bndiag_of_inv_ddrgf_error_inv_of_T11(Min_::BlockMatrix, Mout_::BlockMatrix,
     auxData::AuxDataDDRGF, td::TimingData, cd::CountingData)::Float64
-    plusOneCmplx = convert(Min_.nrsType, 1.0)
-    zeroCmplx = convert(Min_.nrsType, 0.0)
+    plusOneCmplx = convert(FieldType, 1.0)
+    zeroCmplx = convert(FieldType, 0.0)
     # 'multiply' the D1 part of Min_ and auxData.buffTHat
     # IMPORTANT : this section of rough code assumes all the layers have
     # the same size
@@ -705,7 +705,7 @@ function bndiag_of_inv_ddrgf_error_inv_of_T11(Min_::BlockMatrix, Mout_::BlockMat
 
                 if ix_ == jx_
                     # subtract the identity
-                    blkId = be_identity(Min.nrsType, size(accBlk)[1])
+                    blkId = be_identity(size(accBlk)[1])
                     accBlk -= blkId
                     denErr += convert(Float64, size(accBlk)[1])
                 end

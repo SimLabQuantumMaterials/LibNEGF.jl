@@ -83,11 +83,11 @@ function allocate_aux_data_RGF(M::BlockMatrix)::AuxDataRGF
     # in general, these type of auxiliary block matrices will contain
     # Array-like object and not LU-like, as specified by the last param
     buffM = BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl),
-        M.ndiag, M.nrsType, 1, false)
+        M.ndiag, 1, false)
     bm_blocks_define!(buffM, 1)
 
     bIdM = BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl),
-        Dict("in" => 1, "out" => 1), M.nrsType, 0, false)
+        Dict("in" => 1, "out" => 1), 0, false)
     bm_blocks_define_identity!(bIdM)
 
     # the final struct with the buffers
@@ -118,9 +118,9 @@ function bndiag_of_inv_rgf_local!(Mout::BlockMatrix, Min::BlockMatrix, auxData::
 
     # we call this function if we want to call standalone RGF
 
-    minusOneCmplx = convert(Min.nrsType, -1.0)
-    plusOneCmplx = convert(Min.nrsType, 1.0)
-    zeroCmplx = convert(Min.nrsType, 0.0)
+    minusOneCmplx = convert(FieldType, -1.0)
+    plusOneCmplx = convert(FieldType, 1.0)
+    zeroCmplx = convert(FieldType, 0.0)
 
     # IMPORTANT : we assume here that all of the blocks in Min and Mout argument
     #             Array-like, and that those in the block-diagonal of auxData.rgfBuffs.buffM

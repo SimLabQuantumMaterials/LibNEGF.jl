@@ -50,7 +50,7 @@ function bndiag_of_inv_rgf_local_wrapper(MspIN::SparseArrays.SparseMatrixCSC{Fie
     MbmIN::BlockMatrix = bm_convert(MspIN, blockSizes, ndiag, isHermitian)
     MbmOUT::BlockMatrix = bm_copy(MbmIN)
     # allocate auxiliary data
-    # auxData::AuxDataRGF = allocate_aux_data_RGF(MbmIN)
+    auxData::AuxDataRGF = allocate_aux_data_RGF(MbmIN)
     # # call RGF
     # bndiag_of_inv_rgf_local!(MbmOUT, MbmIN, auxData, TimingData(), CountingData())
     # # create and return the output

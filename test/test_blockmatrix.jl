@@ -14,7 +14,7 @@ Random.seed!(1234)
         include("common_to_test.jl")
 
         for k in kpoints
-            for precx in precs
+            for precx in [ComplexF64]
                 # # list of matrices to load
                 # listMatsToLoad = ["H", "S", "Sc"]
                 # # load in the desired precision

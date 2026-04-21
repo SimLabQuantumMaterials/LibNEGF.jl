@@ -87,7 +87,7 @@ function allocate_aux_data_Keldysh(M::BlockMatrix, S::BlockMatrix)::AuxDataKeldy
     # # in general, these type of auxiliary block matrices will contain
     # # Array-like object and not LU-like, as specified by the last param
     # bmLargeBuff = BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl),
-    #     Dict("in" => m, "out" => m), M.nrsType, 0, )
+    #     Dict("in" => m, "out" => m), 0, )
     # bm_blocks_define!(bmLargeBuff, 1)
 
     # this is the main buffer, of the same structure as the central operator in Keldysh, i.e., S
@@ -96,7 +96,7 @@ function allocate_aux_data_Keldysh(M::BlockMatrix, S::BlockMatrix)::AuxDataKeldy
     buffM2 = bm_copy(M)
     # this is a buffer used during the central pass of RKD
     buffX = BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl),
-        Dict("in" => 3, "out" => 3), M.nrsType, 0, false)
+        Dict("in" => 3, "out" => 3), 0, false)
     bm_blocks_define!(buffX, 2)
 
     # the final struct with the buffers
@@ -154,10 +154,10 @@ function keldyshndiag_v2!(C::BlockMatrix, Binv::BlockMatrix, B::BlockMatrix, A::
     # the (block) indices ix and jx are running over auxData.bmLargeBuff
 
     # do auxData.bmLargeBuff = A * Binv'
-    bm_gemm!('N', 'C', convert(Binv.nrsType, 1.0), A, Binv, convert(Binv.nrsType, 0.0), auxData.bmLargeBuff, td, cd)
+    bm_gemm!('N', 'C', convert(FieldType, 1.0), A, Binv, convert(FieldType, 0.0), auxData.bmLargeBuff, td, cd)
 
     # do C = Binv * auxData.bmLargeBuff
-    bm_gemm!('N', 'N', convert(A.nrsType, 1.0), Binv, auxData.bmLargeBuff, convert(Binv.nrsType, 0.0), C, td, cd)
+    bm_gemm!('N', 'N', convert(FieldType, 1.0), Binv, auxData.bmLargeBuff, convert(FieldType, 0.0), C, td, cd)
 end
 
 # implementation of RKD
@@ -189,8 +189,8 @@ end
 
 # upward RGF pass only
 function keldyshndiag_upward_rgf!(M::BlockMatrix, auxData::AuxDataKeldysh, td::TimingData, cd::CountingData)
-    minusOneCmplx = convert(M.nrsType, -1.0)
-    plusOneCmplx = convert(M.nrsType, 1.0)
+    minusOneCmplx = convert(FieldType, -1.0)
+    plusOneCmplx = convert(FieldType, 1.0)
     npl = size(M.blockSizes)[1]
 
     buffM1 = auxData.auxDataRGF.buffM
@@ -221,8 +221,8 @@ end
 function keldyshndiag_upward_rkd!(auxData::AuxDataKeldysh, td::TimingData, cd::CountingData)
     npl = size(auxData.buffM2.blockSizes)[1]
 
-    minusOneCmplx = convert(auxData.buffM2.nrsType, -1.0)
-    plusOneCmplx = convert(auxData.buffM2.nrsType, 1.0)
+    minusOneCmplx = convert(FieldType, -1.0)
+    plusOneCmplx = convert(FieldType, 1.0)
 
     buffS = auxData.buffS
     buffTx = auxData.auxDataRGF.buffM
@@ -250,8 +250,8 @@ function keldyshndiag_central_rkd!(M::BlockMatrix, auxData::AuxDataKeldysh, td::
     # through this one we access only the diagonal blocks, which are LU elements
     buffM1 = auxData.auxDataRGF.buffM
 
-    zeroCmplx = convert(auxData.buffM2.nrsType, 0.0)
-    plusOneCmplx = convert(auxData.buffM2.nrsType, 1.0)
+    zeroCmplx = convert(FieldType, 0.0)
+    plusOneCmplx = convert(FieldType, 1.0)
 
     # "block-re-scaling" of the (1,2) block
     be_mldivide!('N', buffM2.M[1, 2], buffS.M[1, 2], buffM1.M[1, 1], td, cd)
@@ -304,8 +304,8 @@ end
 function keldyshndiag_downward_rkd!(auxData::AuxDataKeldysh, td::TimingData, cd::CountingData)
     npl = size(auxData.buffM2.blockSizes)[1]
 
-    minusOneCmplx = convert(auxData.buffM2.nrsType, -1.0)
-    plusOneCmplx = convert(auxData.buffM2.nrsType, 1.0)
+    minusOneCmplx = convert(FieldType, -1.0)
+    plusOneCmplx = convert(FieldType, 1.0)
 
     buffS = auxData.buffS
     buffTx = auxData.auxDataRGF.buffM

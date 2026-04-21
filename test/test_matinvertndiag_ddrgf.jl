@@ -18,7 +18,7 @@ accFctrBare = 2.5E5
 accFctr = 0.0
 
 for k in kpoints
-    for precx in precs
+    for precx in [ComplexF64]
         # check_if_enough_mem_ddrgf(npl, blockSize, precx)
 
         if precx == ComplexF64
@@ -90,7 +90,7 @@ for k in kpoints
                 # covert MbmSeq to sparse
                 MbmSeqSp = bm_convert(MbmSeq)
                 # permute that sparse matrix
-                PermMat = bndiag_of_inv_ddrgf_create_sparse_permutator(auxDataPar.permVec, MbmSeq.blockSizes, MbmSeq.nrsType)
+                PermMat = bndiag_of_inv_ddrgf_create_sparse_permutator(auxDataPar.permVec, MbmSeq.blockSizes)
                 MbmSeqSpPerm = PermMat * (MbmSeqSp * PermMat')
                 # convert MbmSeqPerm to sparse
                 MbmSeqPermSp = bm_convert(MbmSeqPerm, auxDataPar.permVec)
@@ -175,7 +175,7 @@ for k in kpoints
             nb1 = sum(auxDataPar.sizeDomains[auxDataPar.nrTasks+1:2*auxDataPar.nrTasks])
             nx = sum(MbmPar_reord.blockSizes[1:nb2])
             ny = sum(MbmPar_reord.blockSizes[nb2+1:nb2+nb1])
-            PermMat = bndiag_of_inv_ddrgf_create_sparse_permutator(auxDataPar.permVec, MbmSeq.blockSizes, MbmSeq.nrsType)
+            PermMat = bndiag_of_inv_ddrgf_create_sparse_permutator(auxDataPar.permVec, MbmSeq.blockSizes)
 
             MPar = bm_convert(MbmPar)
             MPar_perm = PermMat * (MPar * PermMat')
@@ -225,7 +225,7 @@ for k in kpoints
             nrLayersSchurCompl = sum(auxDataPar.sizeDomains[1:auxDataPar.nrTasks])
             blockSizesSchurCompl = buffTHat.blockSizes[1:nrLayersSchurCompl]
             buffTHat22 = bm_empty(blockSizesSchurCompl, nrLayersSchurCompl, buffTHat.ndiag["in"],
-                buffTHat.isArrayOrLU, buffTHat.nrsType, false)
+                buffTHat.isArrayOrLU, false)
             buffTHatMView = view(buffTHat.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
             bm_reference!(buffTHat22, buffTHatMView)
             buffTHatM22 = bm_convert(buffTHat22)

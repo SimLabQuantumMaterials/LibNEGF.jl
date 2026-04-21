@@ -17,6 +17,6 @@ macro code_location()
                 break
             end
         end
-        println("in function ", $("$(__module__)"), ".$(myf) at ", $("$(__source__.file)"), ":", $("$(__source__.line)"))
+        println(Core.stdout, "in function ", $("$(__module__)"), ".$(myf) at ", $("$(__source__.file)"), ":", $("$(__source__.line)"))
     end
 end

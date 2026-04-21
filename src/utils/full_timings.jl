@@ -163,20 +163,20 @@ function print_flops_and_mems_(cd::CountingData, to::TimerOutput, prec::DataType
         end
     end
 
-    println("\t -- kernel : " * suffx)
-    println("\t\t -- flops (avg) (megaflops) : " * string(flopsAvg))
-    println("\t\t -- mems (avg) (GB) : " * string(memsAvg))
-    println("\t\t -- time (avg) : " * string(totTimeAvg))
-    println("\t\t -- flops/sec (avg) (GFLOPS) : " * string(flopsAvg / totTimeAvg))
-    println("\t\t -- mems/sec (avg) (GB/s) : " * string(memsAvg / totTimeAvg))
+    println(Core.stdout, "\t -- kernel : " * suffx)
+    println(Core.stdout, "\t\t -- flops (avg) (megaflops) : " * string(flopsAvg))
+    println(Core.stdout, "\t\t -- mems (avg) (GB) : " * string(memsAvg))
+    println(Core.stdout, "\t\t -- time (avg) : " * string(totTimeAvg))
+    println(Core.stdout, "\t\t -- flops/sec (avg) (GFLOPS) : " * string(flopsAvg / totTimeAvg))
+    println(Core.stdout, "\t\t -- mems/sec (avg) (GB/s) : " * string(memsAvg / totTimeAvg))
 end
 
 function print_flops_and_mems(cd::CountingData, to::TimerOutput, prec::DataType, method::String,
     isSeq::Bool)
     nrCalls = cd.nrCalls
 
-    println("\nFlops and mems (" * string(prec) * " - master thread only):")
-    println("\t -- nr calls : " * string(nrCalls))
+    println(Core.stdout, "\nFlops and mems (" * string(prec) * " - master thread only):")
+    println(Core.stdout, "\t -- nr calls : " * string(nrCalls))
     print_flops_and_mems_(cd, to, prec, "gemm", method, isSeq)
     print_flops_and_mems_(cd, to, prec, "lu", method, isSeq)
     print_flops_and_mems_(cd, to, prec, "mldivide", method, isSeq)
