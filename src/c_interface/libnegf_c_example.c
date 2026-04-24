@@ -23,7 +23,7 @@ int main() {
     printf("--- Generating Block-Tridiagonal Complex CSC Matrix ---\n");
 
     // 1. Matrix parameters
-    int32_t n_blocks = 10;
+    int32_t n_blocks = 160;
     int32_t block_size = 64;
     int32_t m = n_blocks * block_size; // 640
     int32_t n = n_blocks * block_size; // 640

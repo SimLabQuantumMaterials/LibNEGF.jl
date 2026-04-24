@@ -31,13 +31,38 @@ function bndiag_of_inv_rgf_local_wrapper(MspIN::SparseArrays.SparseMatrixCSC{Fie
 
     println(Core.stdout, "Running sequential RGF from its C interface function")
 
-    # # convert the sparse input matrix to BlockMatrix type first
+    # convert the sparse input matrix to BlockMatrix type first
     MbmIN::BlockMatrix = bm_convert(MspIN, blockSizes, ndiag, isHermitian)
     MbmOUT::BlockMatrix = bm_copy(MbmIN)
+
     # allocate auxiliary data
     auxData::AuxDataRGF = allocate_aux_data_RGF(MbmIN)
+
     # call RGF
     bndiag_of_inv_rgf_local!(MbmOUT, MbmIN, auxData, TimingData(), CountingData())
+
+    # create and return the output
+    MspOUT::SparseArrays.SparseMatrixCSC{FieldType,Int} = bm_convert(MbmOUT)
+
+    return MspOUT
+end
+
+# wrapper for DDRGF
+function bndiag_of_inv_ddrgf_wrapper(MspIN::SparseArrays.SparseMatrixCSC{FieldType,Int}, blockSizes::Vector{Int},
+    ndiag::Dict{String,Int}, isHermitian::Bool)::SparseArrays.SparseMatrixCSC{FieldType,Int}
+
+    println(Core.stdout, "Running DDRGF from its C interface function")
+
+    # convert the sparse input matrix to BlockMatrix type first
+    MbmIN::BlockMatrix = bm_convert(MspIN, blockSizes, ndiag, isHermitian)
+    MbmOUT::BlockMatrix = bm_copy(MbmIN)
+
+    # allocate auxiliary data
+    listOfAuxDataPar = allocate_aux_data_DDRGF(MbmIN, TimingData(), CountingData())
+
+    # # call DDRGF
+    # bndiag_of_inv_ddrgf!(MbmIN, listOfAuxDataPar, TimingData(), CountingData(), 1)
+
     # create and return the output
     MspOUT::SparseArrays.SparseMatrixCSC{FieldType,Int} = bm_convert(MbmOUT)
 
@@ -89,7 +114,8 @@ Base.@ccallable function run_bndiag_wrapper(
     isHermitian = is_hermitian != 0
 
     # --- B. EXECUTE THE CORE ALGORITHM ---
-    out_csc::SparseArrays.SparseMatrixCSC{FieldType,Int} = bndiag_of_inv_rgf_local_wrapper(MspIN, blockSizes, ndiag, isHermitian)
+    # out_csc::SparseArrays.SparseMatrixCSC{FieldType,Int} = bndiag_of_inv_rgf_local_wrapper(MspIN, blockSizes, ndiag, isHermitian)
+    out_csc::SparseArrays.SparseMatrixCSC{FieldType,Int} = bndiag_of_inv_ddrgf_wrapper(MspIN, blockSizes, ndiag, isHermitian)
 
     # --- C. PREPARE THE RETURN VALUE FOR C ---
     out_nnz = SparseArrays.nnz(out_csc)
