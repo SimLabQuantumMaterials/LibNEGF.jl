@@ -41,7 +41,7 @@ function bndiag_of_inv_rgf_local_wrapper(MspIN::SparseArrays.SparseMatrixCSC{Fie
     # create and return the output
     MspOUT::SparseArrays.SparseMatrixCSC{FieldType,Int} = bm_convert(MbmOUT)
 
-    return MspIN
+    return MspOUT
 end
 
 # C-COMPATIBLE RETURN STRUCT
