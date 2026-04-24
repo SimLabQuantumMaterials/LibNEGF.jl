@@ -439,7 +439,11 @@ function bndiag_of_inv_ddrgf_create_permutation_vector(M::BlockMatrix,
         sizeDomains[idSubdomain] = bs
 
         if ix == nrPivots
-            ixOld += lastSizeD1
+            if lastSizeD1 == 0
+                ixOld += blockSizeD1
+            else
+                ixOld += lastSizeD1
+            end
         else
             ixOld += blockSizeD1
         end
@@ -454,7 +458,11 @@ function bndiag_of_inv_ddrgf_create_permutation_vector(M::BlockMatrix,
             ixOld += blockSizeD2
         end
         if ix == nrTasks
-            bs = lastSizeD1
+            if lastSizeD1 == 0
+                bs = blockSizeD1
+            else
+                bs = lastSizeD1
+            end
         else
             bs = blockSizeD1
         end
