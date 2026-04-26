@@ -16,7 +16,7 @@ import LinearAlgebra
         M[3, 3] = Block(b)
         N[1, 1] = Block(c)
         N[1, 2] = Block(d)
-        res = sum_BlockMatrix(M, N)
+        res = sum_Block(M, N)
         @test res[1, 1] == c
         @test res[1, 2] == a + d
         @test res[3, 3] == b
@@ -40,7 +40,7 @@ import LinearAlgebra
         N[1, 1] = Block(c)
         N[2, 2] = Block(g)
         N[3, 2] = Block(d)
-        res = prod_BlockMatrix(M, N)
+        res = pord_Block(M, N)
         @test res[2, 1] == a * c
         @test res[3, 2] == b * d
         @test res[1, 2] == (e * g + f * d)
@@ -80,28 +80,28 @@ import LinearAlgebra
         N = bm_copy(M)
         @test bm_equal(N, M)
     end
-    @testset "get_rcIndex" begin
+    @testset "get_rc_index" begin
         M = Matrix(undef, 5, 5)
-        idx, idy = get_rcIndex(M)
+        idx, idy = get_rc_index(M)
         @test isempty(idx)
         @test isempty(idy)
         idx = [1, 2, 3]
         idy = [1, 3]
         M[idx, idy] .= 1
-        @test get_rcIndex(M) == ([1, 1, 2, 2, 3, 3], [1, 3, 1, 3, 1, 3])
+        @test get_rc_index(M) == ([1, 1, 2, 2, 3, 3], [1, 3, 1, 3, 1, 3])
     end
-    @testset "get_rcIndexAt" begin
+    @testset "get_rc_index_at" begin
         M = Matrix(undef, 5, 5)
-        idx = get_rcIndexAt(M)
-        idy = get_rcIndexAt(M, 1, size(M,1), 1, size(M,2), true)
+        idx = get_rc_index_at(M)
+        idy = get_rc_index_at(M, 1, size(M,1), 1, size(M,2), true)
         @test isempty(idx)
         @test isempty(idy)
         idx = [1, 2, 3]
         idy = [1, 3]
         M[idx, idy] .= 1
-        @test get_rcIndexAt(M) == ([1, 1, 2, 2, 3, 3], [1, 3, 1, 3, 1, 3]) broken = true
-        @test get_rcIndexAt(M, 1, 1) == [1, 1]
-        @test get_rcIndexAt(M, 1, 1, 1, size(M,2), false) == [1, 3]
+        @test get_rc_index_at(M) == ([1, 1, 2, 2, 3, 3], [1, 3, 1, 3, 1, 3]) broken = true
+        @test get_rc_index_at(M, 1, 1) == [1, 1]
+        @test get_rc_index_at(M, 1, 1, 1, size(M,2), false) == [1, 3]
     end
     @testset "bm_similar" begin
         M = Matrix(undef, 5, 5)

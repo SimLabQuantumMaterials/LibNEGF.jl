@@ -34,13 +34,13 @@ export Block
 export bm_equal
 export bm_copy
 export bm_similar
-export sum_BlockMatrix
-export prod_BlockMatrix
-export get_rcIndex
-export get_rcIndexAt
-export get_colIndexAt
-export get_rowIndexAt
-export get_rowSizes
+export sum_Block
+export pord_Block
+export get_rc_index
+export get_rc_index_at
+export get_col_index_at
+export get_row_index_at
+export get_row_sizes
 export get_colSizes
 export get_blockSizes
 export full
@@ -64,13 +64,13 @@ export bm_empty
 export bm_copy!
 
 # from selected_inverse.jl
-export prod_VecOfBlock!
-export prod_VecOfBlock
-export blockMatrix_factorization!
-export blockMatrix_factorization
-export blockMatrix_factorization_noT
-export blockMatrix_inverse!
-export blockMatrix_inverse
+export gemm_Block!
+export gemm_Block
+export Block_factorization!
+export Block_factorization
+export Block_factorization_noT
+export Block_inverse!
+export Block_inverse
 
 # from backend_*.jl
 export be_zero_array

@@ -11,7 +11,9 @@ It returns a sparse matrix.
 function load_matrix(tag::String, systemName::String, E::Integer,
     k::Integer)::SparseArrays.SparseMatrixCSC
     # directory where the matrices are
-    matsDir = "../matrices/" * systemName * "/built_matrices/"
+    # matsDir = "../matrices/" * systemName * "/built_matrices/"
+    matsDir = "/home/robeyns/Desktop/Boulot/LibnegfJulia/Data/Config/3x3/built_matrices/"
+
 
     if tag == "H" || tag == "S"
         # load H or S
@@ -36,8 +38,10 @@ function load_energies(systemName::String)::Dict{Int,Float64}
     if systemName != "3x3"
         error("Supporting the 3x3 system only, for now.")
     end
-    energVals::Dict{Int,Float64} = CSV.File("../matrices/" * systemName *
-                                            "/built_matrices/energ_vals.dat") |> Dict
+    # energVals::Dict{Int,Float64} = CSV.File("../matrices/" * systemName *
+                                            # "/built_matrices/energ_vals.dat") |> Dict
+    energVals::Dict{Int,Float64} = CSV.File("/home/robeyns/Desktop/Boulot/LibnegfJulia/Data/Config/3x3/built_matrices/energ_vals.dat") |> Dict
+                                            
     return energVals
 end
 

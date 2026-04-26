@@ -3,15 +3,12 @@
 
 # Fields
 - `Full::Matrix` : To store the full block matrix.
-- `Factors::LU` : To store LU factors (and plus if needed).
 - `row::Vector{Int}`: the row size.
 - `col::Vector{Int}`: the column size.
 """
 mutable struct Block
 	"Full"
 	Full::Union{Array, UndefInitializer}
-	"Factors"
-	Factors::Union{LU, Array, UndefInitializer}
 	"row"
 	row::Int
 	"col"
@@ -20,23 +17,19 @@ mutable struct Block
 	@doc "Inner constructor"
 	Block() =
 	begin
-		new(undef, undef, -1, -1)
+		new(undef, -1, -1)
 	end
 	Block(M::Array) =
 	begin
-		new(M, undef, size(M,1), size(M,2))
-	end
-	Block(M::LU) =
-	begin
-		new(undef, M, size(M.L,1), size(M.L,2))
+		new(M, size(M,1), size(M,2))
 	end
 	Block(row::Int, col::Int) =
 	begin
-		new(undef, undef, row, col)
+		new(undef, row, col)
 	end
 	Block(undef, row::Int, col::Int) =
 	begin
-		new(undef, undef, row, col)
+		new(undef, row, col)
 	end
 end
 
@@ -84,7 +77,7 @@ Overload the operator `==` to check if two `Block` `A` and `B` are equal.
 - `B::Block` : the second block for comparison.
 """
 function Base.:(==)(A::Block, B::Block)::Bool
-	return A.Full == B.Full && A.Factors == B.Factors && A.row == B.row && A.col == B.col
+	return A.Full == B.Full && A.row == B.row && A.col == B.col
 end
 
 ###
@@ -202,7 +195,6 @@ Copy a `Block` object.
 function Base.copy(A::Block)::Block
 	B = Block()
 	try B.Full = copy(A.Full) catch; nothing end
-	try B.Factors = copy(A.Factors) catch; nothing end
 	try B.row = copy(A.row) catch; nothing end
 	try B.col = copy(A.col) catch; nothing end
 	return B
@@ -215,7 +207,6 @@ Copy a `Block` object.
 """
 function Base.copy!(B::Block, A::Block)
 	try copy!(B.Full, A.Full) catch; nothing end
-	try copy!(B.Factors, A.Factors) catch; nothing end
 	try copy!(B.row, A.row) catch; nothing end
 	try copy!(B.col, A.col) catch; nothing end
 end
@@ -289,7 +280,7 @@ function bm_similar(A::Matrix)::Matrix
 end
 
 """
-	sum_BlockMatrix(A::Array, B::Array)::Array
+	sum_Block(A::Array, B::Array)::Array
 
 Do the addition of two `Matrix` that contains `Block` type.
 
@@ -297,7 +288,7 @@ Do the addition of two `Matrix` that contains `Block` type.
 - `A::Array` : A block matrix.
 - `B::Array` : A block matrix.
 """
-function sum_BlockMatrix(A::Array, B::Array)::Array
+function sum_Block(A::Array, B::Array)::Array
 	@assert size(A)==size(B)
 	C = Matrix(undef,size(A,1),size(A,2))
 	for i in 1:size(A,1)
@@ -316,7 +307,7 @@ function sum_BlockMatrix(A::Array, B::Array)::Array
 end
 
 """
-	prod_BlockMatrix(A::Matrix, B::Matrix)::Matrix
+	pord_Block(A::Matrix, B::Matrix)::Matrix
 
 Do the product of two matrix that contains `Block`, `A*B`.
 
@@ -324,7 +315,7 @@ Do the product of two matrix that contains `Block`, `A*B`.
 - `A::Block` : the matrix on the left side.
 - `B::Block` : the matrix on the right side.
 """
-function prod_BlockMatrix(A::Array, B::Array)::Array
+function pord_Block(A::Array, B::Array)::Array
 	C = Matrix(undef,size(A,1),size(B,2))
 	for i in 1:size(A,1)
 		for j in 1:size(A,2)
@@ -345,7 +336,7 @@ end
 # Get elements of a `Block` matrix.
 ###
 """
-	get_rcIndex(M::Array, nrows::Int = size(M,1), ncols::Int = size(M,2))::Tuple{Vector{Int}, Vector{Int}}
+	get_rc_index(M::Array, nrows::Int = size(M,1), ncols::Int = size(M,2))::Tuple{Vector{Int}, Vector{Int}}
 
 Get the rows and columns index where the matrix `M` is not `undef`.
 
@@ -354,7 +345,7 @@ Get the rows and columns index where the matrix `M` is not `undef`.
 - `nrows::Int` : the number of row we analyze.
 - `ncols::Int` : the number of column we analyze.
 """
-function get_rcIndex(M::Array, nrows::Int = size(M,1), ncols::Int = size(M,2))::Tuple{Vector{Int}, Vector{Int}}
+function get_rc_index(M::Array, nrows::Int = size(M,1), ncols::Int = size(M,2))::Tuple{Vector{Int}, Vector{Int}}
 
 	rowInd = Vector{Int}()
 	colInd = Vector{Int}()
@@ -372,7 +363,7 @@ function get_rcIndex(M::Array, nrows::Int = size(M,1), ncols::Int = size(M,2))::
 end
 
 """
-	get_rcIndexAt(M::Matrix[, rowB::Int=1, rowE::Int=size(M,1), colB::Int=1, colE::Int=size(M,2)])::Tuple{Vector{Int}, Vector{Int}}
+	get_rc_index_at(M::Matrix[, rowB::Int=1, rowE::Int=size(M,1), colB::Int=1, colE::Int=size(M,2)])::Tuple{Vector{Int}, Vector{Int}}
 
 Get the rows and columns index where the matrix `M` is not `undef` for specific index.
 
@@ -383,7 +374,7 @@ Get the rows and columns index where the matrix `M` is not `undef` for specific 
 - `colB::Int` : the starting index of column we analyze.
 - `colE::Int` : the ending index of column we analyze.
 """
-function get_rcIndexAt!(rcInd::Vector{Int}, M::Matrix, rowB::Int=1, rowE::Int=size(M,1), colB::Int=1, colE::Int=size(M,2), flag_row::Bool=true)
+function get_rc_index_at!(rcInd::Vector{Int}, M::Matrix, rowB::Int=1, rowE::Int=size(M,1), colB::Int=1, colE::Int=size(M,2), flag_row::Bool=true)
 
 	if !isempty(rcInd)
 		empty!(rcInd)
@@ -402,7 +393,7 @@ function get_rcIndexAt!(rcInd::Vector{Int}, M::Matrix, rowB::Int=1, rowE::Int=si
 	end
 end
 
-function get_rcIndexAt(M::Matrix, rowB::Int=1, rowE::Int=size(M,1), colB::Int=1, colE::Int=size(M,2), flag_row::Bool=true)::Vector{Int}
+function get_rc_index_at(M::Matrix, rowB::Int=1, rowE::Int=size(M,1), colB::Int=1, colE::Int=size(M,2), flag_row::Bool=true)::Vector{Int}
 
 	rcInd = Vector{Int}()
 
@@ -420,9 +411,8 @@ function get_rcIndexAt(M::Matrix, rowB::Int=1, rowE::Int=size(M,1), colB::Int=1,
 	return rcInd
 end
 
-function get_rowIndexAt(M::Matrix, rowB::Int=1, rowE::Int=size(M,1), colB::Int=1, colE::Int=size(M,2))::Vector{Int}
+function get_row_index_at(M::Matrix, rowB::Int=1, rowE::Int=size(M,1), colB::Int=1, colE::Int=size(M,2))::Vector{Int}
 
-	# rowInd = Vector{Int}(-1,rowE)
 	rowInd = - ones(rowE-rowB+1)
 	mark = 1
 
@@ -439,7 +429,7 @@ function get_rowIndexAt(M::Matrix, rowB::Int=1, rowE::Int=size(M,1), colB::Int=1
 	return rowInd[rowInd .> 0]
 end
 
-function get_colIndexAt(M::Matrix, rowB::Int=1, rowE::Int=size(M,1), colB::Int=1, colE::Int=size(M,2))::Vector{Int}
+function get_col_index_at(M::Matrix, rowB::Int=1, rowE::Int=size(M,1), colB::Int=1, colE::Int=size(M,2))::Vector{Int}
 
 	# colInd = Vector{Int}(-1,colE)
 	colInd = - ones(colE-colB+1)
@@ -458,7 +448,7 @@ function get_colIndexAt(M::Matrix, rowB::Int=1, rowE::Int=size(M,1), colB::Int=1
 end
 
 """
-	get_rowSizes(A::Matrix[, npl::Int=size(A,1)])::Vector{Int}
+	get_row_sizes(A::Matrix[, npl::Int=size(A,1)])::Vector{Int}
 
 Get the row sizes of each block along the diagonal from matrix `A`.
 
@@ -466,7 +456,7 @@ Get the row sizes of each block along the diagonal from matrix `A`.
 - `A::Matrix` : the target block matrix.
 - `npl::Int` : the number of block along the diagonal.
 """
-function get_rowSizes(A::Matrix, npl::Int=size(A,1))::Vector{Int}
+function get_row_sizes(A::Matrix, npl::Int=size(A,1))::Vector{Int}
 	r = Vector{Int}(undef, npl)
 	for i = 1:npl
 		r[i] = A[i,i].row
@@ -527,18 +517,18 @@ Convert a block matrix of type `Matrix` to full matrix.
 - `cind::Vector{Int}` : column indeces vector.
 """
 function full(A::Matrix, rind::Vector{Int}, cind::Vector{Int})::Array
-	b = get_rowSizes(A)
+	b = get_row_sizes(A)
 	m = sum(b)
 	B = zeros(Float64,m,m)
 
 	for j in 1:length(rind)
 		idx = 1 + sum(b[1:rind[j]-1]) : sum(b[1:rind[j]])
 		idy = 1 + sum(b[1:cind[j]-1]) : sum(b[1:cind[j]])
-		if typeof(A[rind[j],cind[j]].Full) <: LU
-			B[idx,idy] = A[rind[j],cind[j]].Full.factors
-		else
+		# if typeof(A[rind[j],cind[j]].Full) <: LU
+		# 	B[idx,idy] = A[rind[j],cind[j]].Full.factors
+		# else
 			B[idx,idy] = A[rind[j],cind[j]].Full
-		end
+		# end
 	end
 
 	return B
@@ -556,7 +546,7 @@ Convert a block matrix of type `Matrix` to full matrix.
 """
 function full(A::Matrix)::Array
 	npl = size(A,1)
-	b = get_rowSizes(A)
+	b = get_row_sizes(A)
 	m = sum(b)
 	prec = typeof(A[1,1].Full[1,1])
 	B = zeros(prec,m,m)
@@ -566,11 +556,11 @@ function full(A::Matrix)::Array
 			idx = 1 + sum(b[1:i-1]) : sum(b[1:i])
 			idy = 1 + sum(b[1:j-1]) : sum(b[1:j])
 			if isassigned(A,i,j)
-				if typeof(A[i,j].Factors) <: LU
-					B[idx,idy] = A[i,j].Factors.factors
-				else
+				# if typeof(A[i,j].Factors) <: LU
+				# 	B[idx,idy] = A[i,j].Factors.factors
+				# else
 					B[idx,idy] = A[i,j].Full
-				end
+				# end
 			end
 		end
 	end

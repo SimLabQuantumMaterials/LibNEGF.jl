@@ -3,7 +3,7 @@ module TestLibNEGFSelectedinverse
 using LibNEGF, Test, LinearAlgebra
 
 @testset "Selectedinverse" begin
-    @testset "blockMatrix_factorization" begin
+    @testset "Block_factorization" begin
 	    npl = 5
 	    rind = [1,1,1,2,3,3,3,4,5]
 	    cind = [1,3,5,2,3,4,5,4,5]
@@ -13,14 +13,14 @@ using LibNEGF, Test, LinearAlgebra
 	    for i in 1:npl
 	    	T[i,i].Full += n*I(bind[i])
 	    end
-	    T_LU = blockMatrix_factorization(T, TimingData(), CountingData())
+	    T_LU = Block_factorization(T, TimingData(), CountingData())
 	    luT = lu(full(T), NoPivot())
 	    T_LU_Matrix = full(T_LU)
 	    appT_LU = UnitLowerTriangular(T_LU_Matrix) * UpperTriangular(T_LU_Matrix)
 	    @test norm(T_LU_Matrix - luT.factors) / norm(T_LU_Matrix) <= 1e-15
 	    @test norm(appT_LU - full(T)) / norm(appT_LU) <= 1e-15
     end
-    @testset "blockMatrix_inverse" begin
+    @testset "Block_inverse" begin
 	    npl = 5
 	    rind = [1,1,1,2,3,3,3,4,5]
 	    cind = [1,3,5,2,3,4,5,4,5]
@@ -30,8 +30,8 @@ using LibNEGF, Test, LinearAlgebra
 	    for i in 1:npl
 	    	T[i,i].Full += n*I(bind[i])
 	    end
-		T_fact = blockMatrix_factorization(T, TimingData(), CountingData())
-	    T_app = blockMatrix_inverse(T_fact, TimingData(), CountingData())
+		T_fact = Block_factorization(T, TimingData(), CountingData())
+	    T_app = Block_inverse(T_fact, TimingData(), CountingData())
 		
 		
 		## Check if diag(A*si(A)) = 1 ##
