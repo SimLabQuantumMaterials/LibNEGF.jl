@@ -62,6 +62,7 @@ function bndiag_of_inv_ddrgf_wrapper(MspIN::SparseArrays.SparseMatrixCSC{FieldTy
 
     # # call DDRGF
     # bndiag_of_inv_ddrgf!(MbmIN, listOfAuxDataPar, TimingData(), CountingData(), 1)
+    bm_copy!(MbmOUT, listOfAuxDataPar[1].buffMout)
 
     # create and return the output
     MspOUT::SparseArrays.SparseMatrixCSC{FieldType,Int} = bm_convert(MbmOUT)
