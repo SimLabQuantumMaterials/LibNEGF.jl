@@ -46,6 +46,7 @@ export bm_blocks_define_complement22_non_recurs!
 export bm_blocks_define_complement22_recurs!
 export bm_empty
 export bm_copy!
+export bm_fuse_to_tridiagonal
 
 # from backend_*.jl
 export be_zero_array
