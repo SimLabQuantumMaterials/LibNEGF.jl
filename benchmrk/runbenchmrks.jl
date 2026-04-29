@@ -26,7 +26,7 @@ Printf.@printf("  -- nr of Julia threads: %d\n", parse(Int, ARGS[3]))
 Printf.@printf("  -- nr of BLAS threads: %d\n", parse(Int, ARGS[4]))
 
 # choose one of "rgf", "ddrgf", "rkd", "general_rgf"
-whichBM = "general_rgf"
+whichBM = "general_rgf_fused"
 
 if whichBM == "rgf"
     to = TimerOutput()
@@ -43,6 +43,10 @@ elseif whichBM == "ddrgf"
 elseif whichBM == "general_rgf"
     to = TimerOutput()
     include("benchmrk_matinvertndiag_general_rgf.jl")
+    println(to)
+elseif whichBM == "general_rgf_fused"
+    to = TimerOutput()
+    include("benchmrk_matinvertndiag_general_rgf_fused.jl")
     println(to)
 else
     error("The chosen method is not one of rgf, ddrgf or rkd")

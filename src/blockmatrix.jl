@@ -1064,3 +1064,45 @@ function bm_reference_full!(M::BlockMatrix, B::ArrayOrLU_, iOffset::Int, jOffset
         end
     end
 end
+
+# this file does blocks fusing : converts a block n-diagonal matrix
+# to a block tridiagonal one
+"""
+    bm_fuse_to_tridiagonal(Min::BlockMatrix)
+
+Recasts a block n-diagonal matrix (n > 3) into a block tridiagonal matrix (n = 3)
+by fusing adjacent principal layers. Leverages the existing sparse matrix 
+conversion utilities.
+"""
+function bm_fuse_to_tridiagonal(Min::BlockMatrix)::BlockMatrix
+    # Extract the off-diagonal bandwidth
+    w = div(Min.ndiag["in"] - 1, 2)
+    
+    # If the matrix is already block tridiagonal (or diagonal), just return a copy
+    if w <= 1
+        return bm_copy(Min)
+    end
+    
+    oldNpl = size(Min.blockSizes)[1]
+    
+    # We must fuse exactly `w` layers together to reduce the bandwidth to 1 (block tridiagonal).
+    # Calculate the new number of principal layers.
+    newNpl = ceil(Int, oldNpl / w)
+    
+    # Accumulate the sizes for the new fused blocks
+    newBlockSizes = zeros(Int, newNpl)
+    for ix = 1:oldNpl
+        # Map the old index to the new fused super-block index
+        newIx = div(ix - 1, w) + 1
+        newBlockSizes[newIx] += Min.blockSizes[ix]
+    end
+    
+    # Step 1: Flatten the original BlockMatrix into a standard SparseMatrixCSC
+    mSp = bm_convert(Min)
+    
+    # Step 2: Re-chunk the sparse matrix into a new BlockMatrix using the fused sizes
+    ndiagDict = Dict("in" => 3, "out" => 3)
+    Mout = bm_convert(mSp, newBlockSizes, ndiagDict, Min.isHermitian)
+    
+    return Mout
+end

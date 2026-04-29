@@ -32,6 +32,7 @@ export bm_convert
 export bm_copy
 export bm_similar
 export bm_copy!
+export bm_fuse_to_tridiagonal
 
 # from utils
 export print_flops_and_mems
