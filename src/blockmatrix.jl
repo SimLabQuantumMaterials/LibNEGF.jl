@@ -920,6 +920,50 @@ function bm_create_synthetic_random(nrLayers::Int, blocksDim::Int, nrsType::Data
     return A
 end
 
+function bm_create_synthetic_random(nrLayers::Int, blocksDim::Int, nrsType::DataType, isHermitian::Bool,
+    ndiag::Dict{String,Int})::BlockMatrix
+    # IMPORTANT : this function assumes that all of the principal layers are of
+    #             the same size
+
+    # blockSizes = repeat([blocksDim], nrLayers)
+    deltaRnd = 8.0
+    blockSizes::Vector{Int} = Int.(round.(broadcast(*, deltaRnd, rand(nrLayers)) .+ (blocksDim - deltaRnd / 2.0)))
+
+    # # hardcoding block tridiagonal
+    # ndiag = Dict("in" => 3, "out" => 3)
+
+    A = BlockMatrix(copy(blockSizes), ArrayOrLU_(undef, nrLayers, nrLayers), ndiag, nrsType, 0, isHermitian)
+
+    # loop over chunks of layers
+    for ix = 1:nrLayers
+        if !isHermitian
+            if ix > 1
+                # left
+                for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
+                    # add a damping of 0.3
+                    blocksDimI = blockSizes[ix]
+                    blocksDimJ = blockSizes[jx]
+                    A.M[ix, jx] = convert(nrsType, 0.3) * be_random_array(nrsType, (blocksDimI, blocksDimJ))
+                end
+            end
+        end
+        # center
+        blocksDimI = blockSizes[ix]
+        A.M[ix, ix] = be_random_array(nrsType, (blocksDimI, blocksDimI))
+        if ix < nrLayers
+            # right
+            for jx = (ix+1):1:min(nrLayers, ix + Int((ndiag["out"] - 1) / 2))
+                # add a damping of 0.3
+                blocksDimI = blockSizes[ix]
+                blocksDimJ = blockSizes[jx]
+                A.M[ix, jx] = convert(nrsType, 0.3) * be_random_array(nrsType, (blocksDimI, blocksDimJ))
+            end
+        end
+    end
+
+    return A
+end
+
 """
 	bm_reference!(M::BlockMatrix, B::ArrayOrLUView_)
 

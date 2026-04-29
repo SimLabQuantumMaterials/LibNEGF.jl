@@ -7,12 +7,14 @@ export build_M_from_HS
 export bndiag_of_inv_direct
 export bndiag_of_inv_rgf!
 export allocate_aux_data_RGF
+export allocate_aux_data_general_RGF
 export allocate_aux_data_DDRGF
 export AuxDataRGF
 export AuxDataDDRGF
 export bm_create_synthetic_random
 export bndiag_of_inv_rgf_global!
 export bndiag_of_inv_rgf_local!
+export bndiag_of_inv_general_rgf!
 export bndiag_of_inv_ddrgf!
 export bm_blocks_define_complement22!
 export check_if_enough_mem_rgf
