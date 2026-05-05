@@ -1,4 +1,4 @@
-Printf.@printf("Benchmarking bndiag_of_inv_rgf!(...)\n")
+Printf.@printf("Benchmarking bndiag_of_inv_rgf_local! (Fused Approach)...\n")
 
 # TODO : restore the following commented block if we want to go back
 # to using whereFrom = 1
@@ -17,6 +17,10 @@ if Threads.nthreads() != 1
     error("The number of Julia threads when running RGF must be 1")
 end
 
+# Set the original bandwidth for the general n-diagonal matrix
+nDiagVal = 5
+ndiagDict = Dict("in" => nDiagVal, "out" => nDiagVal)
+
 for precx in precs
     # # check if there's enough memory for the allocations
     # check_if_enough_mem_rgf(npl, blockSize, precx)
@@ -31,7 +35,7 @@ for precx in precs
     # create array of timers
     timers = Vector{TimerOutput}()
     push!(timers, TimerOutput())
-    timerTagGlobal = "bndiag_of_inv_rgf_" * string(precx)
+    timerTagGlobal = "bndiag_of_inv_fused_rgf_" * string(precx)
 
     for k in kpoints
         @timeit to timerTagGlobal begin
@@ -42,28 +46,20 @@ for precx in precs
                 Mins = Vector{BlockMatrix}()
                 Mouts = Vector{BlockMatrix}()
 
-                # if whereFrom == 1
-                #     iE = ix + (iEG - 1) * Threads.nthreads()
-                #     # load matrices and build M
-                #     listMatsToLoad = ["H", "S", "Sc"]
-                #     loadedMats, blockSizes = load_matrices(systemx, Epoints[iE], k,
-                #         listMatsToLoad, precx, whereFrom)
-                #     H = loadedMats[1]
-                #     S = loadedMats[2]
-                #     Se = loadedMats[3]
-                #     Msp = build_M_from_HS(H, S, Se, energVals[Epoints[iE]])
-                #     Min = bm_convert(Msp, blockSizes, Dict("in" => 3, "out" => 3), false)
-                # else
-                #     Min = bm_create_synthetic_random(npl, blockSize, precx, false)
-                # end
-
                 auxs = Vector{AuxDataRGF}()
                 try
                     begin
-                        Min = bm_create_synthetic_random(npl, blockSize, precx, false)
+                        # 1. Generate the synthetic n-diagonal matrix
+                        MinNDiag = bm_create_synthetic_random(npl, blockSize, precx, false, ndiagDict)
+                        
+                        # 2. Fuse the blocks to recast it as a block tridiagonal matrix
+                        # (Assumes bm_fuse_to_tridiagonal is available in your loaded modules)
+                        Min = bm_fuse_to_tridiagonal(MinNDiag)
+
                         push!(Mins, Min)
                         push!(Mouts, bm_copy(Min))
 
+                        # 3. Allocate standard RGF aux data for the new tridiagonal matrix
                         push!(auxs, allocate_aux_data_RGF(Mins[1]))
                     end
                 catch e
@@ -107,6 +103,8 @@ for precx in precs
                             td = TimingData()
                         end
                         timerTagLocalTotal = timerTagLocal * "_total"
+                        
+                        # Call the STANDARD RGF computation on the fused matrix
                         @timeit timers[tId] timerTagLocalTotal bndiag_of_inv_rgf_local!(Mouts[tId], Mins[tId], auxs[tId], td, cd)
                     end
                 end
@@ -122,7 +120,7 @@ for precx in precs
 
     # print flops and mems counts for thread1 only
     if useFinerTimings == 1
-        print_flops_and_mems(counters[1], to, precx, "bndiag_of_inv_rgf", true)
+        print_flops_and_mems(counters[1], to, precx, "bndiag_of_inv_fused_rgf", true)
     end
 end
 

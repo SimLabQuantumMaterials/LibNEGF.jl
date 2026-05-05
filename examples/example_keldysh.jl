@@ -20,22 +20,31 @@ precx = ComplexF64
 # in Keldysh, but for that one the last parameter has to be 'true',
 # indicating that the operator is Hermitian
 
-# check if there's enough memory for the allocations
-check_if_enough_mem_rkd(npl, blockSize, precx)
+# # check if there's enough memory for the allocations
+# check_if_enough_mem_rkd(npl, blockSize, precx)
 
-# non-Hermitian matrix
-Min = bm_create_synthetic_random(npl, blockSize, precx, false)
-
-# make Sn Hermitian, this will be the middle operator in Keldysh
-Sn = bm_similar(Min, 2)
-begin
-    Snsp = bm_convert(Sn)
-    Snsp = (Snsp + Snsp') / convert(precx, 2.0)
-    Sn = bm_convert(Snsp, Sn.blockSizes, Sn.ndiag, true)
+Min = nothing
+Sn = nothing
+auxDataKeldysh = nothing
+try
+    # non-Hermitian matrix
+    global Min = bm_create_synthetic_random(npl, blockSize, precx, false)
+    # make Sn Hermitian, this will be the middle operator in Keldysh
+    global Sn = bm_similar(Min, 2)
+    begin
+        Snsp = bm_convert(Sn)
+        Snsp = (Snsp + Snsp') / convert(precx, 2.0)
+        Sn = bm_convert(Snsp, Sn.blockSizes, Sn.ndiag, true)
+    end
+    # pre-allocate buffer data for RKD
+    global auxDataKeldysh = allocate_aux_data_Keldysh(Min, Sn)
+catch e
+    if e isa OutOfMemoryError
+        # TODO : handle this better, with perhaps a suggestion in params change
+        error("The application tried to allocate beyond the available system memory")
+    else rethrow(e) end
 end
 
-# pre-allocate buffer data for RKD
-auxDataKeldysh = allocate_aux_data_Keldysh(Min, Sn, parse(Int, ARGS[3]), parse(Int, ARGS[4]))
 keldyshndiag!(Min, Sn, auxDataKeldysh, TimingData(), CountingData())
 
 # finally, convert Gn to a sparse matrix. IMPORTANT : this gives us the whole

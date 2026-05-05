@@ -566,6 +566,7 @@ Sets/pre-allocates, within `M`, the extra `12` part for DDRGF.
 """
 function bm_blocks_define_complement12!(M_::BlockMatrix, auxData, filling::Int)
     blockSizeD1 = auxData.blockSizeD1
+    lastSizeD1 = auxData.lastSizeD1
     permVecInv = auxData.permVecInv
     M = M_
     blockSizes = M.blockSizes
@@ -574,12 +575,16 @@ function bm_blocks_define_complement12!(M_::BlockMatrix, auxData, filling::Int)
     sizeDomains22 = sizeDomains[1:nrTasks]
     sizeDomains11 = sizeDomains[nrTasks+1:2*nrTasks]
 
+    buffBlockSizeD1 = blockSizeD1
     for ix_ = 1:nrTasks
         ixLpermOffset = sum(sizeDomains22) + sum(sizeDomains11[1:ix_-1])
 
+        if lastSizeD1 != 0 && ix_ == nrTasks
+            buffBlockSizeD1 = lastSizeD1
+        end
         # first, the central sub-domain
         jxLperm = sum(sizeDomains22[1:ix_])
-        for ix = 2:blockSizeD1
+        for ix = 2:buffBlockSizeD1
             ixLperm = ixLpermOffset + ix
 
             ixL = permVecInv[ixLperm]
@@ -597,7 +602,7 @@ function bm_blocks_define_complement12!(M_::BlockMatrix, auxData, filling::Int)
         if ix_ < nrTasks
             # then, the right sub-domain
             jxLperm = sum(sizeDomains22[1:ix_]) + 1
-            for ix = 1:blockSizeD1-1
+            for ix = 1:buffBlockSizeD1-1
                 ixLperm = ixLpermOffset + ix
 
                 ixL = permVecInv[ixLperm]
@@ -628,6 +633,7 @@ Sets/pre-allocates, within `M`, the extra `21` part for DDRGF.
 """
 function bm_blocks_define_complement21!(M_::BlockMatrix, auxData, filling::Int)
     blockSizeD1 = auxData.blockSizeD1
+    lastSizeD1 = auxData.lastSizeD1
     permVecInv = auxData.permVecInv
     M = M_
     blockSizes = M.blockSizes
@@ -636,12 +642,17 @@ function bm_blocks_define_complement21!(M_::BlockMatrix, auxData, filling::Int)
     sizeDomains22 = sizeDomains[1:nrTasks]
     sizeDomains11 = sizeDomains[nrTasks+1:2*nrTasks]
 
+    buffBlockSizeD1 = blockSizeD1
     for jx_ = 1:nrTasks
         jxLpermOffset = sum(sizeDomains22) + sum(sizeDomains11[1:jx_-1])
 
+        if lastSizeD1 != 0 && jx_ == nrTasks
+            buffBlockSizeD1 = lastSizeD1
+        end
+
         # first, the central sub-domain
         ixLperm = sum(sizeDomains22[1:jx_])
-        for jx = 2:blockSizeD1
+        for jx = 2:buffBlockSizeD1
             jxLperm = jxLpermOffset + jx
 
             ixL = permVecInv[ixLperm]
@@ -659,7 +670,7 @@ function bm_blocks_define_complement21!(M_::BlockMatrix, auxData, filling::Int)
         if jx_ < nrTasks
             # then, the right sub-domain
             ixLperm = sum(sizeDomains22[1:jx_]) + 1
-            for jx = 1:blockSizeD1-1
+            for jx = 1:buffBlockSizeD1-1
                 jxLperm = jxLpermOffset + jx
 
                 ixL = permVecInv[ixLperm]
@@ -909,6 +920,50 @@ function bm_create_synthetic_random(nrLayers::Int, blocksDim::Int, nrsType::Data
     return A
 end
 
+function bm_create_synthetic_random(nrLayers::Int, blocksDim::Int, nrsType::DataType, isHermitian::Bool,
+    ndiag::Dict{String,Int})::BlockMatrix
+    # IMPORTANT : this function assumes that all of the principal layers are of
+    #             the same size
+
+    # blockSizes = repeat([blocksDim], nrLayers)
+    deltaRnd = 8.0
+    blockSizes::Vector{Int} = Int.(round.(broadcast(*, deltaRnd, rand(nrLayers)) .+ (blocksDim - deltaRnd / 2.0)))
+
+    # # hardcoding block tridiagonal
+    # ndiag = Dict("in" => 3, "out" => 3)
+
+    A = BlockMatrix(copy(blockSizes), ArrayOrLU_(undef, nrLayers, nrLayers), ndiag, nrsType, 0, isHermitian)
+
+    # loop over chunks of layers
+    for ix = 1:nrLayers
+        if !isHermitian
+            if ix > 1
+                # left
+                for jx = (ix-1):-1:max(1, ix - Int((ndiag["out"] - 1) / 2))
+                    # add a damping of 0.3
+                    blocksDimI = blockSizes[ix]
+                    blocksDimJ = blockSizes[jx]
+                    A.M[ix, jx] = convert(nrsType, 0.3) * be_random_array(nrsType, (blocksDimI, blocksDimJ))
+                end
+            end
+        end
+        # center
+        blocksDimI = blockSizes[ix]
+        A.M[ix, ix] = be_random_array(nrsType, (blocksDimI, blocksDimI))
+        if ix < nrLayers
+            # right
+            for jx = (ix+1):1:min(nrLayers, ix + Int((ndiag["out"] - 1) / 2))
+                # add a damping of 0.3
+                blocksDimI = blockSizes[ix]
+                blocksDimJ = blockSizes[jx]
+                A.M[ix, jx] = convert(nrsType, 0.3) * be_random_array(nrsType, (blocksDimI, blocksDimJ))
+            end
+        end
+    end
+
+    return A
+end
+
 """
 	bm_reference!(M::BlockMatrix, B::ArrayOrLUView_)
 
@@ -1008,4 +1063,46 @@ function bm_reference_full!(M::BlockMatrix, B::ArrayOrLU_, iOffset::Int, jOffset
             M.M[ix, jx] = B[ix_, jx_]
         end
     end
+end
+
+# this file does blocks fusing : converts a block n-diagonal matrix
+# to a block tridiagonal one
+"""
+    bm_fuse_to_tridiagonal(Min::BlockMatrix)
+
+Recasts a block n-diagonal matrix (n > 3) into a block tridiagonal matrix (n = 3)
+by fusing adjacent principal layers. Leverages the existing sparse matrix 
+conversion utilities.
+"""
+function bm_fuse_to_tridiagonal(Min::BlockMatrix)::BlockMatrix
+    # Extract the off-diagonal bandwidth
+    w = div(Min.ndiag["in"] - 1, 2)
+    
+    # If the matrix is already block tridiagonal (or diagonal), just return a copy
+    if w <= 1
+        return bm_copy(Min)
+    end
+    
+    oldNpl = size(Min.blockSizes)[1]
+    
+    # We must fuse exactly `w` layers together to reduce the bandwidth to 1 (block tridiagonal).
+    # Calculate the new number of principal layers.
+    newNpl = ceil(Int, oldNpl / w)
+    
+    # Accumulate the sizes for the new fused blocks
+    newBlockSizes = zeros(Int, newNpl)
+    for ix = 1:oldNpl
+        # Map the old index to the new fused super-block index
+        newIx = div(ix - 1, w) + 1
+        newBlockSizes[newIx] += Min.blockSizes[ix]
+    end
+    
+    # Step 1: Flatten the original BlockMatrix into a standard SparseMatrixCSC
+    mSp = bm_convert(Min)
+    
+    # Step 2: Re-chunk the sparse matrix into a new BlockMatrix using the fused sizes
+    ndiagDict = Dict("in" => 3, "out" => 3)
+    Mout = bm_convert(mSp, newBlockSizes, ndiagDict, Min.isHermitian)
+    
+    return Mout
 end

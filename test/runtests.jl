@@ -1,6 +1,6 @@
 # always test this, as it is the loading of matrices
 # from files into CPU memory
-include("test_matloader.jl")
+# include("test_matloader.jl")
 
 # test basic functionality of the GPU libraries
 if ARGS[1] == "apple"

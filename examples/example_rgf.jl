@@ -17,14 +17,24 @@ precx = ComplexF64
 # where blockSizes is an array with the sizes of the blocks (corresponding
 # to the sizes of the pricipal layers)
 
-# check if there's enough memory for the allocations
-check_if_enough_mem_rgf(npl, blockSize, precx)
+# # check if there's enough memory for the allocations
+# check_if_enough_mem_rgf(npl, blockSize, precx)
 
-# non-Hermitian matrix
-Min = bm_create_synthetic_random(npl, blockSize, precx, false)
-Mout = bm_copy(Min)
+Min = nothing
+Mout = nothing
+auxData = nothing
+try
+    # non-Hermitian matrix
+    global Min = bm_create_synthetic_random(npl, blockSize, precx, false)
+    global Mout = bm_copy(Min)
+    global auxData = allocate_aux_data_RGF(Min)
+catch e
+    if e isa OutOfMemoryError
+        # TODO : handle this better, with perhaps a suggestion in params change
+        error("The application tried to allocate beyond the available system memory")
+    else rethrow(e) end
+end
 
-auxData = allocate_aux_data_RGF(Min, parse(Int, ARGS[3]), parse(Int, ARGS[4]))
 bndiag_of_inv_rgf_local!(Mout, Min, auxData, TimingData(), CountingData())
 
 # finally, convert Mout to a sparse matrix

@@ -22,45 +22,39 @@ include("common_to_benchmrks.jl")
 
 Printf.@printf("\nBenchmarking, common info:\n")
 Printf.@printf("  -- hardware: %s\n", ARGS[1])
-Printf.@printf("  -- nr of BLAS threads outer: %d\n", parse(Int, ARGS[3]))
-Printf.@printf("  -- nr of BLAS threads inner: %d\n", parse(Int, ARGS[4]))
-Printf.@printf("  -- nr of outer threads: %d\n", Threads.nthreads())
-Printf.@printf("  -- nr of energy points: %d\n\n", size(Epoints)[1])
+Printf.@printf("  -- nr of Julia threads: %d\n", parse(Int, ARGS[3]))
+Printf.@printf("  -- nr of BLAS threads: %d\n", parse(Int, ARGS[4]))
 
-# benchmarks common to all of the supported hardwares
-# include("benchmrk_matinvertndiag_direct.jl")
-# to = TimerOutput()
-# include("benchmrk_matinvertndiag_rgf.jl")
-# println(to)
-# println("")
-# include("benchmrk_keldyshndiag.jl")
-to = TimerOutput()
-include("benchmrk_selected_inverse.jl")
-println(to)
-println("")
-to = TimerOutput()
-include("benchmrk_matinvertndiag_rgf.jl")
-println(to)
-println("")
-# to = TimerOutput()
-# include("benchmrk_matinvertndiag_ddrgf.jl")
-# println(to)
-# choose one of "rgf", "ddrgf", "keldysh"
-whichBM = "keldysh"
+# choose one of "rgf", "ddrgf", "rkd", "general_rgf"
+whichBM = "general_rgf_fused"
 
-# if whichBM == "rgf"
-#     to = TimerOutput()
-#     include("benchmrk_matinvertndiag_rgf.jl")
-#     println(to)
-# elseif whichBM == "keldysh"
-#     to = TimerOutput()
-#     include("benchmrk_keldyshndiag.jl")
-#     println(to)
-# else
-#     # to = TimerOutput()
-#     # include("benchmrk_matinvertndiag_ddrgf.jl")
-#     # println(to)
-# end
+if whichBM == "rgf"
+    to = TimerOutput()
+    include("benchmrk_matinvertndiag_rgf.jl")
+    println(to)
+elseif whichBM == "rkd"
+    to = TimerOutput()
+    include("benchmrk_keldyshndiag.jl")
+    println(to)
+elseif whichBM == "ddrgf"
+    to = TimerOutput()
+    include("benchmrk_matinvertndiag_ddrgf.jl")
+    println(to)
+elseif whichBM == "general_rgf"
+    to = TimerOutput()
+    include("benchmrk_matinvertndiag_general_rgf.jl")
+    println(to)
+elseif whichBM == "general_rgf_fused"
+    to = TimerOutput()
+    include("benchmrk_matinvertndiag_general_rgf_fused.jl")
+    println(to)
+elseif whichBM == "selected_inverse"
+    to = TimerOutput()
+    include("benchmrk_selected_inverse.jl")
+    println(to)
+else
+    error("The chosen method is not one of rgf, ddrgf or rkd")
+end
 
 # legacy
 # include("benchmrk_matinvertndiag_direct.jl")

@@ -18,13 +18,23 @@ precx = ComplexF64
 # where blockSizes is an array with the sizes of the blocks (corresponding
 # to the sizes of the pricipal layers)
 
-check_if_enough_mem_ddrgf(npl, blockSize, precx)
+# check_if_enough_mem_ddrgf(npl, blockSize, precx)
 
-# non-Hermitian matrix
-Min = bm_create_synthetic_random(npl, blockSize, precx, false)
-Mout = bm_copy(Min)
+Min = nothing
+Mout = nothing
+listOfAuxDataPar = nothing
+try
+    # non-Hermitian matrix
+    global Min = bm_create_synthetic_random(npl, blockSize, precx, false)
+    global Mout = bm_copy(Min)
+    global listOfAuxDataPar = allocate_aux_data_DDRGF(Min, TimingData(), CountingData())
+catch
+    if e isa OutOfMemoryError
+        # TODO : handle this better, with perhaps a suggestion in params change
+        error("The application tried to allocate beyond the available system memory")
+    else rethrow(e) end
+end
 
-listOfAuxDataPar = allocate_aux_data_DDRGF(Min, false, parse(Int, ARGS[3]), parse(Int, ARGS[4]), TimingData(), CountingData())
 bndiag_of_inv_ddrgf!(Min, listOfAuxDataPar, TimingData(), CountingData(), 1)
 bm_copy!(Mout, listOfAuxDataPar[1].buffMout)
 

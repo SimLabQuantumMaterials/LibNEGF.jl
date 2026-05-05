@@ -1,4 +1,4 @@
-Printf.@printf("Benchmarking bndiag_of_inv_rgf!(...)\n")
+Printf.@printf("Benchmarking bndiag_of_inv_general_rgf!(...)\n")
 
 # TODO : restore the following commented block if we want to go back
 # to using whereFrom = 1
@@ -17,6 +17,10 @@ if Threads.nthreads() != 1
     error("The number of Julia threads when running RGF must be 1")
 end
 
+# Set the bandwidth for the general n-diagonal benchmark (e.g., 5 for block 5-diagonal)
+nDiagVal = 5
+ndiagDict = Dict("in" => nDiagVal, "out" => nDiagVal)
+
 for precx in precs
     # # check if there's enough memory for the allocations
     # check_if_enough_mem_rgf(npl, blockSize, precx)
@@ -31,7 +35,7 @@ for precx in precs
     # create array of timers
     timers = Vector{TimerOutput}()
     push!(timers, TimerOutput())
-    timerTagGlobal = "bndiag_of_inv_rgf_" * string(precx)
+    timerTagGlobal = "bndiag_of_inv_general_rgf_" * string(precx)
 
     for k in kpoints
         @timeit to timerTagGlobal begin
@@ -52,19 +56,21 @@ for precx in precs
                 #     S = loadedMats[2]
                 #     Se = loadedMats[3]
                 #     Msp = build_M_from_HS(H, S, Se, energVals[Epoints[iE]])
-                #     Min = bm_convert(Msp, blockSizes, Dict("in" => 3, "out" => 3), false)
+                #     Min = bm_convert(Msp, blockSizes, ndiag_dict, false)
                 # else
-                #     Min = bm_create_synthetic_random(npl, blockSize, precx, false)
+                #     Min = bm_create_synthetic_random(npl, blockSize, precx, false, ndiag_dict)
                 # end
 
                 auxs = Vector{AuxDataRGF}()
                 try
                     begin
-                        Min = bm_create_synthetic_random(npl, blockSize, precx, false)
+                        # Use the overloaded function that accepts ndiag_dict for n > 3
+                        Min = bm_create_synthetic_random(npl, blockSize, precx, false, ndiagDict)
                         push!(Mins, Min)
                         push!(Mouts, bm_copy(Min))
 
-                        push!(auxs, allocate_aux_data_RGF(Mins[1]))
+                        # Call the general RGF allocator
+                        push!(auxs, allocate_aux_data_general_RGF(Mins[1]))
                     end
                 catch e
                     if e isa OutOfMemoryError
@@ -107,7 +113,9 @@ for precx in precs
                             td = TimingData()
                         end
                         timerTagLocalTotal = timerTagLocal * "_total"
-                        @timeit timers[tId] timerTagLocalTotal bndiag_of_inv_rgf_local!(Mouts[tId], Mins[tId], auxs[tId], td, cd)
+                        
+                        # Call the general RGF computation
+                        @timeit timers[tId] timerTagLocalTotal bndiag_of_inv_general_rgf!(Mouts[tId], Mins[tId], auxs[tId], td, cd)
                     end
                 end
 
@@ -122,7 +130,7 @@ for precx in precs
 
     # print flops and mems counts for thread1 only
     if useFinerTimings == 1
-        print_flops_and_mems(counters[1], to, precx, "bndiag_of_inv_rgf", true)
+        print_flops_and_mems(counters[1], to, precx, "bndiag_of_inv_general_rgf", true)
     end
 end
 
