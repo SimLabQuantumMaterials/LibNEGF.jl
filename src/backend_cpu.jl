@@ -221,3 +221,69 @@ end
 function be_mul(M1::Array, M2::Array)::Array
     return M1 * M2
 end
+
+###########
+# Count part for selected inverse
+###########
+
+function be_getri!(A::Array, td::TimingData, cd::CountingData)
+    if Threads.nthreads() > 1
+        LinearAlgebra.LAPACK.getri!(A, collect(1:size(A,1)))
+    else
+        @timewrap td "_getri" begin
+            @countwrap cd "_getri" A A A begin
+			    LinearAlgebra.LAPACK.getri!(A, collect(1:size(A,1)))
+            end
+        end
+    end
+end
+
+function be_trsm!(side::Char, ul::Char, tA::Char, dA::Char, alpha::Number,
+    A::Array, B::Array, td::TimingData, cd::CountingData)
+
+    if Threads.nthreads() > 1
+        LinearAlgebra.BLAS.trsm!(side, ul, tA, dA, alpha, A, B)
+    else
+        @timewrap td "_mldivide" begin
+            @countwrap cd "_mldivide" A B B begin
+				LinearAlgebra.BLAS.trsm!(side, ul, tA, dA, alpha, A, B)
+            end
+        end
+    end
+end
+
+function be_getrf!(A::Array, td::TimingData, cd::CountingData)
+    if Threads.nthreads() > 1
+        LinearAlgebra.LAPACK.getrf!(A, collect(1:size(A,1)))
+    else
+        @timewrap td "_lu" begin
+            @countwrap cd "_lu" A A A begin
+				LinearAlgebra.LAPACK.getrf!(A, collect(1:size(A,1)))
+            end
+        end
+    end
+end
+
+function be_potrf!(uplo::Char, A::Array, td::TimingData, cd::CountingData)
+    if Threads.nthreads() > 1
+        LinearAlgebra.LAPACK.potrf!(uplo, A)
+    else
+        @timewrap td "_lu" begin
+            @countwrap cd "_lu" A A A begin
+				LinearAlgebra.LAPACK.potrf!(uplo, A)
+            end
+        end
+    end
+end
+
+function be_herk!(uplo::Char, tA::Char, alpha::Number, A::Array, beta::Number, C::Array, td::TimingData, cd::CountingData)
+    if Threads.nthreads() > 1
+        LinearAlgebra.BLAS.herk!(uplo, tA, alpha, A, beta, C)
+    else
+        @timewrap td "_gemm" begin
+            @countwrap cd "_gemm" A A C begin
+				LinearAlgebra.BLAS.herk!(uplo, tA, alpha, A, beta, C)
+            end
+        end
+    end
+end

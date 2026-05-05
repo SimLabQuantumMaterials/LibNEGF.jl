@@ -38,6 +38,7 @@ function load_energies(systemName::String)::Dict{Int,Float64}
     end
     energVals::Dict{Int,Float64} = CSV.File("../matrices/" * systemName *
                                             "/built_matrices/energ_vals.dat") |> Dict
+                                            
     return energVals
 end
 
