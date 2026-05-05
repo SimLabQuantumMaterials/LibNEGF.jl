@@ -1,5 +1,5 @@
 # 1 from disk, 2 is random
-whereFrom = 1
+whereFrom = 2
 # values for the synthetic matrix
 npl = 183
 blockSize = 64
