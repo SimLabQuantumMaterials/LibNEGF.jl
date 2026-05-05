@@ -307,7 +307,7 @@ function sum_Block(A::Array, B::Array)::Array
 end
 
 """
-	pord_Block(A::Matrix, B::Matrix)::Matrix
+	prod_Block(A::Matrix, B::Matrix)::Matrix
 
 Do the product of two matrix that contains `Block`, `A*B`.
 
@@ -315,7 +315,7 @@ Do the product of two matrix that contains `Block`, `A*B`.
 - `A::Block` : the matrix on the left side.
 - `B::Block` : the matrix on the right side.
 """
-function pord_Block(A::Array, B::Array)::Array
+function prod_Block(A::Array, B::Array)::Array
 	C = Matrix(undef,size(A,1),size(B,2))
 	for i in 1:size(A,1)
 		for j in 1:size(A,2)

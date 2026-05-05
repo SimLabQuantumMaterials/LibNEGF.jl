@@ -63,7 +63,7 @@ for systemx in systemNames
                     tx(tId) = begin
                         ninvs = 10
                         # multiple inversions per energy point, for statistics purposes
-                        Block_factorization_noT!(Mins[tId])
+                        # Block_factorization_noT!(Mins[tId])
                         # bm_copy!(Mouts[tId], B)
                         for ix = 1:ninvs
                             # do a clear separation when timing the first inversion vs the others
@@ -91,8 +91,8 @@ for systemx in systemNames
                                 td = TimingData()
                             end
                             timerTagLocalTotal = timerTagLocal * "_total"
-                            # @timeit timers[tId] timerTagLocalTotal Block_factorization!(Mins[tId], td, cd)
-                            @timeit timers[tId] timerTagLocalTotal Block_inverse!(Mins[tId], td, cd)
+                            @timeit timers[tId] timerTagLocalTotal Block_factorization!(Mins[tId], td, cd)
+                            # @timeit timers[tId] timerTagLocalTotal Block_inverse!(Mins[tId], td, cd)
                         end
                     end
                     

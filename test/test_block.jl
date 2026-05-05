@@ -40,7 +40,7 @@ import LinearAlgebra
         N[1, 1] = Block(c)
         N[2, 2] = Block(g)
         N[3, 2] = Block(d)
-        res = pord_Block(M, N)
+        res = prod_Block(M, N)
         @test res[2, 1] == a * c
         @test res[3, 2] == b * d
         @test res[1, 2] == (e * g + f * d)

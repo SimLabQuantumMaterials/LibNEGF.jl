@@ -1,45 +1,4 @@
 """
-	gemm_Block!(A::Matrix, B::Matrix)::Matrix
-
-Do the product of two `Block`, `A*B`.
-
-# Arguments
-- `A::Block` : the matrix on the left side.
-- `B::Block` : the matrix on the right side.
-"""
-function gemm_Block!(res::Array, A::Array, B::Array, precx, td::TimingData, cd::CountingData)::Nothing
-    for i in 1:size(A, 1)
-        @timewrap td "_gemm" begin
-            @countwrap cd "_gemm" A[i] B[i] res begin
-                LinearAlgebra.BLAS.gemm!('N', 'N', convert(precx, 1.0), A[i].Full, B[i].Full, convert(precx, 1.0), res)
-            end
-        end
-    end
-end
-
-"""
-	gemm_Block(A::Matrix, B::Matrix)::Matrix
-
-Do the product of two `Block`, `A*B`.
-
-# Arguments
-- `A::Block` : the matrix on the left side.
-- `B::Block` : the matrix on the right side.
-"""
-function gemm_Block(A::Array, B::Array, precx, td::TimingData, cd::CountingData)::Array
-    temp = zeros(precx, A[1].row, B[1].col)
-    for i in 1:size(A, 1)
-        # temp += prod(A[i], B[i])
-        @timewrap td "_gemm" begin
-            @countwrap cd "_gemm" A[i] B[i] temp begin
-                LinearAlgebra.BLAS.gemm!('N', 'N', convert(precx, 1.0), A[i].Full, B[i].Full, convert(precx, 1.0), temp)
-            end
-        end
-    end
-    return temp
-end
-
-"""
 	Block_factorization!(A::Matrix)::Matrix
 
 Do the LU factorization on the `A` matrix in place.
@@ -55,8 +14,7 @@ function Block_factorization!(A::Matrix, td::TimingData, cd::CountingData)
     be_mone = convert(precx, -1.0)
 
     for i = 1:npl
-        # Step 1 : create L(i,i) U(i,i)
-        # A[i,i].Factors = lu(A[i,i].Full, NoPivot())
+        # Step 1 : create L(i,i) U(i,i) --- A[i,i].Factors = lu(A[i,i].Full, NoPivot())
         be_getrf!(A[i, i].Full, td, cd)
 
         for j = i+1:npl
@@ -145,12 +103,6 @@ function Block_factorization_noT!(A::Matrix)
     return A
 end
 
-function Block_factorization_noT(A::Matrix)::Matrix
-    B = bm_copy(A)
-
-    return Block_factorization_noT!(B)
-end
-
 #####
 # Wrapper
 #####
@@ -198,8 +150,8 @@ function Block_inverse!(A::Matrix, td::TimingData, cd::CountingData)
 		Uij[i] = zeros(precx, A[1,1].row, A[1,1].col)
 		Lji[i] = zeros(precx, A[1,1].row, A[1,1].col)
 	end
-	vid = 1
 	Aii = zeros(precx, A[1,1].row, A[1,1].col)
+	vid = 1
 
 
 	# Step 0 : Compute inverse A(npl,npl)

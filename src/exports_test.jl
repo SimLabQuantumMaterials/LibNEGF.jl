@@ -35,7 +35,7 @@ export bm_equal
 export bm_copy
 export bm_similar
 export sum_Block
-export pord_Block
+export prod_Block
 export get_rc_index
 export get_rc_index_at
 export get_col_index_at
