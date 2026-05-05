@@ -6,8 +6,10 @@
 # from matinvertndiag_*.jl
 export bndiag_of_inv_direct
 export bndiag_of_inv_rgf_local!
+export bndiag_of_inv_general_rgf!
 export bndiag_of_inv_rgf_global!
 export allocate_aux_data_RGF
+export allocate_aux_data_general_RGF
 export allocate_aux_data_DDRGF
 export AuxDataRGF
 export AuxDataDDRGF
@@ -44,6 +46,7 @@ export bm_blocks_define_complement22_non_recurs!
 export bm_blocks_define_complement22_recurs!
 export bm_empty
 export bm_copy!
+export bm_fuse_to_tridiagonal
 
 # from backend_*.jl
 export be_zero_array
