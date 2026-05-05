@@ -48,6 +48,10 @@ elseif whichBM == "general_rgf_fused"
     to = TimerOutput()
     include("benchmrk_matinvertndiag_general_rgf_fused.jl")
     println(to)
+elseif whichBM == "selected_inverse"
+    to = TimerOutput()
+    include("benchmrk_selected_inverse.jl")
+    println(to)
 else
     error("The chosen method is not one of rgf, ddrgf or rkd")
 end

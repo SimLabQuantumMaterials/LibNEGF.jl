@@ -26,6 +26,7 @@ mutable struct CountingData
     mrdivideMems::Int
     luFlops::Int
     luMems::Int
+    # otherMems::Int
     totalFlops::Int
     totalMems::Int
     nrCalls::Int
@@ -123,6 +124,11 @@ function print_flops_and_mems_(cd::CountingData, to::TimerOutput, prec::DataType
         flopsAvg = (cd.mrdivideFlops * 1.0E-9) / nrCalls
         # data in GB
         memsAvg = ((sizeof(prec) * cd.mrdivideMems) / nrCalls) / (1024 * 1024 * 1024)
+    # elseif suffx == "other"
+    #     # in gigaflops
+    #     flopsAvg = (cd.otherFlops * 1.0E-9) / nrCalls
+    #     # data in GB
+    #     memsAvg = ((sizeof(prec) * cd.otherMems) / nrCalls) / (1024 * 1024 * 1024)
     elseif suffx == "total"
         # in gigaflops
         flopsAvg = (cd.totalFlops * 1.0E-9) / nrCalls
@@ -179,6 +185,19 @@ function print_flops_and_mems(cd::CountingData, to::TimerOutput, prec::DataType,
     println("\t -- nr calls : " * string(nrCalls))
     print_flops_and_mems_(cd, to, prec, "gemm", method, isSeq)
     print_flops_and_mems_(cd, to, prec, "lu", method, isSeq)
+    print_flops_and_mems_(cd, to, prec, "mldivide", method, isSeq)
+    print_flops_and_mems_(cd, to, prec, "total", method, isSeq)
+end
+
+function print_flops_and_mems_si(cd::CountingData, to::TimerOutput, prec::DataType, method::String,
+    isSeq::Bool)
+    nrCalls = cd.nrCalls
+
+    println("\nFlops and mems (" * string(prec) * " - master thread only):")
+    println("\t -- nr calls : " * string(nrCalls))
+    print_flops_and_mems_(cd, to, prec, "gemm", method, isSeq)
+    # print_flops_and_mems_(cd, to, prec, "other", method, isSeq)
+    # print_flops_and_mems_(cd, to, prec, "lu", method, isSeq)
     print_flops_and_mems_(cd, to, prec, "mldivide", method, isSeq)
     print_flops_and_mems_(cd, to, prec, "total", method, isSeq)
 end

@@ -32,7 +32,39 @@ export bm_convert
 export bm_copy
 export bm_similar
 export bm_copy!
+export bm_reference!
 export bm_fuse_to_tridiagonal
+
+# from block.jl
+export Block
+export bm_equal
+export bm_copy
+export bm_similar
+export sum_Block
+export prod_Block
+export get_rc_index
+export get_rc_index_at
+export get_rc_index_at!
+export get_col_index_at
+export get_row_index_at
+export get_row_sizes
+export get_colSizes
+export get_blockSizes
+export full
+export set_sparse_Block
+export show_sparse
+export block_create_synthetic_random
+
+# from selected_inverse.jl
+export gemm_Block!
+export gemm_Block
+export Block_factorization!
+export Block_factorization_noT!
+export Block_factorization_noT
+export Block_factorization
+export Block_inverse!
+export Block_inverse
 
 # from utils
 export print_flops_and_mems
+export print_flops_and_mems_si

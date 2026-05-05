@@ -30,6 +30,7 @@ end
 end
 
 include("matloader.jl")
+include("block.jl")
 include("blockmatrix.jl")
 include("matinvertndiag_direct.jl")
 include("matinvertndiag_rgf.jl")
@@ -38,5 +39,6 @@ include("matinvertndiag_ddrgf_core.jl")
 include("matinvertndiag_ddrgf_setup.jl")
 include("matinvertndiag_ddrgf_utils.jl")
 include("keldyshndiag.jl")
+include("selected_inverse.jl")
 
 end
