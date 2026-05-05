@@ -61,7 +61,7 @@ function bndiag_of_inv_ddrgf_compute_THat11Inv_x_THat12!(Min::BlockMatrix, auxDa
 
     iOffset = sum(sizeDomains22)
 
-    Threads.@threads for ixo = 1:auxData.nrThreads
+    @batch for ixo = 1:auxData.nrThreads
         buffBlockSizeD1 = blockSizeD1
 
         if ixo < auxData.nrThreads
@@ -131,7 +131,7 @@ function bndiag_of_inv_ddrgf_compute_minus_THat11Inv_x_THat12_x_THatSInv!(Mout::
 
     iOffset = sum(sizeDomains22)
 
-    Threads.@threads for ixo = 1:auxData.nrThreads
+    @batch for ixo = 1:auxData.nrThreads
         buffBlockSizeD1 = blockSizeD1
 
         if ixo < auxData.nrThreads
@@ -216,7 +216,7 @@ function bndiag_of_inv_ddrgf_compute_THat21_x_THat11Inv!(Min::BlockMatrix, auxDa
 
     jOffset = sum(sizeDomains22)
 
-    Threads.@threads for jxo = 1:auxData.nrThreads
+    @batch for jxo = 1:auxData.nrThreads
         buffBlockSizeD1 = blockSizeD1
 
         if jxo < auxData.nrThreads
@@ -285,7 +285,7 @@ function bndiag_of_inv_ddrgf_compute_minus_x_THatSInv_THat21_x_THat11Inv!(Mout::
 
     jOffset = sum(sizeDomains22)
 
-    Threads.@threads for jxo = 1:auxData.nrThreads
+    @batch for jxo = 1:auxData.nrThreads
         buffBlockSizeD1 = blockSizeD1
 
         if jxo < auxData.nrThreads
@@ -361,7 +361,7 @@ function bndiag_of_inv_ddrgf_compute_11_part!(Mout::BlockMatrix, auxData::AuxDat
 
     iOffset = sum(sizeDomains22)
 
-    Threads.@threads for ixo = 1:auxData.nrThreads
+    @batch for ixo = 1:auxData.nrThreads
         buffBlockSizeD1 = blockSizeD1
 
         if ixo < auxData.nrThreads
@@ -449,7 +449,7 @@ function bndiag_of_inv_ddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataDDRG
     # then, loop over the sub-domains in the D1 domain
 
     # to parallelize the following loop, append to its beginning : Threads.@threads
-    Threads.@threads for ixo = 1:auxData.nrThreads
+    @batch for ixo = 1:auxData.nrThreads
         if ixo < auxData.nrThreads
             nrTasksPerThread = auxData.maxNrTasksPerThread
         else
@@ -508,7 +508,7 @@ function bndiag_of_inv_ddrgf_build_Schur_compl!(Min_::BlockMatrix, auxData::AuxD
     buffTHat = auxData.buffTHatPerm
     Min = Min_
 
-    Threads.@threads for ixo = 1:auxData.nrThreads
+    @batch for ixo = 1:auxData.nrThreads
         if ixo < auxData.nrThreads
             nrTasksPerThread = auxData.maxNrTasksPerThread
         else

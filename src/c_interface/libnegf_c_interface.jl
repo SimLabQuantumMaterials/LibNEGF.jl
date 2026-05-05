@@ -60,8 +60,8 @@ function bndiag_of_inv_ddrgf_wrapper(MspIN::SparseArrays.SparseMatrixCSC{FieldTy
     # allocate auxiliary data
     listOfAuxDataPar = allocate_aux_data_DDRGF(MbmIN, TimingData(), CountingData())
 
-    # # call DDRGF
-    # bndiag_of_inv_ddrgf!(MbmIN, listOfAuxDataPar, TimingData(), CountingData(), 1)
+    # call DDRGF
+    bndiag_of_inv_ddrgf!(MbmIN, listOfAuxDataPar, TimingData(), CountingData(), 1)
     bm_copy!(MbmOUT, listOfAuxDataPar[1].buffMout)
 
     # create and return the output

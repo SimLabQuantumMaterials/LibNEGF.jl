@@ -1,7 +1,7 @@
 "A Julia package consisting of a rework of some parts of [libNEGF](https://github.com/libnegf/libnegf)."
 module LibNEGF
 
-using SparseArrays, LinearAlgebra, Random
+using SparseArrays, LinearAlgebra, Random, Polyester
 
 include("utils/parsing.jl")
 
