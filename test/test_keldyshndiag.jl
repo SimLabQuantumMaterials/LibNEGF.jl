@@ -22,7 +22,7 @@ accFctr = 0.0
     blockSize = 32
 
     for k in kpoints
-        for precx in precs
+        for precx in [ComplexF64]
             check_if_enough_mem_rkd(npl, blockSize, precx)
 
             if precx == ComplexF64

@@ -1,10 +1,9 @@
 #!/bin/bash
 
-# run as : ./runbenchmrks.sh HW 0/1
+# run as : ./test.sh HW
 # where HW is one of : cpu, amd, nvidia, intel, apple,
 # with all of these indicating that we run on GPUs, except
-# the first one (i.e. cpu). The second parameter is whether
-# we want to include timings within the LibNEGF.jl or not
+# the first one (i.e. cpu)
 
 # function taken from:
 # https://www.baeldung.com/linux/check-variable-exists-in-list
@@ -22,13 +21,8 @@ function exists_in_list() {
 }
 
 # check that the correct number of params has been passed
-if [ "$#" -ne 2 ]; then
-    echo "The number of params for runbencharks.sh has to be 2"
-    exit
-fi
-# check on the param that specifies whether we add finer timings or not
-if [ "$2" -ne 0 ] && [ "$2" -ne 1 ]; then
-    echo "The second param in runbenchmarks.sh has to be either 0 or 1"
+if [ "$#" -ne 1 ]; then
+    echo "The number of params for test.sh has to be 1"
     exit
 fi
 
@@ -36,22 +30,21 @@ HWs="cpu apple nvidia amd intel"
 
 if exists_in_list "$HWs" " " $1; then
     # get the manifest specific to the chosen HW
-    cp ../Manifest_$1.toml ../Manifest.toml
+    cp Manifest_$1.toml Manifest.toml
     # create usable copy of Project_common.toml
-    cp ../Project_common.toml ../Project.toml
+    cp Project_common.toml Project.toml
 
-    # this one is for threading within blocks in RGF
-    export OPENBLAS_NUM_THREADS=1
+    # # this one is for threading within blocks in RGF
+    # export OPENBLAS_NUM_THREADS=1
 
-    # this is for inter-block threading in DDRGF
-    export JULIA_NUM_THREADS=1
+    # # this is for inter-block threading in DDRGF
+    # export JULIA_NUM_THREADS=2
 
     # variables used to mimic C's ifdef
     export LIBNEGF_HW=$1
-    export LIBNEGF_FINER_TIMINGS=$2
-    export LIBNEGF_TEST_OR_BENCH=benchmark
-    export LIBNEGF_COMPILE=no
-
+    export LIBNEGF_FINER_TIMINGS=0
+    export LIBNEGF_TEST_OR_BENCH=compile
+    export LIBNEGF_COMPILE=yes
     # if we want to really mimic C's ifdef, we need to force recompilation,
     # which we do by removing the precompiled binaries. If you're a developer
     # and want to mimic C's ifdef, uncomment the following lines and change
@@ -60,13 +53,16 @@ if exists_in_list "$HWs" " " $1; then
     BINS_JULIA=$(ls ~/.julia/compiled/v$JULIA_MAJOR_VERSION/LibNEGF/*.ji)
     rm $BINS_JULIA
 
-    # # the outer threads is used only by DDRGF
-    # export NUM_BLAS_THREADS_OUTER=1
-    # export NUM_BLAS_THREADS_INNER=1
+    # FIRST : create the shared library
 
-    # NOTE : JULIA_EXCLUSIVE=1 cannot be set on systems/clusters where pinning is
-    # already happening. On local systems, e.g., laptops, using this is suggested
-    JULIA_EXCLUSIVE=1 julia --threads=$JULIA_NUM_THREADS runbenchmrks.jl $1 $2 $JULIA_NUM_THREADS $OPENBLAS_NUM_THREADS
+    rm -Rf LibNEGFCInterfaceBundle/
+    # julia --threads=$JULIA_NUM_THREADS test.jl $1 $JULIA_NUM_THREADS $OPENBLAS_NUM_THREADS
+    # ~/.julia/bin/juliac . --output-lib libNEGF_C --compile-ccallable --trim --privatize --export-ai --bundle LibNEGFCInterfaceBundle
+    ~/.julia/bin/juliac . --output-lib libNEGF_C --compile-ccallable --trim --privatize --bundle LibNEGFCInterfaceBundle
+
+    # SECOND : compile the C code, linking to the just-created shared library
+
+    gcc src/c_interface/libnegf_c_example.c -o libnegf_c_example -L./LibNEGFCInterfaceBundle/lib -lNEGF_C -Wl,-rpath,@executable_path/LibNEGFCInterfaceBundle/lib
 else
     echo "The hardware $1 is not in the list, not running the tests"
 fi

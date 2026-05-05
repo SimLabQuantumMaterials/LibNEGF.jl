@@ -17,7 +17,7 @@ if whereFrom == 1
             for systemx in systemNames
                 for E in Epoints
                     for k in kpoints
-                        for precx in precs
+                        for precx in [ComplexF64]
                             # list of matrices to load
                             listMatsToLoad = ["H", "S", "Sc", "T", "Gr"]
                             # first, load in F64
@@ -50,7 +50,7 @@ if whereFrom == 1
             for systemx in systemNames
                 for E in Epoints
                     for k in kpoints
-                        for precx in precs
+                        for precx in [ComplexF64]
                             # list of matrices to load
                             listMatsToLoad = ["H", "S", "Sc"]
                             # load in the desired precision

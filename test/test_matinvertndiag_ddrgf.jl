@@ -18,7 +18,7 @@ accFctrBare = 2.5E5
 accFctr = 0.0
 
 for k in kpoints
-    for precx in precs
+    for precx in [ComplexF64]
         # check_if_enough_mem_ddrgf(npl, blockSize, precx)
 
         if precx == ComplexF64
@@ -62,12 +62,14 @@ for k in kpoints
 
         MbmSynth = nothing
         try
-            MbmSynth = bm_create_synthetic_random(npl, blockSize, precx, false)            
+            MbmSynth = bm_create_synthetic_random(npl, blockSize, precx, false)
         catch
             if e isa OutOfMemoryError
                 # TODO : handle this better, with perhaps a suggestion in params change
                 error("The application tried to allocate beyond the available system memory")
-            else rethrow(e) end
+            else
+                rethrow(e)
+            end
         end
 
         # -----------------------------
@@ -90,7 +92,7 @@ for k in kpoints
                 # covert MbmSeq to sparse
                 MbmSeqSp = bm_convert(MbmSeq)
                 # permute that sparse matrix
-                PermMat = bndiag_of_inv_ddrgf_create_sparse_permutator(auxDataPar.permVec, MbmSeq.blockSizes, MbmSeq.nrsType)
+                PermMat = bndiag_of_inv_ddrgf_create_sparse_permutator(auxDataPar.permVec, MbmSeq.blockSizes)
                 MbmSeqSpPerm = PermMat * (MbmSeqSp * PermMat')
                 # convert MbmSeqPerm to sparse
                 MbmSeqPermSp = bm_convert(MbmSeqPerm, auxDataPar.permVec)
@@ -98,7 +100,9 @@ for k in kpoints
                 if e isa OutOfMemoryError
                     # TODO : handle this better, with perhaps a suggestion in params change
                     error("The application tried to allocate beyond the available system memory")
-                else rethrow(e) end
+                else
+                    rethrow(e)
+                end
             end
 
             # compare both
@@ -131,7 +135,9 @@ for k in kpoints
                 if e isa OutOfMemoryError
                     # TODO : handle this better, with perhaps a suggestion in params change
                     error("The application tried to allocate beyond the available system memory")
-                else rethrow(e) end
+                else
+                    rethrow(e)
+                end
             end
 
             # call sequential RGF
@@ -154,7 +160,9 @@ for k in kpoints
                 if e isa OutOfMemoryError
                     # TODO : handle this better, with perhaps a suggestion in params change
                     error("The application tried to allocate beyond the available system memory")
-                else rethrow(e) end
+                else
+                    rethrow(e)
+                end
             end
 
             # relErr::Float64 = bndiag_of_inv_ddrgf_error_inv_of_T11(MbmPar, MbmInvNdiagPar, auxDataPar, TimingData(), CountingData())
@@ -175,7 +183,7 @@ for k in kpoints
             nb1 = sum(auxDataPar.sizeDomains[auxDataPar.nrTasks+1:2*auxDataPar.nrTasks])
             nx = sum(MbmPar_reord.blockSizes[1:nb2])
             ny = sum(MbmPar_reord.blockSizes[nb2+1:nb2+nb1])
-            PermMat = bndiag_of_inv_ddrgf_create_sparse_permutator(auxDataPar.permVec, MbmSeq.blockSizes, MbmSeq.nrsType)
+            PermMat = bndiag_of_inv_ddrgf_create_sparse_permutator(auxDataPar.permVec, MbmSeq.blockSizes)
 
             MPar = bm_convert(MbmPar)
             MPar_perm = PermMat * (MPar * PermMat')
@@ -213,7 +221,7 @@ for k in kpoints
                 r1 = sum(MbmPar_reord.blockSizes[1:d1-1]) + 1
                 r2 = sum(MbmPar_reord.blockSizes[1:d2])
                 relErr = LinearAlgebra.norm(Array(approSC[r1:r2, r1:r2] - exactSC[r1:r2, r1:r2]), 2) /
-                            LinearAlgebra.norm(Array(exactSC[r1:r2, r1:r2]), 2)
+                         LinearAlgebra.norm(Array(exactSC[r1:r2, r1:r2]), 2)
                 @test relErr < roundoffs[precx] * accFctr
             end
 
@@ -225,7 +233,7 @@ for k in kpoints
             nrLayersSchurCompl = sum(auxDataPar.sizeDomains[1:auxDataPar.nrTasks])
             blockSizesSchurCompl = buffTHat.blockSizes[1:nrLayersSchurCompl]
             buffTHat22 = bm_empty(blockSizesSchurCompl, nrLayersSchurCompl, buffTHat.ndiag["in"],
-                buffTHat.isArrayOrLU, buffTHat.nrsType, false)
+                buffTHat.isArrayOrLU, false)
             buffTHatMView = view(buffTHat.M, 1:nrLayersSchurCompl, 1:nrLayersSchurCompl)
             bm_reference!(buffTHat22, buffTHatMView)
             buffTHatM22 = bm_convert(buffTHat22)
@@ -249,7 +257,7 @@ for k in kpoints
                 r1 = sum(MbmPar_reord.blockSizes[1:d1-1]) + 1
                 r2 = sum(MbmPar_reord.blockSizes[1:d2])
                 relErr = LinearAlgebra.norm(Array(MinvNdiagSeq_perm22[r1:r2, r1:r2] - MinvNdiagPar_perm22[r1:r2, r1:r2]), 2) /
-                            LinearAlgebra.norm(Array(MinvNdiagSeq_perm22[r1:r2, r1:r2]), 2)
+                         LinearAlgebra.norm(Array(MinvNdiagSeq_perm22[r1:r2, r1:r2]), 2)
                 @test relErr < roundoffs[precx] * accFctr
             end
 
@@ -258,7 +266,7 @@ for k in kpoints
             MinvNdiagPar_perm12 = MinvNdiagPar_perm[nx+1:nx+ny, 1:nx]
             MinvNdiagSeq_perm12 = MinvNdiagSeq_perm[nx+1:nx+ny, 1:nx]
             relErr = LinearAlgebra.norm(Array(MinvNdiagSeq_perm12 - MinvNdiagPar_perm12), 2) /
-                        LinearAlgebra.norm(Array(MinvNdiagSeq_perm12), 2)
+                     LinearAlgebra.norm(Array(MinvNdiagSeq_perm12), 2)
             @test relErr < roundoffs[precx] * accFctr
 
             # check the correctness of the (2,1) part of the output
@@ -266,7 +274,7 @@ for k in kpoints
             MinvNdiagPar_perm21 = MinvNdiagPar_perm[1:nx, nx+1:nx+ny]
             MinvNdiagSeq_perm21 = MinvNdiagSeq_perm[1:nx, nx+1:nx+ny]
             relErr = LinearAlgebra.norm(Array(MinvNdiagSeq_perm21 - MinvNdiagPar_perm21), 2) /
-                        LinearAlgebra.norm(Array(MinvNdiagSeq_perm21), 2)
+                     LinearAlgebra.norm(Array(MinvNdiagSeq_perm21), 2)
             @test relErr < roundoffs[precx] * accFctr
 
             # check the correctness of the (1,1) part of the output
@@ -279,8 +287,8 @@ for k in kpoints
                 ixLStart = sum(blockSizes11[1:ixDStart-1]) + 1
                 ixLEnd = sum(blockSizes11[1:ixDEnd])
                 relErr = LinearAlgebra.norm(Array(MinvNdiagSeq_perm11[ixLStart:ixLEnd, ixLStart:ixLEnd] -
-                                                    MinvNdiagPar_perm11[ixLStart:ixLEnd, ixLStart:ixLEnd]), 2) /
-                            LinearAlgebra.norm(Array(MinvNdiagSeq_perm11[ixLStart:ixLEnd, ixLStart:ixLEnd]), 2)
+                                                  MinvNdiagPar_perm11[ixLStart:ixLEnd, ixLStart:ixLEnd]), 2) /
+                         LinearAlgebra.norm(Array(MinvNdiagSeq_perm11[ixLStart:ixLEnd, ixLStart:ixLEnd]), 2)
                 @test relErr < roundoffs[precx] * accFctr
             end
         end

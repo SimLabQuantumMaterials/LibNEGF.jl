@@ -1,6 +1,6 @@
-export load_energies
-export load_matrices
-export build_M_from_HS
+# export load_energies
+# export load_matrices
+# export build_M_from_HS
 export bndiag_of_inv_direct
 export bndiag_of_inv_direct
 export BlockMatrix

@@ -39,6 +39,24 @@ And, to run benchmarks, to go `benchmrk` and do:
 
 where `HW` is again one of `cpu`, `apple`, etc, and `T` is 0 or 1 (1 enables backend kernel timings, 0 disables them).
 
+We currently also support compiling the code and packing it as a library. To run this:
+
+```
+./compile.sh HW
+```
+
+where `HW` is again one of `cpu`, `apple`, etc. A corresponding `C` example has been created, which can be run via:
+
+```
+./libnegf_c_example
+```
+
+Alternatively, as a whole:
+
+```
+./compile_and_run.sh
+```
+
 ## Support
 `g.ramirez.hidalgo@fz-juelich.de`
 

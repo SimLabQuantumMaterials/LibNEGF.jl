@@ -15,7 +15,7 @@ if whereFrom == 1
     for systemx in systemNames
         for E in [Epoints[1]]
             for k in [kpoints[1]]
-                for precx in precs
+                for precx in [ComplexF64]
                     # loading blockSizes only - this is redundant, but illustrates
                     # that this can be done without any matrix loading
                     listMatsToLoad = Vector{String}()

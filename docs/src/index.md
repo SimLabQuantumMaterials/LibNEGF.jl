@@ -18,8 +18,7 @@ bm_convert(M::SparseArrays.SparseMatrixCSC, blockSizes::Vector{Int},
     ndiag::Dict{String,Int})
 bm_convert(M::BlockMatrix)
 bm_convert(M::BlockMatrix, permVec::Vector{Int})
-bndiag_of_inv_ddrgf_create_sparse_permutator(permVec::Vector{Int}, blockSizes::Vector{Int},
-    nrsType::DataType)
+bndiag_of_inv_ddrgf_create_sparse_permutator(permVec::Vector{Int}, blockSizes::Vector{Int})
 bm_copy(M::BlockMatrix)
 bm_copy!(Mout::BlockMatrix, Min::BlockMatrix)
 bm_similar(M::BlockMatrix, filling::Int)
@@ -30,7 +29,7 @@ bm_blocks_define_complement12!(M_::BlockMatrix, auxData, filling::Int)
 bm_blocks_define_complement21!(M_::BlockMatrix, auxData, filling::Int)
 bm_blocks_define_identity!(M::BlockMatrix)
 bm_create_synthetic(A_::BlockMatrix, nrLayers::Int, blocksDim::Int)
-bm_create_synthetic_random(nrLayers::Int, blocksDim::Int, nrsType::DataType)
+bm_create_synthetic_random(nrLayers::Int, blocksDim::Int)
 bm_reference!(M::BlockMatrix, B::ArrayOrLUView_)
 bm_reference!(M::BlockMatrix, B::ArrayOrLU_, iOffset::Int, jOffset::Int)
 AuxDataRGF

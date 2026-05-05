@@ -6,10 +6,8 @@
 # from matinvertndiag_*.jl
 export bndiag_of_inv_direct
 export bndiag_of_inv_rgf_local!
-export bndiag_of_inv_general_rgf!
 export bndiag_of_inv_rgf_global!
 export allocate_aux_data_RGF
-export allocate_aux_data_general_RGF
 export allocate_aux_data_DDRGF
 export AuxDataRGF
 export AuxDataDDRGF
@@ -31,24 +29,6 @@ export keldyshndiag!
 export AuxDataKeldysh
 export allocate_aux_data_Keldysh
 
-# from block.jl
-export Block
-export bm_equal
-export bm_copy
-export bm_similar
-export sum_Block
-export prod_Block
-export get_rc_index
-export get_rc_index_at
-export get_col_index_at
-export get_row_index_at
-export get_row_sizes
-export get_colSizes
-export get_blockSizes
-export full
-export set_sparse_Block
-export show_sparse
-
 # from blockmatrix.jl
 export BlockMatrix
 export bm_convert
@@ -64,16 +44,6 @@ export bm_blocks_define_complement22_non_recurs!
 export bm_blocks_define_complement22_recurs!
 export bm_empty
 export bm_copy!
-export bm_fuse_to_tridiagonal
-
-# from selected_inverse.jl
-export gemm_Block!
-export gemm_Block
-export Block_factorization!
-export Block_factorization
-export Block_factorization_noT
-export Block_inverse!
-export Block_inverse
 
 # from backend_*.jl
 export be_zero_array

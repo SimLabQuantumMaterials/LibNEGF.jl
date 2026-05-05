@@ -29,31 +29,16 @@ fi
 HWs="cpu apple nvidia amd intel"
 
 if exists_in_list "$HWs" " " $1; then
-    # get the manifest specific to the chosen HW
-    cp Manifest_$1.toml Manifest.toml
-    # create usable copy of Project_common.toml
-    cp Project_common.toml Project.toml
+    # before running, compile
+    ./compile.sh $1
 
     # this one is for threading within blocks in RGF
     export OPENBLAS_NUM_THREADS=1
 
     # this is for inter-block threading in DDRGF
-    export JULIA_NUM_THREADS=2
+    export JULIA_NUM_THREADS=1
 
-    # variables used to mimic C's ifdef
-    export LIBNEGF_HW=$1
-    export LIBNEGF_FINER_TIMINGS=0
-    export LIBNEGF_TEST_OR_BENCH=test
-    export LIBNEGF_COMPILE=no
-    # if we want to really mimic C's ifdef, we need to force recompilation,
-    # which we do by removing the precompiled binaries. If you're a developer
-    # and want to mimic C's ifdef, uncomment the following lines and change
-    # correspondingly
-    JULIA_MAJOR_VERSION=$(julia --version | egrep -o '[0-9].[0-9][0-9]')
-    BINS_JULIA=$(ls ~/.julia/compiled/v$JULIA_MAJOR_VERSION/LibNEGF/*.ji)
-    rm $BINS_JULIA
-
-    julia --threads=$JULIA_NUM_THREADS test.jl $1 $JULIA_NUM_THREADS $OPENBLAS_NUM_THREADS
+    ./libnegf_c_example
 else
     echo "The hardware $1 is not in the list, not running the tests"
 fi

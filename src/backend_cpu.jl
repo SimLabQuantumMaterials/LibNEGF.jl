@@ -5,7 +5,7 @@ Encapsulates the bare data needed for `LU`-like-related computations. This lives
 on the CPU.
 """
 mutable struct CpuLU
-    A::Array
+    A::Array{FieldType,2}
     piv::Vector{Int}
 end
 
@@ -15,9 +15,9 @@ end
 Contains a CPU `Array`, CPU `LU factor` and/or `undef`, with blocks stored
 in the (CPU) device. This is at the base of BlockMatrix.
 """
-ArrayOrLUUnder_ = Union{Array,CpuLU,Nothing}
-ArrayOrLU_ = Matrix{ArrayOrLUUnder_}
-ArrayOrLUView_ = SubArray{ArrayOrLUUnder_,2,ArrayOrLU_,Tuple{UnitRange{Int},UnitRange{Int}},false}
+const ArrayOrLUUnder_ = Union{ArrayWithType,CpuLU,Nothing}
+const ArrayOrLU_ = Matrix{ArrayOrLUUnder_}
+const ArrayOrLUView_ = SubArray{ArrayOrLUUnder_,2,ArrayOrLU_,Tuple{UnitRange{Int},UnitRange{Int}},false}
 
 # ----------------------------------------------------
 # 'base' types first e.g. Array and Metal.MtlArray
@@ -47,12 +47,12 @@ function be_copy_in_hw(M::Array)::Array
     copy(M)
 end
 
-function be_zero_array(nrsType::DataType, dimsOfArr::Tuple{Int,Int})::Array
-    return Array(zeros(nrsType, dimsOfArr))
+function be_zero_array(dimsOfArr::Tuple{Int,Int})::Array
+    return Array(zeros(FieldType, dimsOfArr))
 end
 
-function be_identity(nrsType::DataType, n::Int)::Array
-    return Array(LinearAlgebra.Diagonal(ones(nrsType, (n, n))))
+function be_identity(n::Int)::Array
+    return Array(LinearAlgebra.Diagonal(ones(FieldType, (n, n))))
 end
 
 function be_ctranspose!(Mout::Array, Min::Array, td::TimingData, cd::CountingData)
@@ -67,8 +67,20 @@ function be_ctranspose!(Mout::Array, Min::Array, td::TimingData, cd::CountingDat
     end
 end
 
-function be_random_array(nrsType::DataType, dimsOfArr::Tuple{Int,Int})::Array
-    return rand(nrsType, dimsOfArr)
+function be_ctranspose(Min::Array, td::TimingData, cd::CountingData)::Array
+    if Threads.nthreads() > 1
+        return adjoint(Min)
+    else
+        @timewrap td "_ctranspose" begin
+            @countwrap cd "_ctranspose" Min Min Min begin
+                return adjoint(Min)
+            end
+        end
+    end
+end
+
+function be_random_array(dimsOfArr::Tuple{Int,Int})::Array
+    return rand(FieldType, dimsOfArr)
 end
 
 function be_fill!(M::Array, x::Number)
@@ -115,11 +127,11 @@ function be_A_from_LU(M::CpuLU)::Array
     return Ax
 end
 
-function be_zero_lu(nrsType::DataType, n::Int)::CpuLU
+function be_zero_lu(n::Int)::CpuLU
     # IMPORTANT : the first option here gives issues at the level
     #             of the garbage collector
-    # Mlu = CpuLU(zeros(nrsType, (n, n)), Vector{Int}(undef, n))
-    Mlu = CpuLU(zeros(nrsType, (n, n)), Vector{Int}(ones(Int, (1, n))[1, :]))
+    # Mlu = CpuLU(zeros(FieldType, (n, n)), Vector{Int}(undef, n))
+    Mlu = CpuLU(zeros(FieldType, (n, n)), Vector{Int}(ones(Int, (1, n))[1, :]))
     return Mlu
 end
 
@@ -137,7 +149,7 @@ function be_lu!(Mout::CpuLU, Min::Array, td::TimingData, cd::CountingData)
         copy!(Mout.A, Min)
         Mout.A, Mout.piv, info = LinearAlgebra.LAPACK.getrf!(Mout.A, Mout.piv)
         if info != 0
-            println("ERROR: LAPACK lu returned an error info")
+            println(Core.stdout, "ERROR: LAPACK lu returned an error info")
             @code_location
             exit()
         end
@@ -147,7 +159,7 @@ function be_lu!(Mout::CpuLU, Min::Array, td::TimingData, cd::CountingData)
                 copy!(Mout.A, Min)
                 Mout.A, Mout.piv, info = LinearAlgebra.LAPACK.getrf!(Mout.A, Mout.piv)
                 if info != 0
-                    println("ERROR: LAPACK lu returned an error info")
+                    println(Core.stdout, "ERROR: LAPACK lu returned an error info")
                     @code_location
                     exit()
                 end
@@ -158,13 +170,13 @@ end
 
 function be_lu(M::Array, td::TimingData, cd::CountingData)::CpuLU
     if Threads.nthreads() > 1
-        Mlu = be_zero_lu(typeof(M[1, 1]), size(M)[1])
+        Mlu = be_zero_lu(size(M)[1])
         be_lu!(Mlu, M, td, cd)
         return Mlu
     else
         @timewrap td "_lu" begin
             @countwrap cd "_lu" M M M begin
-                Mlu = be_zero_lu(typeof(M[1, 1]), size(M)[1])
+                Mlu = be_zero_lu(size(M)[1])
                 be_lu!(Mlu, M, td, cd)
                 return Mlu
             end

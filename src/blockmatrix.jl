@@ -1,8 +1,7 @@
 """
     BlockMatrix
 
-Encapsulates the data for a block n-diagonal matrix. The actual matrix is
-stored in `M`, with underlying scalars type specified by `nrsType`. The
+Encapsulates the data for a block n-diagonal matrix. The
 blocks along the diagonal can be either an `Array`-like or an `LU`-like struct,
 which is indicated via `isArrayOrLU`. The number of offdiagonals is stored
 in the dictionary `ndiag`, e.g. Dict("in" => 3, "out" => 3) tells us that an
@@ -12,7 +11,6 @@ struct BlockMatrix
     blockSizes::Vector{Int}
     M::ArrayOrLU_
     ndiag::Dict{String,Int}
-    nrsType::DataType
     # 0 is Array-like, 1 is LU-like
     isArrayOrLU::Bool
     isHermitian::Bool
@@ -38,7 +36,7 @@ function bm_convert(M::SparseArrays.SparseMatrixCSC, blockSizes::Vector{Int},
     # npl stands for number of principal layers
     npl = size(blockSizes)[1]
     # in general, these type of block matrices will contain Array-like object and not LU-like
-    A = BlockMatrix(copy(blockSizes), ArrayOrLU_(undef, npl, npl), ndiag, typeof(M[1, 1]), 0, isHermitian)
+    A = BlockMatrix(copy(blockSizes), ArrayOrLU_(undef, npl, npl), ndiag, 0, isHermitian)
 
     # loop over the block sizes, conversely over the block rows
     for ix = 1:npl
@@ -84,12 +82,14 @@ Converts the input matrix `M` of type `BlockMatrix` to sparse.
 function bm_convert(M::BlockMatrix)::SparseArrays.SparseMatrixCSC
     n = sum(M.blockSizes)
     ndiag = M.ndiag
-    nrsType = M.nrsType
     npl = size(M.blockSizes)[1]
 
+    td = TimingData()
+    cd = CountingData()
+
     # create the empty sparse matrix to be the output, with the
-    # appropriate underlying data type in nrsType
-    A = SparseArrays.SparseMatrixCSC{nrsType,Int}(undef, n, n)
+    # appropriate underlying data type in FieldType
+    A = SparseArrays.SparseMatrixCSC{FieldType,Int}(undef, n, n)
 
     # loop over the block sizes, conversely over the block rows
     for ix = 1:npl
@@ -105,7 +105,7 @@ function bm_convert(M::BlockMatrix)::SparseArrays.SparseMatrixCSC
                 if !M.isHermitian
                     A[ibeg:iend, jbeg:jend] = sparse(be_copy_from_hw(M.M[ix, jx]))
                 else
-                    A[ibeg:iend, jbeg:jend] = sparse(be_copy_from_hw(M.M[jx, ix]))'
+                    A[ibeg:iend, jbeg:jend] = sparse(be_ctranspose(M.M[jx, ix], td, cd))
                 end
             end
         end
@@ -139,13 +139,12 @@ This allows us converting a permuted block matrix to sparse.
 function bm_convert(M::BlockMatrix, permVec::Vector{Int})::SparseArrays.SparseMatrixCSC
     n = sum(M.blockSizes)
     ndiag = M.ndiag
-    nrsType = M.nrsType
     pv = permVec
     npl = size(M.blockSizes)[1]
 
     # create the empty sparse matrix to be the output, with the
-    # appropriate underlying data type in nrsType
-    A = SparseArrays.SparseMatrixCSC{nrsType,Int}(undef, n, n)
+    # appropriate underlying data type in FieldType
+    A = SparseArrays.SparseMatrixCSC{FieldType,Int}(undef, n, n)
 
     # loop over the block sizes, conversely over the block rows
     for ix = 1:npl
@@ -184,22 +183,19 @@ function bm_convert(M::BlockMatrix, permVec::Vector{Int})::SparseArrays.SparseMa
 end
 
 """
-	bndiag_of_inv_ddrgf_create_sparse_permutator(permVec::Vector{Int}, blockSizes::Vector{Int},
-        nrsType::DataType)
+	bndiag_of_inv_ddrgf_create_sparse_permutator(permVec::Vector{Int}, blockSizes::Vector{Int})
 
 Create sparse matrix that implements permutations from the `permVec` vector.
 
 # Arguments
 - `permVec::Vector{Int}`: the permutation vector.
 - `blockSizes::Vector{Int}`: the sizes of the principal layers.
-- `nrsType::DataType`: the type of the underlying data.
 """
-function bndiag_of_inv_ddrgf_create_sparse_permutator(permVec::Vector{Int}, blockSizes::Vector{Int},
-    nrsType::DataType)::SparseArrays.SparseMatrixCSC
+function bndiag_of_inv_ddrgf_create_sparse_permutator(permVec::Vector{Int},
+    blockSizes::Vector{Int})::SparseArrays.SparseMatrixCSC
 
     n = sum(blockSizes)
     # ndiag = M.ndiag
-    # nrsType = M.nrsType
     pv = permVec
     npl = size(blockSizes)[1]
     # we also need the permuted array of block sizes
@@ -209,8 +205,8 @@ function bndiag_of_inv_ddrgf_create_sparse_permutator(permVec::Vector{Int}, bloc
     end
 
     # create the empty sparse matrix to be the output, with the
-    # appropriate underlying data type in nrsType
-    A = SparseArrays.SparseMatrixCSC{nrsType,Int}(undef, n, n)
+    # appropriate underlying data type in FieldType
+    A = SparseArrays.SparseMatrixCSC{FieldType,Int}(undef, n, n)
 
     for jx = 1:npl
         ix = pv[jx]
@@ -236,7 +232,7 @@ function bm_copy(M::BlockMatrix)::BlockMatrix
     ndiag = M.ndiag
     npl = size(M.blockSizes)[1]
 
-    A = BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl), ndiag, M.nrsType, M.isArrayOrLU, M.isHermitian)
+    A = BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl), ndiag, M.isArrayOrLU, M.isHermitian)
 
     # loop over the block sizes, conversely over the block rows
     for ix = 1:npl
@@ -312,18 +308,18 @@ function bm_similar(M::BlockMatrix, filling::Int)::BlockMatrix
     npl = size(M.blockSizes)[1]
 
     if filling == 0
-        return BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl), M.ndiag, M.nrsType, M.isArrayOrLU, M.isHermitian)
+        return BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl), M.ndiag, M.isArrayOrLU, M.isHermitian)
     else
         blockSizes = M.blockSizes
         npl = size(blockSizes)[1]
-        A = BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl), M.ndiag, M.nrsType, M.isArrayOrLU, M.isHermitian)
+        A = BlockMatrix(copy(M.blockSizes), ArrayOrLU_(undef, npl, npl), M.ndiag, M.isArrayOrLU, M.isHermitian)
         bm_blocks_define!(A, filling)
         return A
     end
 end
 
-function bm_empty(blockSizes::Vector{Int}, npl::Int, ndiag::Int, isArrayOrLU::Bool, nrsType::DataType, isHermitian::Bool)::BlockMatrix
-    return BlockMatrix(copy(blockSizes), ArrayOrLU_(undef, npl, npl), Dict("in" => ndiag, "out" => ndiag), nrsType, isArrayOrLU, isHermitian)
+function bm_empty(blockSizes::Vector{Int}, npl::Int, ndiag::Int, isArrayOrLU::Bool, isHermitian::Bool)::BlockMatrix
+    return BlockMatrix(copy(blockSizes), ArrayOrLU_(undef, npl, npl), Dict("in" => ndiag, "out" => ndiag), isArrayOrLU, isHermitian)
 end
 
 """
@@ -337,8 +333,11 @@ Receives a BlockMatrix object, and sets its dense blocks to either zero or rando
 """
 function bm_blocks_define!(M::BlockMatrix, filling::Int)
     if filling == 2 && M.isArrayOrLU == 1
-        println("ERROR: filling up BlockMatrix with random blocks and block-diagonal LUs
-                 makes no sense")
+        println(
+            Core.stdout,
+            "ERROR: filling up BlockMatrix with random blocks and block-diagonal LUs
+            makes no sense"
+        )
         exit()
     end
 
@@ -361,9 +360,9 @@ function bm_blocks_define!(M::BlockMatrix, filling::Int)
                 for jx = (ix-1):-1:max(1, ix - Int((ndiag["in"] - 1) / 2))
                     jSize = blockSizes[jx]
                     if filling == 1
-                        A.M[ix, jx] = be_zero_array(A.nrsType, (iSize, jSize))
+                        A.M[ix, jx] = be_zero_array((iSize, jSize))
                     else
-                        A.M[ix, jx] = be_random_array(A.nrsType, (iSize, jSize))
+                        A.M[ix, jx] = be_random_array((iSize, jSize))
                     end
                 end
             end
@@ -371,21 +370,21 @@ function bm_blocks_define!(M::BlockMatrix, filling::Int)
         # center
         if isArrayOrLU == 0
             if filling == 1
-                A.M[ix, ix] = be_zero_array(A.nrsType, (iSize, iSize))
+                A.M[ix, ix] = be_zero_array((iSize, iSize))
             else
-                A.M[ix, ix] = be_random_array(A.nrsType, (iSize, iSize))
+                A.M[ix, ix] = be_random_array((iSize, iSize))
             end
         else
-            A.M[ix, ix] = be_zero_lu(A.nrsType, iSize)
+            A.M[ix, ix] = be_zero_lu(iSize)
         end
         if ix < npl
             # right
             for jx = (ix+1):1:min(size(blockSizes)[1], ix + Int((ndiag["in"] - 1) / 2))
                 jSize = blockSizes[jx]
                 if filling == 1
-                    A.M[ix, jx] = be_zero_array(A.nrsType, (iSize, jSize))
+                    A.M[ix, jx] = be_zero_array((iSize, jSize))
                 else
-                    A.M[ix, jx] = be_random_array(A.nrsType, (iSize, jSize))
+                    A.M[ix, jx] = be_random_array((iSize, jSize))
                 end
             end
         end
@@ -418,9 +417,9 @@ function bm_blocks_define_complement11!(M::BlockMatrix, A::ArrayOrLUView_, filli
         for jx = (ix-2):-1:1
             jSize = blockSizes[jx]
             if filling == 1
-                A[ix, jx] = be_zero_array(M.nrsType, (iSize, jSize))
+                A[ix, jx] = be_zero_array((iSize, jSize))
             else
-                A[ix, jx] = be_random_array(M.nrsType, (iSize, jSize))
+                A[ix, jx] = be_random_array((iSize, jSize))
             end
         end
 
@@ -428,9 +427,9 @@ function bm_blocks_define_complement11!(M::BlockMatrix, A::ArrayOrLUView_, filli
         for jx = (ix+2):1:npl
             jSize = blockSizes[jx]
             if filling == 1
-                A[ix, jx] = be_zero_array(M.nrsType, (iSize, jSize))
+                A[ix, jx] = be_zero_array((iSize, jSize))
             else
-                A[ix, jx] = be_random_array(M.nrsType, (iSize, jSize))
+                A[ix, jx] = be_random_array((iSize, jSize))
             end
         end
     end
@@ -465,9 +464,9 @@ function bm_blocks_define_complement22_non_recurs!(M::BlockMatrix, auxData, fill
         iSize = blockSizes[ixL]
         jSize = blockSizes[jxL]
         if filling == 1
-            M.M[ixL, jxL] = be_zero_array(M.nrsType, (iSize, jSize))
+            M.M[ixL, jxL] = be_zero_array((iSize, jSize))
         else
-            M.M[ixL, jxL] = be_random_array(M.nrsType, (iSize, jSize))
+            M.M[ixL, jxL] = be_random_array((iSize, jSize))
         end
 
         # then, the lower one
@@ -479,9 +478,9 @@ function bm_blocks_define_complement22_non_recurs!(M::BlockMatrix, auxData, fill
         iSize = blockSizes[ixL]
         jSize = blockSizes[jxL]
         if filling == 1
-            M.M[ixL, jxL] = be_zero_array(M.nrsType, (iSize, jSize))
+            M.M[ixL, jxL] = be_zero_array((iSize, jSize))
         else
-            M.M[ixL, jxL] = be_random_array(M.nrsType, (iSize, jSize))
+            M.M[ixL, jxL] = be_random_array((iSize, jSize))
         end
     end
 end
@@ -531,9 +530,9 @@ function bm_blocks_define_complement22_recurs!(M::BlockMatrix, listOfAuxData, fi
             iSize = blockSizes[ixL]
             jSize = blockSizes[jxL]
             if filling == 1
-                M.M[ixL, jxL] = be_zero_array(M.nrsType, (iSize, jSize))
+                M.M[ixL, jxL] = be_zero_array((iSize, jSize))
             else
-                M.M[ixL, jxL] = be_random_array(M.nrsType, (iSize, jSize))
+                M.M[ixL, jxL] = be_random_array((iSize, jSize))
             end
 
             # then, the lower one
@@ -545,9 +544,9 @@ function bm_blocks_define_complement22_recurs!(M::BlockMatrix, listOfAuxData, fi
             iSize = blockSizes[ixL]
             jSize = blockSizes[jxL]
             if filling == 1
-                M.M[ixL, jxL] = be_zero_array(M.nrsType, (iSize, jSize))
+                M.M[ixL, jxL] = be_zero_array((iSize, jSize))
             else
-                M.M[ixL, jxL] = be_random_array(M.nrsType, (iSize, jSize))
+                M.M[ixL, jxL] = be_random_array((iSize, jSize))
             end
         end
     end
@@ -593,9 +592,9 @@ function bm_blocks_define_complement12!(M_::BlockMatrix, auxData, filling::Int)
             iSize = blockSizes[ixL]
             jSize = blockSizes[jxL]
             if filling == 1
-                M.M[ixL, jxL] = be_zero_array(M.nrsType, (iSize, jSize))
+                M.M[ixL, jxL] = be_zero_array((iSize, jSize))
             else
-                M.M[ixL, jxL] = be_random_array(M.nrsType, (iSize, jSize))
+                M.M[ixL, jxL] = be_random_array((iSize, jSize))
             end
         end
 
@@ -611,9 +610,9 @@ function bm_blocks_define_complement12!(M_::BlockMatrix, auxData, filling::Int)
                 iSize = blockSizes[ixL]
                 jSize = blockSizes[jxL]
                 if filling == 1
-                    M.M[ixL, jxL] = be_zero_array(M.nrsType, (iSize, jSize))
+                    M.M[ixL, jxL] = be_zero_array((iSize, jSize))
                 else
-                    M.M[ixL, jxL] = be_random_array(M.nrsType, (iSize, jSize))
+                    M.M[ixL, jxL] = be_random_array((iSize, jSize))
                 end
             end
         end
@@ -661,9 +660,9 @@ function bm_blocks_define_complement21!(M_::BlockMatrix, auxData, filling::Int)
             iSize = blockSizes[ixL]
             jSize = blockSizes[jxL]
             if filling == 1
-                M.M[ixL, jxL] = be_zero_array(M.nrsType, (iSize, jSize))
+                M.M[ixL, jxL] = be_zero_array((iSize, jSize))
             else
-                M.M[ixL, jxL] = be_random_array(M.nrsType, (iSize, jSize))
+                M.M[ixL, jxL] = be_random_array((iSize, jSize))
             end
         end
 
@@ -679,9 +678,9 @@ function bm_blocks_define_complement21!(M_::BlockMatrix, auxData, filling::Int)
                 iSize = blockSizes[ixL]
                 jSize = blockSizes[jxL]
                 if filling == 1
-                    M.M[ixL, jxL] = be_zero_array(M.nrsType, (iSize, jSize))
+                    M.M[ixL, jxL] = be_zero_array((iSize, jSize))
                 else
-                    M.M[ixL, jxL] = be_random_array(M.nrsType, (iSize, jSize))
+                    M.M[ixL, jxL] = be_random_array((iSize, jSize))
                 end
             end
         end
@@ -702,7 +701,7 @@ function bm_blocks_define_identity!(M::BlockMatrix)
     blockSizes = M.blockSizes
     ndiag = M.ndiag
     if ndiag["in"] > 1
-        println("ERROR: this function is meant, for now, only for block-diagonal block matrices")
+        println(Core.stdout, "ERROR: this function is meant, for now, only for block-diagonal block matrices")
         exit()
     end
     npl = size(blockSizes)[1]
@@ -713,7 +712,7 @@ function bm_blocks_define_identity!(M::BlockMatrix)
     for ix = 1:npl
         # indices for the rows
         iSize = blockSizes[ix]
-        A.M[ix, ix] = be_identity(A.nrsType, iSize)
+        A.M[ix, ix] = be_identity(iSize)
     end
 end
 
@@ -724,14 +723,13 @@ function bm_local_gemm!(tA::Char, tB::Char, alpha::Number, A_::BlockMatrix, B_::
     npl = size(A_.blockSizes)[1]
     nUpDiagA = Int((A_.ndiag["in"] - 1) / 2)
     nUpDiagB = Int((B_.ndiag["in"] - 1) / 2)
-    nrsType = A_.nrsType
 
     C = C_.M
     A = A_.M
     B = B_.M
 
-    if beta == convert(nrsType, 0.0)
-        be_fill!(C[ix, jx], convert(A_.nrsType, 0.0))
+    if beta == convert(FieldType, 0.0)
+        be_fill!(C[ix, jx], convert(FieldType, 0.0))
     end
 
     for kx = 1:npl
@@ -742,9 +740,9 @@ function bm_local_gemm!(tA::Char, tB::Char, alpha::Number, A_::BlockMatrix, B_::
         if cond1 && cond2
             # do the transposition by hand
             if tB == 'C'
-                be_gemm!('N', 'C', alpha, A[ix, kx], B[jx, kx], convert(nrsType, 1.0), C[ix, jx], td, cd)
+                be_gemm!('N', 'C', alpha, A[ix, kx], B[jx, kx], convert(FieldType, 1.0), C[ix, jx], td, cd)
             else
-                be_gemm!('N', 'N', alpha, A[ix, kx], B[kx, jx], convert(nrsType, 1.0), C[ix, jx], td, cd)
+                be_gemm!('N', 'N', alpha, A[ix, kx], B[kx, jx], convert(FieldType, 1.0), C[ix, jx], td, cd)
             end
         end
     end
@@ -803,7 +801,7 @@ function bm_create_synthetic(A_::BlockMatrix, nrLayers::Int, blocksDim::Int)::Bl
     lowLayers = Int(floor(nrLayers / npl))
     restLayers = nrLayers - lowLayers * npl
 
-    A = BlockMatrix(copy(blockSizes), ArrayOrLU_(undef, nrLayers, nrLayers), ndiag, A_.nrsType, 0, A_.isHermitian)
+    A = BlockMatrix(copy(blockSizes), ArrayOrLU_(undef, nrLayers, nrLayers), ndiag, 0, A_.isHermitian)
 
     # loop over chunks of layers
     for olx = 1:lowLayers+1
@@ -888,7 +886,7 @@ function bm_create_synthetic_random(nrLayers::Int, blocksDim::Int, nrsType::Data
     # hardcoding block tridiagonal
     ndiag = Dict("in" => 3, "out" => 3)
 
-    A = BlockMatrix(copy(blockSizes), ArrayOrLU_(undef, nrLayers, nrLayers), ndiag, nrsType, 0, isHermitian)
+    A = BlockMatrix(copy(blockSizes), ArrayOrLU_(undef, nrLayers, nrLayers), ndiag, 0, isHermitian)
 
     # loop over chunks of layers
     for ix = 1:nrLayers
@@ -899,20 +897,20 @@ function bm_create_synthetic_random(nrLayers::Int, blocksDim::Int, nrsType::Data
                     # add a damping of 0.3
                     blocksDimI = blockSizes[ix]
                     blocksDimJ = blockSizes[jx]
-                    A.M[ix, jx] = convert(nrsType, 0.3) * be_random_array(nrsType, (blocksDimI, blocksDimJ))
+                    A.M[ix, jx] = convert(nrsType, 0.3) * be_random_array((blocksDimI, blocksDimJ))
                 end
             end
         end
         # center
         blocksDimI = blockSizes[ix]
-        A.M[ix, ix] = be_random_array(nrsType, (blocksDimI, blocksDimI))
+        A.M[ix, ix] = be_random_array((blocksDimI, blocksDimI))
         if ix < nrLayers
             # right
             for jx = (ix+1):1:min(nrLayers, ix + Int((ndiag["out"] - 1) / 2))
                 # add a damping of 0.3
                 blocksDimI = blockSizes[ix]
                 blocksDimJ = blockSizes[jx]
-                A.M[ix, jx] = convert(nrsType, 0.3) * be_random_array(nrsType, (blocksDimI, blocksDimJ))
+                A.M[ix, jx] = convert(nrsType, 0.3) * be_random_array((blocksDimI, blocksDimJ))
             end
         end
     end

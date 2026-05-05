@@ -24,13 +24,13 @@ function allocate_aux_data_DDRGF(Min::BlockMatrix,
     # totCost  : scalar
     nrLevels::Int, nrTasksList::Vector{Int}, blockSizeD1List::Vector{Int}, optCost::Float64 =
         opt_params(Min, rLUavg, rMLDIVavg)
-    
+
     nrBlocksInNonPivotsList = blockSizeD1List
 
     # allocation of auxiliary data for DDRGF
     listOfAuxDataPar = Vector{AuxDataDDRGF}()
 
-    println("\nDDRGF allocations:")
+    println(Core.stdout, "\nDDRGF allocations:")
 
     # fine grid
     auxDataSeq = allocate_aux_data_RGF(Min)
@@ -39,7 +39,7 @@ function allocate_aux_data_DDRGF(Min::BlockMatrix,
     push!(listOfAuxDataPar, auxDataPar)
 
     # coarse grids
-    nrDDRGFLevels = nrLevels-1
+    nrDDRGFLevels = nrLevels - 1
     for ix = 1:nrDDRGFLevels-1
         auxDataSeq2 = allocate_aux_data_RGF(listOfAuxDataPar[ix].buffTHat22inv)
         auxDataPar2 = allocate_aux_data_DDRGF_single_level(listOfAuxDataPar[ix].buffTHat22inv,
@@ -116,7 +116,7 @@ function allocate_aux_data_DDRGF_single_level(M::BlockMatrix, nrBlocksInNonPivot
             smallBlockSizes = copy(buffTHat.blockSizes[jxStart:jxEnd])
             nrDiags::Int = buffBlockSizeD1 + (buffBlockSizeD1 - 1)
             smallMbmBuffTHat = BlockMatrix(copy(smallBlockSizes), ArrayOrLU_(undef, jxEnd - jxStart + 1, jxEnd - jxStart + 1),
-                Dict("in" => 3, "out" => nrDiags), buffTHat.nrsType, 0, false)
+                Dict("in" => 3, "out" => nrDiags), 0, false)
             bm_blocks_define_complement11!(smallMbmBuffTHat, smallMViewBuffTHat, 2)
         end
     end
@@ -125,12 +125,12 @@ function allocate_aux_data_DDRGF_single_level(M::BlockMatrix, nrBlocksInNonPivot
     nrThreads, maxNrTasksPerThread, lastNrTasksPerThread = bndiag_of_inv_ddrgf_check_nr_threads(Threads.nthreads(), nrTasks)
 
     # IMPORTANT : these prints allow us double-checking the DDRGF recursive construction
-    println("* New level in DDRGF:")
-    println("\tNumber of threads = " * string(nrThreads))
-    println("\tNumber of tasks = " * string(nrTasks))
-    println("\tNumber of layers = " * string(size(M.blockSizes)[1]))
-    println("\tBlock size D1 = " * string(blockSizeD1))
-    println("\tBlock size D2 = " * string(blockSizeD2))
+    println(Core.stdout, "* New level in DDRGF:")
+    println(Core.stdout, "\tNumber of threads = " * string(nrThreads))
+    println(Core.stdout, "\tNumber of tasks = " * string(nrTasks))
+    println(Core.stdout, "\tNumber of layers = " * string(size(M.blockSizes)[1]))
+    println(Core.stdout, "\tBlock size D1 = " * string(blockSizeD1))
+    println(Core.stdout, "\tBlock size D2 = " * string(blockSizeD2))
 
     buffMPerm = bndiag_of_inv_ddrgf_create_permuted_matrix(auxDataSeq.buffM, permVec)
     bIdMPerm = bndiag_of_inv_ddrgf_create_permuted_matrix(auxDataSeq.bIdM, permVec)
@@ -147,29 +147,29 @@ function allocate_aux_data_DDRGF_single_level(M::BlockMatrix, nrBlocksInNonPivot
     for ix = 1:nrThreads
         push!(smallBlockSizes11, copy(M.blockSizes[1:blockSizeD1]))
         push!(smallAuxDataSeq11, AuxDataRGF(BlockMatrix(copy(smallBlockSizes11[ix]), ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
-            buffMPerm.ndiag, buffMPerm.nrsType, 0, false), BlockMatrix(copy(smallBlockSizes11[ix]), ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
-            bIdMPerm.ndiag, bIdMPerm.nrsType, 0, false), true))
+                buffMPerm.ndiag, 0, false), BlockMatrix(copy(smallBlockSizes11[ix]), ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
+                bIdMPerm.ndiag, 0, false), true))
         push!(smallMbmIn11, BlockMatrix(copy(smallBlockSizes11[ix]), ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
-            M.ndiag, M.nrsType, 0, false))
+            M.ndiag, 0, false))
         push!(smallMbmOut11, BlockMatrix(copy(smallBlockSizes11[ix]), ArrayOrLU_(undef, blockSizeD1, blockSizeD1),
-            buffTHatPerm.ndiag, buffTHatPerm.nrsType, 0, false))
+            buffTHatPerm.ndiag, 0, false))
         push!(smallBlockSizes22, copy(M.blockSizes[1:blockSizeD2]))
         push!(smallMbmIn22, BlockMatrix(copy(smallBlockSizes22[ix]), ArrayOrLU_(undef, blockSizeD2, blockSizeD2),
-            M.ndiag, M.nrsType, 0, false))
+            M.ndiag, 0, false))
         push!(smallMbmBuffTHat22, BlockMatrix(copy(smallBlockSizes22[ix]), ArrayOrLU_(undef, blockSizeD2, blockSizeD2),
-            buffTHatPerm.ndiag, buffTHatPerm.nrsType, 0, false))
+            buffTHatPerm.ndiag, 0, false))
     end
 
     # pre-allocations needed for the inverse of the Schur complement
     nrLayersSchurCompl = sum(sizeDomains[1:nrTasks])
     blockSizesSchurCompl = copy(buffTHatPerm.blockSizes[1:nrLayersSchurCompl])
     buffTHat22inv = BlockMatrix(copy(blockSizesSchurCompl), ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
-        buffTHatPerm.ndiag, buffTHatPerm.nrsType, 0, false)
+        buffTHatPerm.ndiag, 0, false)
     auxDataSeq22inv = AuxDataRGF(BlockMatrix(copy(blockSizesSchurCompl), ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
-            buffMPerm.ndiag, buffMPerm.nrsType, 0, false), BlockMatrix(copy(blockSizesSchurCompl), ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
-            bIdMPerm.ndiag, bIdMPerm.nrsType, 0, false), 0)
+            buffMPerm.ndiag, 0, false), BlockMatrix(copy(blockSizesSchurCompl), ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
+            bIdMPerm.ndiag, 0, false), 0)
     buffM222inv = BlockMatrix(copy(blockSizesSchurCompl), ArrayOrLU_(undef, nrLayersSchurCompl, nrLayersSchurCompl),
-        buffTHatPerm.ndiag, buffTHatPerm.nrsType, 0, false)
+        buffTHatPerm.ndiag, 0, false)
 
     # buffer for the output, (independently) available at each level of DDRGF
     buffMout = bm_copy(buffTHat)

@@ -3,3 +3,6 @@ deps/build.log
 matrices/
 Manifest.toml
 Project.toml
+LibNEGFCInterfaceBundle/
+libnegf_c_interface
+libnegf_c_example

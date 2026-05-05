@@ -56,12 +56,12 @@ function bndiag_of_inv_ddrgf_compute_THat11Inv_x_THat12!(Min::BlockMatrix, auxDa
 
     buffTHat = auxData.buffTHatPerm
 
-    plusOneCmplx = convert(Min.nrsType, 1.0)
-    zeroCmplx = convert(Min.nrsType, 0.0)
+    plusOneCmplx = convert(FieldType, 1.0)
+    zeroCmplx = convert(FieldType, 0.0)
 
     iOffset = sum(sizeDomains22)
 
-    Threads.@threads for ixo = 1:auxData.nrThreads
+    @batch for ixo = 1:auxData.nrThreads
         buffBlockSizeD1 = blockSizeD1
 
         if ixo < auxData.nrThreads
@@ -125,15 +125,15 @@ function bndiag_of_inv_ddrgf_compute_minus_THat11Inv_x_THat12_x_THatSInv!(Mout::
     buffTHat = auxData.buffTHatPerm
     buffM = auxData.buffMPerm
 
-    plusOneCmplx = convert(Mout.nrsType, 1.0)
-    minusOneCmplx = convert(Mout.nrsType, -1.0)
-    zeroCmplx = convert(Mout.nrsType, 0.0)
+    plusOneCmplx = convert(FieldType, 1.0)
+    minusOneCmplx = convert(FieldType, -1.0)
+    zeroCmplx = convert(FieldType, 0.0)
 
     iOffset = sum(sizeDomains22)
 
-    Threads.@threads for ixo = 1:auxData.nrThreads
+    @batch for ixo = 1:auxData.nrThreads
         buffBlockSizeD1 = blockSizeD1
-    
+
         if ixo < auxData.nrThreads
             nrTasksPerThread = auxData.maxNrTasksPerThread
         else
@@ -211,12 +211,12 @@ function bndiag_of_inv_ddrgf_compute_THat21_x_THat11Inv!(Min::BlockMatrix, auxDa
 
     buffTHat = auxData.buffTHatPerm
 
-    plusOneCmplx = convert(Min.nrsType, 1.0)
-    zeroCmplx = convert(Min.nrsType, 0.0)
+    plusOneCmplx = convert(FieldType, 1.0)
+    zeroCmplx = convert(FieldType, 0.0)
 
     jOffset = sum(sizeDomains22)
 
-    Threads.@threads for jxo = 1:auxData.nrThreads
+    @batch for jxo = 1:auxData.nrThreads
         buffBlockSizeD1 = blockSizeD1
 
         if jxo < auxData.nrThreads
@@ -279,13 +279,13 @@ function bndiag_of_inv_ddrgf_compute_minus_x_THatSInv_THat21_x_THat11Inv!(Mout::
 
     buffTHat = auxData.buffTHatPerm
 
-    plusOneCmplx = convert(Mout.nrsType, 1.0)
-    zeroCmplx = convert(Mout.nrsType, 0.0)
-    minusOneCmplx = convert(Mout.nrsType, -1.0)
+    plusOneCmplx = convert(FieldType, 1.0)
+    zeroCmplx = convert(FieldType, 0.0)
+    minusOneCmplx = convert(FieldType, -1.0)
 
     jOffset = sum(sizeDomains22)
 
-    Threads.@threads for jxo = 1:auxData.nrThreads
+    @batch for jxo = 1:auxData.nrThreads
         buffBlockSizeD1 = blockSizeD1
 
         if jxo < auxData.nrThreads
@@ -355,13 +355,13 @@ function bndiag_of_inv_ddrgf_compute_11_part!(Mout::BlockMatrix, auxData::AuxDat
     buffTHat = auxData.buffTHatPerm
     buffM = auxData.buffMPerm
 
-    plusOneCmplx = convert(Mout.nrsType, 1.0)
-    minusOneCmplx = convert(Mout.nrsType, -1.0)
-    zeroCmplx = convert(Mout.nrsType, 0.0)
+    plusOneCmplx = convert(FieldType, 1.0)
+    minusOneCmplx = convert(FieldType, -1.0)
+    zeroCmplx = convert(FieldType, 0.0)
 
     iOffset = sum(sizeDomains22)
 
-    Threads.@threads for ixo = 1:auxData.nrThreads
+    @batch for ixo = 1:auxData.nrThreads
         buffBlockSizeD1 = blockSizeD1
 
         if ixo < auxData.nrThreads
@@ -449,7 +449,7 @@ function bndiag_of_inv_ddrgf_inv_of_T11!(Min_::BlockMatrix, auxData::AuxDataDDRG
     # then, loop over the sub-domains in the D1 domain
 
     # to parallelize the following loop, append to its beginning : Threads.@threads
-    Threads.@threads for ixo = 1:auxData.nrThreads
+    @batch for ixo = 1:auxData.nrThreads
         if ixo < auxData.nrThreads
             nrTasksPerThread = auxData.maxNrTasksPerThread
         else
@@ -500,15 +500,15 @@ end
 function bndiag_of_inv_ddrgf_build_Schur_compl!(Min_::BlockMatrix, auxData::AuxDataDDRGF, td::TimingData,
     cd::CountingData)
 
-    minusOneCmplx = convert(Min_.nrsType, -1.0)
-    plusOneCmplx = convert(Min_.nrsType, 1.0)
-    zeroCmplx = convert(Min_.nrsType, 0.0)
+    minusOneCmplx = convert(FieldType, -1.0)
+    plusOneCmplx = convert(FieldType, 1.0)
+    zeroCmplx = convert(FieldType, 0.0)
 
     # the blocks in the following matrices contain references to blocks
     buffTHat = auxData.buffTHatPerm
     Min = Min_
 
-    Threads.@threads for ixo = 1:auxData.nrThreads
+    @batch for ixo = 1:auxData.nrThreads
         if ixo < auxData.nrThreads
             nrTasksPerThread = auxData.maxNrTasksPerThread
         else
@@ -537,9 +537,9 @@ function bndiag_of_inv_ddrgf_build_Schur_compl!(Min_::BlockMatrix, auxData::AuxD
             else
                 smallBlockSizes = Min.blockSizes[jx2Start:jx2End]
                 smallMbmIn = BlockMatrix(copy(smallBlockSizes), ArrayOrLU_(undef, jx2End - jx2Start + 1, jx2End - jx2Start + 1),
-                    Min.ndiag, Min.nrsType, 0, false)
+                    Min.ndiag, 0, false)
                 smallMbmBuffTHat = BlockMatrix(copy(smallBlockSizes), ArrayOrLU_(undef, jx2End - jx2Start + 1, jx2End - jx2Start + 1),
-                    buffTHat.ndiag, buffTHat.nrsType, 0, false)
+                    buffTHat.ndiag, 0, false)
             end
 
             # TODO : move setting these references to a 'setup' stage (then wrap with an
