@@ -291,69 +291,91 @@ function bndiag_of_inv_ddrgf_get_nr_tasks(M::BlockMatrix, blockSizeD1::Int,
 end
 
 # returns :
-# nrLevels : scalar
-# nrTasks  : array
-# totCost  : scalar
+# nrLevels      : scalar
+# nrTasks       : array
+# blockSizeD1s  : array
+# totCost       : scalar
 function opt_params(Min::BlockMatrix, rLU::Float64, rMLDIV::Float64)::Tuple{Int,Vector{Int},Vector{Int},Float64}
-    # we fix blockSizeD2 = 1, in the paper it's explained why
+    # fixed params
     blockSizeD2 = 1
+    maxNrLevels = 10
+    blockSizeD1Max = 4
+
     nrThreadsBare = Threads.nthreads()
-
-    nrTasksList = Vector{Int}()
-    blockSizeD1List = Vector{Int}()
-
     npl = size(Min.blockSizes)[1]
 
-    optCostOld::Float64 = Inf
-    optCostNew::Float64 = 0.0
-    coarseCost::Float64 = 0.0
+    optCostGlobal::Float64 = Inf
+    optNrLevels::Int = 0
+    optNrTasksList = Vector{Int}()
+    optBlockSizeD1List = Vector{Int}()
 
-    nrLevels::Int = 0
-    nrTasksPrev::Int = npl
+    for nrLevelsGlobal = 1:maxNrLevels
+        # we make use now of a "lazy" generator
+        ranges = fill(1:blockSizeD1Max, nrLevelsGlobal)
+        # use the splat operator (...) to unpack the array into arguments,
+        # this dynamically writes Iterators.product(1:4, 1:4, ...)
+        generator = Iterators.product(ranges...)
+        # iterate through the lazy generator
+        for combBs in generator
+            # convert the Tuple to an Array
+            arrBs = collect(combBs)
 
-    # this is a loop increasing the number of levels one by one, and will continue looping
-    # as long as the cost continues to go down as we increase the number of levels
-    while optCostNew < optCostOld
-        nrLevels += 1
-        if optCostNew != 0
-            optCostOld = optCostNew
-        end
-        optCostNew -= coarseCost
+            # for each combination, check the cost and keep if it's a current
+            # minimum
+            # --------------------------------------------------
 
-        # we would rather have blockSizeD2 = 4, but it might not always be possible
-        for blockSizeD1 = 4:-1:1
-            nrTasks, blockSizeD1Leftover = bndiag_of_inv_ddrgf_get_nr_tasks(nrTasksPrev, blockSizeD1, blockSizeD2)
-            if nrTasks == -1
-                continue
+            nrLevels::Int = 0
+            nrTasksPrev::Int = npl
+
+            nrTasksList = Vector{Int}()
+            blockSizeD1List = Vector{Int}()
+
+            # costOld::Float64 = Inf
+            costNew::Float64 = 0.0
+            costCoarse::Float64 = 0.0
+
+            while nrLevels < nrLevelsGlobal
+                nrLevels += 1
+
+                blockSizeD1 = arrBs[nrLevels]
+
+                # costCoarse is the cost of computing the Schur complement if
+                # done via RGF and not via DDRGF (the latter is a recursive call)
+                costNew -= costCoarse
+
+                # if it's not possible to use this value of blockSizeD1, then we cannot
+                # make use of this realization of the array 'arrBs'
+                nrTasks, blockSizeD1Leftover = bndiag_of_inv_ddrgf_get_nr_tasks(nrTasksPrev, blockSizeD1, blockSizeD2)
+                if nrTasks == -1
+                    break
+                end
+
+                nrTasksPrev = nrTasks
+
+                nrThreads, maxNrTasksPerThread, lastNrTasksPerThread = bndiag_of_inv_ddrgf_check_nr_threads(nrThreadsBare, nrTasks)
+                # the tasks map directy to the coarse grid
+                nplCoarse = nrTasks
+
+                # update cost
+                costNew += cost_ddrgf(rLU, rMLDIV, nrTasks, nrThreads, blockSizeD1)
+                costCoarse = cost_rgf(nplCoarse, rLU, rMLDIV, false)
+
+                costNew += costCoarse
+
+                push!(nrTasksList, nrTasks)
+                push!(blockSizeD1List, blockSizeD1)
+
+                if costNew < optCostGlobal
+                    optCostGlobal = costNew
+                    optNrLevels = nrLevels
+                    copy!(optNrTasksList, nrTasksList)
+                    copy!(optBlockSizeD1List, blockSizeD1List)
+                end
             end
-
-            nrTasksPrev = nrTasks
-
-            nrThreads, maxNrTasksPerThread, lastNrTasksPerThread = bndiag_of_inv_ddrgf_check_nr_threads(nrThreadsBare, nrTasks)
-            # the tasks map directy to the coarse grid
-            nplCoarse = nrTasks
-
-            # update cost
-            optCostNew += cost_ddrgf(rLU, rMLDIV, nrTasks, nrThreads, blockSizeD1)
-            coarseCost = cost_rgf(nplCoarse, rLU, rMLDIV, false)
-
-            optCostNew += coarseCost
-
-            push!(nrTasksList, nrTasks)
-            push!(blockSizeD1List, blockSizeD1)
-
-            # if we have reached this point, it means that this value of blockSizeD1 is
-            # possible, hence we don't need to continue looping over smaller values of it
-            break
-        end
-
-        # don't let the number of levels grow too much, let's put a cap
-        if nrLevels == 6
-            break
         end
     end
 
-    return (nrLevels, nrTasksList, blockSizeD1List, optCostNew)
+    return (optNrLevels, optNrTasksList, optBlockSizeD1List, optCostGlobal)
 end
 
 function bndiag_of_inv_ddrgf_check_nr_threads(nrThreads::Int, nrTasks::Int)::Tuple{Int,Int,Int}

@@ -25,8 +25,8 @@ Printf.@printf("  -- hardware: %s\n", ARGS[1])
 Printf.@printf("  -- nr of Julia threads: %d\n", parse(Int, ARGS[3]))
 Printf.@printf("  -- nr of BLAS threads: %d\n", parse(Int, ARGS[4]))
 
-# choose one of "rgf", "ddrgf", "rkd", "general_rgf"
-whichBM = "general_rgf_fused"
+# choose one of "rgf", "ddrgf", "rkd", "general_rgf", "general_rgf_fused", "selected_inverse"
+whichBM = "ddrgf"
 
 if whichBM == "rgf"
     to = TimerOutput()
