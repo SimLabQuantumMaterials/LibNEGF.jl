@@ -13,8 +13,8 @@ function allocate_aux_data_DDRGF(Min::BlockMatrix,
 
     # to do this, first obtain rMLDIV and rLU, and the threaded BLAS factor
     rLUavg::Float64, rLUstd::Float64 = get_rLU(Min, td, cd)
-
     rMLDIVavg::Float64, rMLDIVstd::Float64 = get_rMLDIV(Min, td, cd)
+    dampRGFavg::Float64, dampRGFstd::Float64 = get_dampRGF(Min, td, cd)
 
     # we fix blockSizeD2 = 1, in the paper it's explained why
     blockSizeD2 = 1
@@ -23,7 +23,7 @@ function allocate_aux_data_DDRGF(Min::BlockMatrix,
     # nrTasks  : array
     # totCost  : scalar
     nrLevels::Int, nrTasksList::Vector{Int}, blockSizeD1List::Vector{Int}, optCost::Float64 =
-        opt_params(Min, rLUavg, rMLDIVavg)
+        opt_params(Min, rLUavg, rMLDIVavg, dampRGFavg)
 
     nrBlocksInNonPivotsList = blockSizeD1List
 
