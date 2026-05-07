@@ -137,72 +137,72 @@ Do the selected inverse of the matrix factorize `A` in place.
 - `NoFillin::Bool` : Flag to know if we consider filled block during the computation.
 """
 function Block_inverse!(A::Matrix, td::TimingData, cd::CountingData)
-	precx = typeof(A[1, 1].Full[1,1])
-	npl = size(A,1)
-	be_zero = convert(precx, 0.0)
-	be_one = convert(precx, 1.0)
-	be_mone = convert(precx, -1.0)
+    precx = typeof(A[1, 1].Full[1, 1])
+    npl = size(A, 1)
+    be_zero = convert(precx, 0.0)
+    be_one = convert(precx, 1.0)
+    be_mone = convert(precx, -1.0)
 
-	Uij = Vector{Matrix}(undef, 2)
-	Lji = Vector{Matrix}(undef, 2)
-	v_idx = Vector{Int}(undef, 2)
-	for i = 1:2
-		Uij[i] = zeros(precx, A[1,1].row, A[1,1].col)
-		Lji[i] = zeros(precx, A[1,1].row, A[1,1].col)
-	end
-	Aii = zeros(precx, A[1,1].row, A[1,1].col)
-	vid = 1
+    Uij = Vector{Matrix}(undef, 2)
+    Lji = Vector{Matrix}(undef, 2)
+    v_idx = Vector{Int}(undef, 2)
+    for i = 1:2
+        Uij[i] = zeros(precx, A[1, 1].row, A[1, 1].col)
+        Lji[i] = zeros(precx, A[1, 1].row, A[1, 1].col)
+    end
+    Aii = zeros(precx, A[1, 1].row, A[1, 1].col)
+    vid = 1
 
 
-	# Step 0 : Compute inverse A(npl,npl)
-	be_getri!(A[npl,npl].Full, td, cd)
+    # Step 0 : Compute inverse A(npl,npl)
+    be_getri!(A[npl, npl].Full, td, cd)
 
-	for i = npl-1:-1:1
-		for j = i+1:npl
-			if isassigned(A, i, j)
-				for k = i+1:npl
-					if isassigned(A, i, k) && isassigned(A, k, j)
-						be_gemm!('N','N', be_one, A[i,k].Full, A[k,j].Full, be_one, Uij[vid], td, cd)
-						v_idx[vid] = j
-						be_gemm!('N','N', be_one, A[j,k].Full, A[k,i].Full, be_one, Lji[vid], td, cd)
-					end
-				end
+    for i = npl-1:-1:1
+        for j = i+1:npl
+            if isassigned(A, i, j)
+                for k = i+1:npl
+                    if isassigned(A, i, k) && isassigned(A, k, j)
+                        be_gemm!('N', 'N', be_one, A[i, k].Full, A[k, j].Full, be_one, Uij[vid], td, cd)
+                        v_idx[vid] = j
+                        be_gemm!('N', 'N', be_one, A[j, k].Full, A[k, i].Full, be_one, Lji[vid], td, cd)
+                    end
+                end
 
-				# Uupdated[idx] = - A[i,i].Factors.U \ temp
-				be_trsm!('L', 'U', 'N', 'N', be_mone, A[i,i].Full, Uij[vid], td, cd)
-				# Lupdated[idx] = - temp / A[i,i].Factors.L
-				be_trsm!('R', 'L', 'N', 'U', be_mone, A[i,i].Full, Lji[vid], td, cd)
-				vid += 1
-			end
-		end
+                # Uupdated[idx] = - A[i,i].Factors.U \ temp
+                be_trsm!('L', 'U', 'N', 'N', be_mone, A[i, i].Full, Uij[vid], td, cd)
+                # Lupdated[idx] = - temp / A[i,i].Factors.L
+                be_trsm!('R', 'L', 'N', 'U', be_mone, A[i, i].Full, Lji[vid], td, cd)
+                vid += 1
+            end
+        end
 
-		# # Step 3 : Update A(i,i)
-		for vj = 1:vid-1
-			j = v_idx[vj]
-			if isassigned(A, j, i)
-				be_gemm!('N', 'N', be_one, Uij[vj], A[j,i].Full, be_one, Aii, td, cd)
-				# A[j,i].Full = A[j,i].Factors
-				LinearAlgebra.axpby!(be_one, Lji[vj], be_zero, A[j,i].Full)
-				# A[i,j].Full = Uij[vj].Full
-				LinearAlgebra.axpby!(be_one, Uij[vj], be_zero, A[i,j].Full)
-				fill!(Uij[vj], zero(eltype(Uij[vj])))
-				fill!(Lji[vj], zero(eltype(Lji[vj])))
-			end
-		end
+        # # Step 3 : Update A(i,i)
+        for vj = 1:vid-1
+            j = v_idx[vj]
+            if isassigned(A, j, i)
+                be_gemm!('N', 'N', be_one, Uij[vj], A[j, i].Full, be_one, Aii, td, cd)
+                # A[j,i].Full = A[j,i].Factors
+                LinearAlgebra.axpby!(be_one, Lji[vj], be_zero, A[j, i].Full)
+                # A[i,j].Full = Uij[vj].Full
+                LinearAlgebra.axpby!(be_one, Uij[vj], be_zero, A[i, j].Full)
+                fill!(Uij[vj], zero(eltype(Uij[vj])))
+                fill!(Lji[vj], zero(eltype(Lji[vj])))
+            end
+        end
 
-		# Compute the rest part of A(i,i)
-		# Aii = (Aii / A[i,i].Full.L))
-		be_trsm!('R', 'L', 'N', 'U', be_one, A[i,i].Full, Aii, td, cd)
-		# A[i,i].Full = A[i,i].Full.U \ (A[i,i].Full.L \ I)
-		be_getri!(A[i,i].Full, td, cd)
-		# A[i,i].Full -= Aii
-		LinearAlgebra.axpy!(be_mone, Aii, A[i,i].Full)
+        # Compute the rest part of A(i,i)
+        # Aii = (Aii / A[i,i].Full.L))
+        be_trsm!('R', 'L', 'N', 'U', be_one, A[i, i].Full, Aii, td, cd)
+        # A[i,i].Full = A[i,i].Full.U \ (A[i,i].Full.L \ I)
+        be_getri!(A[i, i].Full, td, cd)
+        # A[i,i].Full -= Aii
+        LinearAlgebra.axpy!(be_mone, Aii, A[i, i].Full)
 
-		fill!(Aii, zero(eltype(Aii)))
-		vid = 1
-	end
+        fill!(Aii, zero(eltype(Aii)))
+        vid = 1
+    end
 
-	return A
+    return A
 end
 
 """

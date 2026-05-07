@@ -51,7 +51,7 @@ for precx in precs
                     begin
                         # 1. Generate the synthetic n-diagonal matrix
                         MinNDiag = bm_create_synthetic_random(npl, blockSize, precx, false, ndiagDict)
-                        
+
                         # 2. Fuse the blocks to recast it as a block tridiagonal matrix
                         # (Assumes bm_fuse_to_tridiagonal is available in your loaded modules)
                         Min = bm_fuse_to_tridiagonal(MinNDiag)
@@ -103,7 +103,7 @@ for precx in precs
                             td = TimingData()
                         end
                         timerTagLocalTotal = timerTagLocal * "_total"
-                        
+
                         # Call the STANDARD RGF computation on the fused matrix
                         @timeit timers[tId] timerTagLocalTotal bndiag_of_inv_rgf_local!(Mouts[tId], Mins[tId], auxs[tId], td, cd)
                     end
