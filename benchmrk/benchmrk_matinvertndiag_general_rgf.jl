@@ -113,7 +113,7 @@ for precx in precs
                             td = TimingData()
                         end
                         timerTagLocalTotal = timerTagLocal * "_total"
-                        
+
                         # Call the general RGF computation
                         @timeit timers[tId] timerTagLocalTotal bndiag_of_inv_general_rgf!(Mouts[tId], Mins[tId], auxs[tId], td, cd)
                     end

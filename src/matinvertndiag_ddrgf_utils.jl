@@ -33,6 +33,65 @@ function check_if_enough_mem_ddrgf(npl::Int, blockSize::Int, precx::DataType)
     #end
 end
 
+# we get this damping by assuming that RGF is dominated by GEMMs
+function get_dampRGF(M::BlockMatrix, td::TimingData, cd::CountingData)::Vector{Float64}
+    # we take the block size to be the average of the block sizes
+    avgBlockSize = Int(floor((sum(M.blockSizes) / size(M.blockSizes)[1])))
+    # this is just a heuristic, based on experimentation, this perhaps should
+    # be formalized a bit better
+    nrSamples::Int = floor(1.0E4 * 1.0E5 / (avgBlockSize^3)) + 10
+
+    plusOneCmplx = convert(FieldType, 1.0)
+
+    # create three block-diagonal matrices
+    blockSizes = repeat([avgBlockSize], nrSamples)
+    A = bm_empty(blockSizes, nrSamples, 1, false, false)
+    bm_blocks_define!(A, 2)
+    B = bm_empty(blockSizes, nrSamples, 1, false, false)
+    bm_blocks_define!(B, 2)
+    C = bm_empty(blockSizes, nrSamples, 1, false, false)
+    bm_blocks_define!(C, 2)
+
+    # let's pre-run one GEMM, to avoid setup-ish times being accounted for
+    be_gemm!('N', 'N', plusOneCmplx, A.M[1, 1], B.M[1, 1], plusOneCmplx, C.M[1, 1], td, cd)
+
+    timesGEMMWithThr::Vector{Float64} = zeros(Float64, nrSamples)
+    timesGEMMWithoutThr::Vector{Float64} = zeros(Float64, nrSamples)
+
+    # first, with BLAS threading
+    LinearAlgebra.BLAS.set_num_threads(Threads.nthreads())
+    for ix = 1:nrSamples
+        t1GEMM = time()
+        be_gemm!('N', 'N', plusOneCmplx, A.M[ix, ix], B.M[ix, ix], plusOneCmplx, C.M[ix, ix], td, cd)
+        t2GEMM = time()
+        timesGEMMWithThr[ix] = t2GEMM - t1GEMM
+    end
+    LinearAlgebra.BLAS.set_num_threads(1)
+
+    # then, without BLAS threading
+    for ix = 1:nrSamples
+        t1GEMM = time()
+        be_gemm!('N', 'N', plusOneCmplx, A.M[ix, ix], B.M[ix, ix], plusOneCmplx, C.M[ix, ix], td, cd)
+        t2GEMM = time()
+        timesGEMMWithoutThr[ix] = t2GEMM - t1GEMM
+    end
+
+    # all the damping factors
+    dampRGFs::Vector{Float64} = timesGEMMWithoutThr ./ timesGEMMWithThr
+
+    avgDampRGFs::Float64 = sum(dampRGFs) / nrSamples
+    # standard deviation
+    stdDampRGFs::Float64 = sqrt(sum((dampRGFs .- avgDampRGFs) .^ 2) / nrSamples)
+
+    # suggest cleanup to the garbage collector
+    A = nothing
+    B = nothing
+    C = nothing
+    GC.gc()
+
+    return [avgDampRGFs, stdDampRGFs]
+end
+
 function get_rMLDIV(M::BlockMatrix, td::TimingData, cd::CountingData)::Vector{Float64}
     # we take the block size to be the average of the block sizes
     avgBlockSize = Int(floor((sum(M.blockSizes) / size(M.blockSizes)[1])))
@@ -295,10 +354,10 @@ end
 # nrTasks       : array
 # blockSizeD1s  : array
 # totCost       : scalar
-function opt_params(Min::BlockMatrix, rLU::Float64, rMLDIV::Float64)::Tuple{Int,Vector{Int},Vector{Int},Float64}
+function opt_params(Min::BlockMatrix, rLU::Float64, rMLDIV::Float64, dampRGF::Float64)::Tuple{Int,Vector{Int},Vector{Int},Float64}
     # fixed params
     blockSizeD2 = 1
-    maxNrLevels = 10
+    maxNrLevels = 6
     blockSizeD1Max = 4
 
     nrThreadsBare = Threads.nthreads()
@@ -311,7 +370,7 @@ function opt_params(Min::BlockMatrix, rLU::Float64, rMLDIV::Float64)::Tuple{Int,
 
     for nrLevelsGlobal = 1:maxNrLevels
         # we make use now of a "lazy" generator
-        ranges = fill(1:blockSizeD1Max, nrLevelsGlobal)
+        ranges = fill(blockSizeD1Max:-1:1, nrLevelsGlobal)
         # use the splat operator (...) to unpack the array into arguments,
         # this dynamically writes Iterators.product(1:4, 1:4, ...)
         generator = Iterators.product(ranges...)
@@ -339,6 +398,21 @@ function opt_params(Min::BlockMatrix, rLU::Float64, rMLDIV::Float64)::Tuple{Int,
 
                 blockSizeD1 = arrBs[nrLevels]
 
+                # try to force relatively aggressive coarsenings at finer levels
+                # to reduce the memory footprint
+                if (optCostGlobal != Inf) && (nrLevels == 1)
+                    breakToNext::Bool = false
+                    for bsx = blockSizeD1Max:-1:2
+                        if blockSizeD1 < bsx
+                            breakToNext = true
+                            break
+                        end
+                    end
+                    if breakToNext == true
+                        break
+                    end
+                end
+
                 # costCoarse is the cost of computing the Schur complement if
                 # done via RGF and not via DDRGF (the latter is a recursive call)
                 costNew -= costCoarse
@@ -358,7 +432,7 @@ function opt_params(Min::BlockMatrix, rLU::Float64, rMLDIV::Float64)::Tuple{Int,
 
                 # update cost
                 costNew += cost_ddrgf(rLU, rMLDIV, nrTasks, nrThreads, blockSizeD1)
-                costCoarse = cost_rgf(nplCoarse, rLU, rMLDIV, false)
+                costCoarse = dampRGF * cost_rgf(nplCoarse, rLU, rMLDIV, false)
 
                 costNew += costCoarse
 
