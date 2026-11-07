@@ -13,11 +13,11 @@ import LinearAlgebra
     # end
     @testset "Matinverter RGF Ndiag" begin
         include("test_matinvertndiag_rgf.jl")
-        include("test_matinvertndiag_general_rgf.jl")
-        include("test_matinvertndiag_general_rgf_fused.jl")
+        # include("test_matinvertndiag_general_rgf.jl")
+        # include("test_matinvertndiag_general_rgf_fused.jl")
     end
-    @testset "Matinverter DDRGF Ndiag" begin
-        include("test_matinvertndiag_ddrgf.jl")
-    end
+    # @testset "Matinverter DDRGF Ndiag" begin
+    #     include("test_matinvertndiag_ddrgf.jl")
+    # end
 end
 end

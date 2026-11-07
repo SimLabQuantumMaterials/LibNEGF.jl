@@ -1,7 +1,7 @@
 # computing the block n-diagonal of the inverse of T
 # by the DD-RGF method
 
-using Random
+using Random, SparseArrays
 
 # fix seed to have reproducible tests
 Random.seed!(1234)
@@ -60,5 +60,38 @@ if whereFrom == 1
                 end
             end
         end
+    end
+else
+    for precx in [ComplexF64]
+        global npl = 20
+
+        # get the solution, Gr, by a slow and direct method
+
+        MbmSynth = bm_create_synthetic_random(npl, blockSize, precx, false)
+        # this is T, whose inverse is Gr
+        Mbm = MbmSynth
+        # convert to block
+        M = bm_convert(Mbm)
+        Minv = LinearAlgebra.inv(Array(M))
+        GrBFbm = bm_convert(SparseArrays.SparseMatrixCSC{precx,Int}(Minv), MbmSynth.blockSizes, MbmSynth.ndiag, false)
+        # convert back to sparse
+        Gr = bm_convert(GrBFbm)
+
+        # compute via RGF and compare
+
+        # pre-allocate buffer data for DD-RGF
+        auxData = allocate_aux_data_RGF(MbmSynth)
+        # pre-allocate the output matrix
+        MbmInvNdiag = bm_similar(MbmSynth, 1)
+        # get the block n-diagonal of M^-1 via RGF
+        bndiag_of_inv_rgf_global!(MbmInvNdiag, MbmSynth, auxData, TimingData(), CountingData())
+
+        # convert back to sparse
+        MinvSp = bm_convert(MbmInvNdiag)
+
+        relErr = LinearAlgebra.norm(Array(MinvSp - Gr), 2) / LinearAlgebra.norm(Array(Gr), 2)
+        # making a rough assumption on backward stability. The additional
+        # accFctr is because we see a loss in 1 digit in some cases
+        @test relErr < roundoffs[precx] * accFctr
     end
 end
