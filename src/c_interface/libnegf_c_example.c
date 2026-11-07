@@ -23,10 +23,10 @@ int main() {
     printf("--- Generating Block-Tridiagonal Complex CSC Matrix ---\n");
 
     // 1. Matrix parameters
-    int32_t n_blocks = 160;
+    int32_t n_blocks = 20;
     int32_t block_size = 64;
-    int32_t m = n_blocks * block_size; // 640
-    int32_t n = n_blocks * block_size; // 640
+    int32_t m = n_blocks * block_size;
+    int32_t n = n_blocks * block_size;
     
     // Calculate exact number of non-zeros (nnz)
     // A block tridiagonal matrix has:
@@ -35,7 +35,7 @@ int main() {
     // - 1 sub-diagonal of blocks (N-1 blocks)
     // Total blocks = 3*N - 2. Elements per block = b^2.
     int32_t total_blocks = 3 * n_blocks - 2;
-    int32_t nnz = total_blocks * (block_size * block_size); // 114,688
+    int32_t nnz = total_blocks * (block_size * block_size);
 
     printf("Matrix Dimensions: %d x %d\n", m, n);
     printf("Total Non-Zero Elements: %d\n", nnz);

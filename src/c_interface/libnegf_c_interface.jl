@@ -115,8 +115,8 @@ Base.@ccallable function run_bndiag_wrapper(
     isHermitian = is_hermitian != 0
 
     # --- B. EXECUTE THE CORE ALGORITHM ---
-    # out_csc::SparseArrays.SparseMatrixCSC{FieldType,Int} = bndiag_of_inv_rgf_local_wrapper(MspIN, blockSizes, ndiag, isHermitian)
-    out_csc::SparseArrays.SparseMatrixCSC{FieldType,Int} = bndiag_of_inv_ddrgf_wrapper(MspIN, blockSizes, ndiag, isHermitian)
+    out_csc::SparseArrays.SparseMatrixCSC{FieldType,Int} = bndiag_of_inv_rgf_local_wrapper(MspIN, blockSizes, ndiag, isHermitian)
+    # out_csc::SparseArrays.SparseMatrixCSC{FieldType,Int} = bndiag_of_inv_ddrgf_wrapper(MspIN, blockSizes, ndiag, isHermitian)
 
     # --- C. PREPARE THE RETURN VALUE FOR C ---
     out_nnz = SparseArrays.nnz(out_csc)

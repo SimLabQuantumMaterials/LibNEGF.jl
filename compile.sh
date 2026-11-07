@@ -62,7 +62,10 @@ if exists_in_list "$HWs" " " $1; then
 
     # SECOND : compile the C code, linking to the just-created shared library
 
-    gcc src/c_interface/libnegf_c_example.c -o libnegf_c_example -L./LibNEGFCInterfaceBundle/lib -lNEGF_C -Wl,-rpath,@executable_path/LibNEGFCInterfaceBundle/lib
+    # MacOS-specific
+    # gcc src/c_interface/libnegf_c_example.c -o libnegf_c_example -L./LibNEGFCInterfaceBundle/lib -lNEGF_C -Wl,-rpath,@executable_path/LibNEGFCInterfaceBundle/lib
+    # Ubuntu-specific
+    gcc src/c_interface/libnegf_c_example.c -o libnegf_c_example -L./LibNEGFCInterfaceBundle/lib -lNEGF_C -Wl,-rpath,'$ORIGIN/LibNEGFCInterfaceBundle/lib'
 else
     echo "The hardware $1 is not in the list, not running the tests"
 fi

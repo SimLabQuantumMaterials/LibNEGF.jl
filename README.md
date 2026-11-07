@@ -39,7 +39,7 @@ And, to run benchmarks, to go `benchmrk` and do:
 
 where `HW` is again one of `cpu`, `apple`, etc, and `T` is 0 or 1 (1 enables backend kernel timings, 0 disables them).
 
-We currently also support compiling the code and packing it as a library. To run this:
+We currently also support compiling the code and packing it as a library. To run this (before this, make sure that you have installed JuliaC):
 
 ```
 ./compile.sh HW
